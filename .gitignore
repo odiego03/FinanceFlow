@@ -1,0 +1,37 @@
+# ===== Backend (Java / Maven) =====
+backend/target/
+backend/.mvn/wrapper/maven-wrapper.jar
+*.class
+*.jar
+!.mvn/wrapper/maven-wrapper.jar
+HELP.md
+
+# ===== Frontend (Node / React) =====
+frontend/node_modules/
+frontend/build/
+frontend/dist/
+frontend/.env
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# ===== Ambiente / segredos =====
+.env
+*.env.local
+application-local.properties
+application-local.yml
+
+# ===== IDEs =====
+.idea/
+*.iml
+.vscode/
+.settings/
+.classpath
+.project
+
+# ===== Sistema operacional =====
+.DS_Store
+Thumbs.db
+
+# ===== Docker =====
+*.log

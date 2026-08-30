@@ -1,0 +1,37 @@
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: financeflow-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: financeflow
+      MYSQL_ROOT_PASSWORD: root
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+
+  backend:
+    build: ./backend
+    container_name: financeflow-backend
+    restart: unless-stopped
+    depends_on:
+      - mysql
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/financeflow
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: root
+    ports:
+      - "8080:8080"
+
+  frontend:
+    build: ./frontend
+    container_name: financeflow-frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "3000:80"
+
+volumes:
+  mysql_data:
