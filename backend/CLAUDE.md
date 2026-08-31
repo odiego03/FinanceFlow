@@ -16,7 +16,7 @@ decidido. Antes de sugerir mudanças de abordagem, leia tudo abaixo.
 - **Framework**: Spring Boot 3.x
 - **Persistência**: JPA / Hibernate (pacote `jakarta.persistence`)
 - **Build**: Maven
-- **Banco de dados**: MySQL
+- **Banco de dados**: PostgreeSQL
 - **Frontend**: React (consome a API via HTTP/JSON — fora do escopo deste
   backend, mas relevante pra entender o formato de resposta esperado)
 
