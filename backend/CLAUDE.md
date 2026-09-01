@@ -167,20 +167,49 @@ ainda.
 
 ## 6. Convenções de código
 
-- Nomes de classes, campos e métodos em **português**, seguindo os
-  nomes já usados neste documento (ex: `Usuario`, `senhaHash`, não
-  `User`/`passwordHash`).
+- Nomes de classes, métodos, variáveis, parâmetros e pacotes internos
+  em **português**, em todo o código (não só nas entidades) — ex:
+  `Usuario`, `senhaHash`, `buscarPorEmail`, não `User`/`passwordHash`/
+  `findByEmail`.
 - Tabelas no banco em `snake_case` e plural (`usuarios`, `categorias`,
   `transacoes`), via `@Table(name = "...")`.
 - Sem uso de Lombok por enquanto — getters/setters explícitos. Isso
   pode ser revisto depois, mas não introduzir a dependência sem
   combinar com o grupo antes.
-- Sem comentários explicando regras de negócio dentro das entidades —
-  as regras ficam documentadas aqui e implementadas na camada Service.
+- Comentários só quando essenciais (explicar um "porquê" não óbvio —
+  uma decisão, uma regra de negócio complexa, um workaround). Não
+  comentar o código inteiro, não comentar o óbvio, e não enfeitar
+  (sem blocos decorativos, sem repetir o que o nome já diz). Se não
+  for necessário, não comente.
 
 ---
 
-## 7. Próximos passos (na ordem)
+## 7. Como rodar localmente
+
+O banco Postgres é compartilhado (hospedado no Neon) — ninguém precisa
+instalar Postgres localmente.
+
+1. Peça a connection string do banco compartilhado pra quem já tem
+   acesso (não fica em nenhum arquivo versionado).
+2. Crie `backend/src/main/resources/application-local.properties`
+   (já está no `.gitignore`, nunca é commitado) com:
+   ```properties
+   spring.datasource.url=jdbc:postgresql://<host>:<porta>/<banco>?sslmode=require
+   spring.datasource.username=<usuario>
+   spring.datasource.password=<senha>
+   ```
+3. Rode com o profile `local`:
+   ```
+   SPRING_PROFILES_ACTIVE=local ./mvnw spring-boot:run
+   ```
+
+As tabelas são criadas/atualizadas automaticamente pelo Hibernate
+(`spring.jpa.hibernate.ddl-auto=update`) — não precisa rodar SQL
+manual.
+
+---
+
+## 8. Próximos passos (na ordem)
 
 1. `repository` — interfaces `JpaRepository` para as 4 entidades acima.
 2. `service` — regras de negócio RN001, RN002 (autenticação) e RN003
