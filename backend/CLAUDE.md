@@ -143,8 +143,15 @@ RECEITA, DESPESA
 | Campo | Tipo | Regra |
 |-------|------|-------|
 | id | Long (PK, auto) | — |
+| usuario | Usuario (`@ManyToOne`) | obrigatório — categoria pertence a um usuário |
 | nome | String | ex: Alimentação, Moradia |
 | tipo | TipoMovimentacao | RECEITA ou DESPESA |
+
+Cada usuário só enxerga/edita/exclui as próprias categorias — as
+operações de listar, buscar por id, atualizar e excluir filtram pelo
+usuário autenticado (via token JWT). Acessar categoria de outro
+usuário retorna `404` (não `403`), pra não revelar se o registro
+existe.
 
 ### 5.4 `Transacao`
 
@@ -198,9 +205,11 @@ instalar Postgres localmente.
    spring.datasource.username=<usuario>
    spring.datasource.password=<senha>
    ```
-3. Rode com o profile `local`:
+3. Empacote e rode o jar com o profile `local` (mais confiável que
+   `spring-boot:run`, que se mostrou instável em alguns ambientes):
    ```
-   SPRING_PROFILES_ACTIVE=local ./mvnw spring-boot:run
+   ./mvnw package -DskipTests
+   java -jar target/financeflow-backend-0.1.0.jar --spring.profiles.active=local
    ```
 
 As tabelas são criadas/atualizadas automaticamente pelo Hibernate
@@ -214,9 +223,12 @@ manual.
 1. `repository` — interfaces `JpaRepository` para as 4 entidades acima.
 2. `service` — regras de negócio RN001, RN002 (autenticação) e RN003
    (validação de tipo compatível entre transação e categoria).
-3. `controller` — endpoints REST (`POST /usuarios`, `POST /login`,
-   `POST /categorias`, `GET /categorias`, `POST /transacoes`,
-   `GET /transacoes`).
+3. `controller` — endpoints REST. `Usuario`/Auth: `POST /usuarios`,
+   `POST /login`. `Categoria`: CRUD completo (`POST /categorias`,
+   `GET /categorias`, `GET /categorias/{id}`, `PUT /categorias/{id}`,
+   `DELETE /categorias/{id}`). `Transacao`: `POST /transacoes`,
+   `GET /transacoes` (decidir se também leva CRUD completo ao
+   implementar).
 4. Plano de testes da Sprint#1 (formato da disciplina "Testes de
    Software").
 5. Dockerfile + docker-compose.yml para disponibilizar a aplicação
