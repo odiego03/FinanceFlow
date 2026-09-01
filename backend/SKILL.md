@@ -12,7 +12,8 @@ ordem — cada camada depende da anterior:
 
 - Classe `@Entity` com `@Table(name = "...")` em snake_case plural.
 - Getters/setters explícitos (sem Lombok, ver `backend/CLAUDE.md`).
-- Nomes de campos e classe em português.
+- Nomes de classe, campos e métodos em português (ver seção 6 do
+  `backend/CLAUDE.md`).
 - Se houver enum, criar como arquivo próprio (ver `TipoMovimentacao`
   como referência).
 
@@ -49,3 +50,7 @@ Confirme com o usuário:
 
 Não avance para módulos fora do escopo da sprint atual sem
 confirmar antes.
+
+Nomenclatura em português e comentários mínimos (só quando
+essenciais, sem enfeite) valem para todas as camadas — ver seção 6
+do `backend/CLAUDE.md`.
