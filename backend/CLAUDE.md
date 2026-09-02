@@ -223,12 +223,15 @@ manual.
 1. `repository` — interfaces `JpaRepository` para as 4 entidades acima.
 2. `service` — regras de negócio RN001, RN002 (autenticação) e RN003
    (validação de tipo compatível entre transação e categoria).
-3. `controller` — endpoints REST. `Usuario`/Auth: `POST /usuarios`,
-   `POST /login`. `Categoria`: CRUD completo (`POST /categorias`,
-   `GET /categorias`, `GET /categorias/{id}`, `PUT /categorias/{id}`,
-   `DELETE /categorias/{id}`). `Transacao`: `POST /transacoes`,
-   `GET /transacoes` (decidir se também leva CRUD completo ao
-   implementar).
+3. `controller` — endpoints REST, todos com CRUD completo (exceto
+   Usuario/Auth, que só tem cadastro+login):
+   - `Usuario`/Auth: `POST /usuarios`, `POST /login`.
+   - `Categoria`: `POST`, `GET`, `GET /{id}`, `PUT /{id}`,
+     `DELETE /{id}` em `/categorias`.
+   - `Transacao`: `POST`, `GET`, `GET /{id}`, `PUT /{id}`,
+     `DELETE /{id}` em `/transacoes`. Valida RN003 (tipo da transação
+     deve bater com o tipo da categoria vinculada) e RN implícita de
+     que a categoria usada precisa pertencer ao mesmo usuário.
 4. Plano de testes da Sprint#1 (formato da disciplina "Testes de
    Software").
 5. Dockerfile + docker-compose.yml para disponibilizar a aplicação
