@@ -29,6 +29,16 @@ public class TratadorDeExcecoes {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("mensagem", excecao.getMessage()));
     }
 
+    @ExceptionHandler(TransacaoNaoEncontradaException.class)
+    public ResponseEntity<Map<String, String>> tratarTransacaoNaoEncontrada(TransacaoNaoEncontradaException excecao) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("mensagem", excecao.getMessage()));
+    }
+
+    @ExceptionHandler(TipoIncompativelException.class)
+    public ResponseEntity<Map<String, String>> tratarTipoIncompativel(TipoIncompativelException excecao) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("mensagem", excecao.getMessage()));
+    }
+
     @ExceptionHandler(HttpMessageNotReadableException.class)
     public ResponseEntity<Map<String, String>> tratarCorpoInvalido(HttpMessageNotReadableException excecao) {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("mensagem", "corpo da requisição inválido"));
