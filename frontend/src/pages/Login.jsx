@@ -32,7 +32,7 @@ function Login() {
         await usuarioService.cadastrar(nome, email, senha)
       }
       await entrar(email, senha)
-      navigate('/categorias', { replace: true })
+      navigate('/dashboard', { replace: true })
     } catch (erroRequisicao) {
       setErro(
         aba === ABA_LOGIN

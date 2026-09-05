@@ -1,0 +1,120 @@
+.pagina {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.cabecalho {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.cabecalho h1 {
+  margin: 0;
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: #111827;
+}
+
+.mesAno {
+  color: #6b7280;
+  font-size: 0.95rem;
+  text-transform: capitalize;
+}
+
+.erro {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  font-size: 0.92rem;
+  font-weight: 500;
+  background: rgba(239, 68, 68, 0.08);
+  color: #b91c1c;
+  border: 1px solid rgba(239, 68, 68, 0.2);
+}
+
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 16px;
+}
+
+.card {
+  background: #ffffff;
+  border-radius: 14px;
+  border: 1px solid #e5e7eb;
+  padding: 18px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.cardTopo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: #6b7280;
+  font-size: 0.92rem;
+  font-weight: 600;
+}
+
+.valorPositivo {
+  font-size: 1.4rem;
+  color: #16a34a;
+}
+
+.valorNegativo {
+  font-size: 1.4rem;
+  color: #dc2626;
+}
+
+.valorIndisponivel {
+  font-size: 1.4rem;
+  color: #9ca3af;
+}
+
+.emBreve {
+  font-size: 0.78rem;
+  color: #9ca3af;
+  font-weight: 600;
+}
+
+.iconeReceita {
+  color: #16a34a;
+}
+
+.iconeDespesa {
+  color: #dc2626;
+}
+
+.graficos {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 16px;
+}
+
+.graficoCard {
+  background: #ffffff;
+  border-radius: 14px;
+  border: 1px solid #e5e7eb;
+  padding: 20px;
+}
+
+.graficoCard h2 {
+  margin: 0 0 16px;
+  font-size: 1.02rem;
+  font-weight: 700;
+  color: #111827;
+}
+
+.graficoPlaceholder {
+  height: 200px;
+  border-radius: 10px;
+  background: #f4f6fb;
+  color: #9ca3af;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}

@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useAuth } from '../contexts/AuthContext'
 import * as categoriaService from '../services/categoriaService'
 import styles from './Categorias.module.css'
 
@@ -9,7 +8,6 @@ const tipoTexto = {
 }
 
 function Categorias() {
-  const { sair } = useAuth()
   const [tipoSelecionado, setTipoSelecionado] = useState('DESPESA')
   const [nomeCategoria, setNomeCategoria] = useState('')
   const [categoriaEmEdicao, setCategoriaEmEdicao] = useState(null)
@@ -91,16 +89,10 @@ function Categorias() {
   }
 
   return (
-    <main className={styles.screen}>
-      <div className={styles.card}>
-        <header className={styles.header}>
-          <h1>Categorias</h1>
-          <button type="button" className={styles.logoutButton} onClick={sair}>
-            Sair
-          </button>
-        </header>
+    <div className={styles.pagina}>
+      <h1>Categorias</h1>
 
-        <form className={styles.form} onSubmit={handleSalvar}>
+      <form className={styles.form} onSubmit={handleSalvar}>
         <div className={styles.toggleGroup} role="tablist" aria-label="Tipo da categoria">
           {Object.entries(tipoTexto).map(([tipo, texto]) => (
             <button
@@ -183,9 +175,8 @@ function Categorias() {
             Cancelar edição
           </button>
         ) : null}
-        </form>
-      </div>
-    </main>
+      </form>
+    </div>
   )
 }
 
