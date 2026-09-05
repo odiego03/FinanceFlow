@@ -92,14 +92,15 @@ function Categorias() {
 
   return (
     <main className={styles.screen}>
-      <header className={styles.header}>
-        <h1>Categorias</h1>
-        <button type="button" className={styles.logoutButton} onClick={sair}>
-          Sair
-        </button>
-      </header>
+      <div className={styles.card}>
+        <header className={styles.header}>
+          <h1>Categorias</h1>
+          <button type="button" className={styles.logoutButton} onClick={sair}>
+            Sair
+          </button>
+        </header>
 
-      <form className={styles.form} onSubmit={handleSalvar}>
+        <form className={styles.form} onSubmit={handleSalvar}>
         <div className={styles.toggleGroup} role="tablist" aria-label="Tipo da categoria">
           {Object.entries(tipoTexto).map(([tipo, texto]) => (
             <button
@@ -182,7 +183,8 @@ function Categorias() {
             Cancelar edição
           </button>
         ) : null}
-      </form>
+        </form>
+      </div>
     </main>
   )
 }
