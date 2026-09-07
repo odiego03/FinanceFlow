@@ -36,4 +36,10 @@ public class UsuarioService {
 
         return UsuarioResposta.de(usuario);
     }
+
+    public UsuarioResposta buscarPorEmail(String email) {
+        Usuario usuario = repositorioUsuario.findByEmail(email)
+                .orElseThrow(() -> new IllegalStateException("usuário do token não existe mais: " + email));
+        return UsuarioResposta.de(usuario);
+    }
 }
