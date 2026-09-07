@@ -8,7 +8,7 @@ Laboratório de Engenharia de Software (Fatec Ipiranga, ADS, 2026/2).
 - **Backend**: Java 17+, Spring Boot 3, JPA/Hibernate, Maven
 - **Frontend**: React
 - **Banco de dados**: PostgreSQL (hospedado no Neon, compartilhado entre a equipe — ninguém precisa instalar Postgres local)
-- **Infraestrutura**: Docker (build da imagem do backend; `docker-compose.yml` ainda não existe, está no roadmap)
+- **Infraestrutura**: Docker + Docker Compose
 
 ## Estrutura do repositório
 
@@ -37,6 +37,26 @@ O banco é compartilhado (Neon) — não precisa instalar Postgres local.
    java -jar target/financeflow-backend-0.1.0.jar --spring.profiles.active=local
    ```
 4. API disponível em `http://localhost:8080`. As tabelas são criadas/atualizadas automaticamente pelo Hibernate — não precisa rodar SQL manual.
+
+## Como rodar tudo com Docker
+
+Alternativa ao passo a passo manual acima — sobe backend e frontend com um comando só, sem precisar instalar Java, Maven ou Node.
+
+Pré-requisito: Docker e Docker Compose instalados.
+
+1. Copie `.env.example` pra `.env` na raiz do projeto e preencha com a connection string do banco compartilhado (Neon):
+   ```bash
+   cp .env.example .env
+   ```
+2. Suba os containers:
+   ```bash
+   docker compose up --build
+   ```
+3. Acesse:
+   - Frontend: `http://localhost:3000`
+   - Backend: `http://localhost:8080`
+
+O `.env` nunca é commitado (já está no `.gitignore`). As tabelas continuam sendo criadas automaticamente pelo Hibernate na primeira conexão.
 
 ## Rotas da API
 
