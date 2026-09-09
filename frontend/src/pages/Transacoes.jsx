@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
+import ModalConfirmacao from '../components/ModalConfirmacao'
+import ModalTransacao from '../components/ModalTransacao'
 import * as categoriaService from '../services/categoriaService'
 import * as transacaoService from '../services/transacaoService'
 import styles from './Transacoes.module.css'
@@ -8,22 +10,24 @@ const formatadorMoeda = new Intl.NumberFormat('pt-BR', {
   currency: 'BRL',
 })
 
-const valoresIniciaisFormulario = {
-  categoriaId: '',
-  tipo: 'DESPESA',
-  valor: '',
-  descricao: '',
-  data: new Date().toISOString().slice(0, 10),
-}
+const formatadorData = new Intl.DateTimeFormat('pt-BR')
+
+const opcoesFiltro = [
+  { valor: 'TODAS', texto: 'Todas' },
+  { valor: 'RECEITA', texto: 'Receitas' },
+  { valor: 'DESPESA', texto: 'Despesas' },
+]
 
 function Transacoes() {
   const [transacoes, setTransacoes] = useState([])
   const [categorias, setCategorias] = useState([])
-  const [formulario, setFormulario] = useState(valoresIniciaisFormulario)
-  const [transacaoEmEdicao, setTransacaoEmEdicao] = useState(null)
   const [carregando, setCarregando] = useState(true)
   const [erro, setErro] = useState('')
-  const [sucesso, setSucesso] = useState('')
+  const [busca, setBusca] = useState('')
+  const [filtro, setFiltro] = useState('TODAS')
+  const [modalAberto, setModalAberto] = useState(false)
+  const [transacaoEmEdicao, setTransacaoEmEdicao] = useState(null)
+  const [transacaoParaExcluir, setTransacaoParaExcluir] = useState(null)
 
   const carregarDados = async () => {
     try {
@@ -44,216 +48,163 @@ function Transacoes() {
     carregarDados()
   }, [])
 
-  const categoriasDoTipo = useMemo(
-    () => categorias.filter((categoria) => categoria.tipo === formulario.tipo),
-    [categorias, formulario.tipo],
-  )
+  const transacoesFiltradas = useMemo(() => {
+    const termo = busca.trim().toLowerCase()
+    return transacoes
+      .filter((transacao) => filtro === 'TODAS' || transacao.tipo === filtro)
+      .filter((transacao) => {
+        if (!termo) return true
+        return (
+          transacao.categoriaNome.toLowerCase().includes(termo) ||
+          (transacao.descricao ?? '').toLowerCase().includes(termo)
+        )
+      })
+  }, [transacoes, filtro, busca])
 
-  const limparFormulario = () => {
-    setFormulario(valoresIniciaisFormulario)
+  const abrirNovaTransacao = () => {
+    setTransacaoEmEdicao(null)
+    setModalAberto(true)
+  }
+
+  const abrirEdicao = (transacao) => {
+    setTransacaoEmEdicao(transacao)
+    setModalAberto(true)
+  }
+
+  const fecharModal = () => {
+    setModalAberto(false)
     setTransacaoEmEdicao(null)
   }
 
-  const atualizarCampo = (campo, valor) => {
-    setFormulario((atual) => ({ ...atual, [campo]: valor }))
+  const handleSalvar = async (dto) => {
+    if (transacaoEmEdicao) {
+      await transacaoService.atualizar(transacaoEmEdicao.id, dto)
+    } else {
+      await transacaoService.criar(dto)
+    }
+    fecharModal()
     setErro('')
-    setSucesso('')
+    await carregarDados()
   }
 
-  const handleSalvar = async (event) => {
-    event.preventDefault()
-
-    if (!formulario.categoriaId) {
-      setErro('Selecione uma categoria.')
-      return
-    }
-
-    const dto = {
-      categoriaId: Number(formulario.categoriaId),
-      tipo: formulario.tipo,
-      valor: Number(formulario.valor),
-      descricao: formulario.descricao || null,
-      data: formulario.data,
-    }
-
+  const confirmarExclusao = async () => {
     try {
-      if (transacaoEmEdicao) {
-        await transacaoService.atualizar(transacaoEmEdicao.id, dto)
-        setSucesso('Transação atualizada.')
-      } else {
-        await transacaoService.criar(dto)
-        setSucesso('Transação adicionada.')
-      }
-      limparFormulario()
+      await transacaoService.excluir(transacaoParaExcluir.id)
       await carregarDados()
-    } catch (erroRequisicao) {
-      setErro('Não foi possível salvar a transação. Confira o tipo e a categoria.')
-      setSucesso('')
-    }
-  }
-
-  const handleEditar = (transacao) => {
-    setTransacaoEmEdicao(transacao)
-    setFormulario({
-      categoriaId: String(transacao.categoriaId),
-      tipo: transacao.tipo,
-      valor: String(transacao.valor),
-      descricao: transacao.descricao ?? '',
-      data: transacao.data,
-    })
-    setErro('')
-    setSucesso('')
-  }
-
-  const handleExcluir = async (transacao) => {
-    try {
-      await transacaoService.excluir(transacao.id)
-      if (transacaoEmEdicao?.id === transacao.id) {
-        limparFormulario()
-      }
-      await carregarDados()
+      setTransacaoParaExcluir(null)
     } catch (erroRequisicao) {
       setErro('Não foi possível excluir a transação.')
+      setTransacaoParaExcluir(null)
     }
   }
 
   return (
     <div className={styles.pagina}>
-      <h1>Receitas e Despesas</h1>
+      <div className={styles.cabecalho}>
+        <h1>Receitas e Despesas</h1>
+        <button type="button" className={styles.botaoNova} onClick={abrirNovaTransacao}>
+          + Nova Transação
+        </button>
+      </div>
 
-      <form className={styles.formulario} onSubmit={handleSalvar}>
-        <div className={styles.toggleGroup} role="tablist" aria-label="Tipo da transação">
-          {['DESPESA', 'RECEITA'].map((tipo) => (
+      <div className={styles.filtros}>
+        <input
+          type="text"
+          className={styles.busca}
+          placeholder="Buscar transações..."
+          value={busca}
+          onChange={(event) => setBusca(event.target.value)}
+        />
+        <div className={styles.filtroBotoes}>
+          {opcoesFiltro.map((opcao) => (
             <button
-              key={tipo}
+              key={opcao.valor}
               type="button"
-              role="tab"
-              aria-selected={formulario.tipo === tipo}
-              className={`${styles.toggle} ${formulario.tipo === tipo ? styles.toggleActive : ''}`}
-              onClick={() => atualizarCampo('tipo', tipo)}
+              className={`${styles.filtroBotao} ${filtro === opcao.valor ? styles.filtroBotaoAtivo : ''}`}
+              onClick={() => setFiltro(opcao.valor)}
             >
-              {tipo === 'DESPESA' ? 'Despesa' : 'Receita'}
+              {opcao.texto}
             </button>
           ))}
         </div>
-
-        <div className={styles.linha}>
-          <div className={styles.campo}>
-            <label className={styles.label} htmlFor="categoria">
-              Categoria
-            </label>
-            <select
-              id="categoria"
-              className={styles.input}
-              value={formulario.categoriaId}
-              onChange={(event) => atualizarCampo('categoriaId', event.target.value)}
-            >
-              <option value="">Selecione</option>
-              {categoriasDoTipo.map((categoria) => (
-                <option key={categoria.id} value={categoria.id}>
-                  {categoria.nome}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className={styles.campo}>
-            <label className={styles.label} htmlFor="valor">
-              Valor
-            </label>
-            <input
-              id="valor"
-              type="number"
-              step="0.01"
-              min="0.01"
-              className={styles.input}
-              value={formulario.valor}
-              onChange={(event) => atualizarCampo('valor', event.target.value)}
-              required
-            />
-          </div>
-        </div>
-
-        <div className={styles.linha}>
-          <div className={styles.campo}>
-            <label className={styles.label} htmlFor="data">
-              Data
-            </label>
-            <input
-              id="data"
-              type="date"
-              className={styles.input}
-              value={formulario.data}
-              onChange={(event) => atualizarCampo('data', event.target.value)}
-              required
-            />
-          </div>
-
-          <div className={styles.campo}>
-            <label className={styles.label} htmlFor="descricao">
-              Descrição (opcional)
-            </label>
-            <input
-              id="descricao"
-              type="text"
-              className={styles.input}
-              value={formulario.descricao}
-              onChange={(event) => atualizarCampo('descricao', event.target.value)}
-            />
-          </div>
-        </div>
-
-        {erro ? (
-          <p className={styles.errorMessage} aria-live="polite">
-            {erro}
-          </p>
-        ) : null}
-
-        {sucesso ? (
-          <p className={styles.successMessage} aria-live="polite">
-            {sucesso}
-          </p>
-        ) : null}
-
-        <div className={styles.acoesFormulario}>
-          <button type="submit" className={styles.submitButton}>
-            {transacaoEmEdicao ? '✓ Atualizar transação' : '✓ Salvar transação'}
-          </button>
-          {transacaoEmEdicao ? (
-            <button type="button" className={styles.cancelButton} onClick={limparFormulario}>
-              Cancelar edição
-            </button>
-          ) : null}
-        </div>
-      </form>
-
-      <div className={styles.lista}>
-        {carregando ? (
-          <p>Carregando...</p>
-        ) : transacoes.length === 0 ? (
-          <p className={styles.vazio}>Nenhuma transação registrada ainda.</p>
-        ) : (
-          transacoes.map((transacao) => (
-            <div key={transacao.id} className={styles.linhaTransacao}>
-              <div className={styles.infoTransacao}>
-                <span className={styles.categoriaNome}>{transacao.categoriaNome}</span>
-                <span className={styles.descricao}>{transacao.descricao || transacao.data}</span>
-              </div>
-              <strong className={transacao.tipo === 'RECEITA' ? styles.valorPositivo : styles.valorNegativo}>
-                {transacao.tipo === 'RECEITA' ? '+' : '-'} {formatadorMoeda.format(transacao.valor)}
-              </strong>
-              <div className={styles.acoes}>
-                <button type="button" onClick={() => handleEditar(transacao)} aria-label="Editar transação">
-                  ✎
-                </button>
-                <button type="button" onClick={() => handleExcluir(transacao)} aria-label="Excluir transação">
-                  ✕
-                </button>
-              </div>
-            </div>
-          ))
-        )}
       </div>
+
+      {erro ? (
+        <p className={styles.errorMessage} aria-live="polite">
+          {erro}
+        </p>
+      ) : null}
+
+      {carregando ? (
+        <p>Carregando...</p>
+      ) : transacoesFiltradas.length === 0 ? (
+        <p className={styles.vazio}>Nenhuma transação encontrada.</p>
+      ) : (
+        <div className={styles.tabelaWrapper}>
+          <table className={styles.tabela}>
+            <thead>
+              <tr>
+                <th>Data</th>
+                <th>Tipo</th>
+                <th>Categoria</th>
+                <th>Descrição</th>
+                <th>Valor</th>
+                <th>Ações</th>
+              </tr>
+            </thead>
+            <tbody>
+              {transacoesFiltradas.map((transacao) => (
+                <tr key={transacao.id}>
+                  <td>{formatadorData.format(new Date(`${transacao.data}T00:00:00`))}</td>
+                  <td>
+                    <span className={transacao.tipo === 'RECEITA' ? styles.badgeReceita : styles.badgeDespesa}>
+                      {transacao.tipo === 'RECEITA' ? 'Receita' : 'Despesa'}
+                    </span>
+                  </td>
+                  <td>{transacao.categoriaNome}</td>
+                  <td>{transacao.descricao || '-'}</td>
+                  <td className={transacao.tipo === 'RECEITA' ? styles.valorPositivo : styles.valorNegativo}>
+                    {transacao.tipo === 'RECEITA' ? '+ ' : '- '}
+                    {formatadorMoeda.format(transacao.valor)}
+                  </td>
+                  <td>
+                    <div className={styles.acoesLinha}>
+                      <button type="button" onClick={() => abrirEdicao(transacao)} aria-label="Editar transação">
+                        ✎
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setTransacaoParaExcluir(transacao)}
+                        aria-label="Excluir transação"
+                      >
+                        🗑
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {modalAberto ? (
+        <ModalTransacao
+          transacaoEmEdicao={transacaoEmEdicao}
+          categorias={categorias}
+          onSalvar={handleSalvar}
+          onCancelar={fecharModal}
+        />
+      ) : null}
+
+      {transacaoParaExcluir ? (
+        <ModalConfirmacao
+          titulo="Excluir transação"
+          mensagem={`Tem certeza que deseja excluir "${transacaoParaExcluir.descricao || transacaoParaExcluir.categoriaNome}"? Essa ação não pode ser desfeita.`}
+          onConfirmar={confirmarExclusao}
+          onCancelar={() => setTransacaoParaExcluir(null)}
+        />
+      ) : null}
     </div>
   )
 }

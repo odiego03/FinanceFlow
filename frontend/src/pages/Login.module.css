@@ -20,6 +20,16 @@
   box-sizing: border-box;
 }
 
+@media (max-width: 480px) {
+  .screen {
+    padding: 16px;
+  }
+
+  .card {
+    padding: 32px 22px;
+  }
+}
+
 .titulo {
   margin: 0;
   font-size: 1.9rem;
