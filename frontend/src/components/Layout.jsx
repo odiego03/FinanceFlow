@@ -5,7 +5,7 @@ import styles from './Layout.module.css'
 
 const itensAtivos = [
   { rota: '/dashboard', rotulo: 'Dashboard' },
-  { rota: '/transacoes', rotulo: 'Receitas e Despesas' },
+  { rota: '/transacoes', rotulo: 'Transações' },
   { rota: '/categorias', rotulo: 'Categorias' },
 ]
 
@@ -41,9 +41,6 @@ function Layout() {
 
         <div className={styles.navbarGrupo}>
           <span className={styles.saudacao}>Olá, {usuario?.nome?.split(' ')[0] ?? '...'}</span>
-          <button type="button" className={styles.iconButton} aria-label="Ajuda" title="Ajuda">
-            ?
-          </button>
           <button type="button" className={styles.iconButton} aria-label="Sair" title="Sair" onClick={sair}>
             ⇥
           </button>

@@ -119,7 +119,7 @@ function Transacoes() {
 
   return (
     <div className={styles.pagina}>
-      <h1>Receitas e Despesas</h1>
+      <h1>Transações</h1>
 
       <form className={styles.formulario} onSubmit={handleSalvar}>
         <div className={styles.toggleGroup} role="tablist" aria-label="Tipo da transação">
