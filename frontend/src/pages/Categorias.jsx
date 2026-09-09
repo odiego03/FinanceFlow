@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import ModalCategoria from '../components/ModalCategoria'
+import ModalConfirmacao from '../components/ModalConfirmacao'
 import * as categoriaService from '../services/categoriaService'
 import styles from './Categorias.module.css'
 
@@ -39,6 +40,7 @@ function Categorias() {
   const [erro, setErro] = useState('')
   const [modalAberto, setModalAberto] = useState(false)
   const [categoriaEmEdicao, setCategoriaEmEdicao] = useState(null)
+  const [categoriaParaExcluir, setCategoriaParaExcluir] = useState(null)
 
   const carregarCategorias = async () => {
     try {
@@ -84,12 +86,14 @@ function Categorias() {
     await carregarCategorias()
   }
 
-  const handleExcluir = async (categoria) => {
+  const confirmarExclusao = async () => {
     try {
-      await categoriaService.excluir(categoria.id)
+      await categoriaService.excluir(categoriaParaExcluir.id)
       await carregarCategorias()
+      setCategoriaParaExcluir(null)
     } catch (erroRequisicao) {
       setErro('Não foi possível excluir a categoria.')
+      setCategoriaParaExcluir(null)
     }
   }
 
@@ -117,20 +121,29 @@ function Categorias() {
             tipo="RECEITA"
             categorias={categoriasReceita}
             onEditar={abrirEdicao}
-            onExcluir={handleExcluir}
+            onExcluir={setCategoriaParaExcluir}
           />
           <ColunaCategorias
             titulo="Categorias de Despesa"
             tipo="DESPESA"
             categorias={categoriasDespesa}
             onEditar={abrirEdicao}
-            onExcluir={handleExcluir}
+            onExcluir={setCategoriaParaExcluir}
           />
         </div>
       )}
 
       {modalAberto ? (
         <ModalCategoria categoriaEmEdicao={categoriaEmEdicao} onSalvar={handleSalvar} onCancelar={fecharModal} />
+      ) : null}
+
+      {categoriaParaExcluir ? (
+        <ModalConfirmacao
+          titulo="Excluir categoria"
+          mensagem={`Tem certeza que deseja excluir "${categoriaParaExcluir.nome}"? Essa ação não pode ser desfeita.`}
+          onConfirmar={confirmarExclusao}
+          onCancelar={() => setCategoriaParaExcluir(null)}
+        />
       ) : null}
     </div>
   )
