@@ -1,20 +1,44 @@
 import { useEffect, useMemo, useState } from 'react'
+import ModalCategoria from '../components/ModalCategoria'
 import * as categoriaService from '../services/categoriaService'
 import styles from './Categorias.module.css'
 
-const tipoTexto = {
-  DESPESA: 'Despesa',
-  RECEITA: 'Receita',
+function ColunaCategorias({ titulo, tipo, categorias, onEditar, onExcluir }) {
+  const classeTitulo = tipo === 'RECEITA' ? styles.tituloReceita : styles.tituloDespesa
+  const classeBolinha = tipo === 'RECEITA' ? styles.bolinhaReceita : styles.bolinhaDespesa
+
+  return (
+    <div className={styles.coluna}>
+      <h2 className={classeTitulo}>{titulo}</h2>
+
+      {categorias.length === 0 ? (
+        <p className={styles.vazio}>Nenhuma categoria ainda.</p>
+      ) : (
+        categorias.map((categoria) => (
+          <div key={categoria.id} className={styles.itemCategoria}>
+            <span className={`${styles.bolinha} ${classeBolinha}`} />
+            <span className={styles.nomeCategoria}>{categoria.nome}</span>
+            <div className={styles.acoesItem}>
+              <button type="button" onClick={() => onEditar(categoria)} aria-label={`Editar ${categoria.nome}`}>
+                ✎
+              </button>
+              <button type="button" onClick={() => onExcluir(categoria)} aria-label={`Excluir ${categoria.nome}`}>
+                🗑
+              </button>
+            </div>
+          </div>
+        ))
+      )}
+    </div>
+  )
 }
 
 function Categorias() {
-  const [tipoSelecionado, setTipoSelecionado] = useState('DESPESA')
-  const [nomeCategoria, setNomeCategoria] = useState('')
-  const [categoriaEmEdicao, setCategoriaEmEdicao] = useState(null)
   const [categorias, setCategorias] = useState([])
   const [carregando, setCarregando] = useState(true)
   const [erro, setErro] = useState('')
-  const [sucesso, setSucesso] = useState('')
+  const [modalAberto, setModalAberto] = useState(false)
+  const [categoriaEmEdicao, setCategoriaEmEdicao] = useState(null)
 
   const carregarCategorias = async () => {
     try {
@@ -31,57 +55,38 @@ function Categorias() {
     carregarCategorias()
   }, [])
 
-  const categoriasAtuais = useMemo(
-    () => categorias.filter((categoria) => categoria.tipo === tipoSelecionado),
-    [categorias, tipoSelecionado],
-  )
+  const categoriasReceita = useMemo(() => categorias.filter((c) => c.tipo === 'RECEITA'), [categorias])
+  const categoriasDespesa = useMemo(() => categorias.filter((c) => c.tipo === 'DESPESA'), [categorias])
 
-  const limparFormulario = () => {
-    setNomeCategoria('')
+  const abrirNovaCategoria = () => {
+    setCategoriaEmEdicao(null)
+    setModalAberto(true)
+  }
+
+  const abrirEdicao = (categoria) => {
+    setCategoriaEmEdicao(categoria)
+    setModalAberto(true)
+  }
+
+  const fecharModal = () => {
+    setModalAberto(false)
     setCategoriaEmEdicao(null)
   }
 
-  const handleSalvar = async (event) => {
-    event.preventDefault()
-
-    const nomeLimpo = nomeCategoria.trim()
-    if (!nomeLimpo) {
-      setErro('Informe o nome da categoria.')
-      setSucesso('')
-      return
+  const handleSalvar = async ({ nome, tipo }) => {
+    if (categoriaEmEdicao) {
+      await categoriaService.atualizar(categoriaEmEdicao.id, { nome, tipo })
+    } else {
+      await categoriaService.criar({ nome, tipo })
     }
-
-    try {
-      if (categoriaEmEdicao) {
-        await categoriaService.atualizar(categoriaEmEdicao.id, { nome: nomeLimpo, tipo: tipoSelecionado })
-        setSucesso(`Categoria "${nomeLimpo}" atualizada.`)
-      } else {
-        await categoriaService.criar({ nome: nomeLimpo, tipo: tipoSelecionado })
-        setSucesso(`Categoria "${nomeLimpo}" adicionada.`)
-      }
-      limparFormulario()
-      setErro('')
-      await carregarCategorias()
-    } catch (erroRequisicao) {
-      setErro('Não foi possível salvar a categoria.')
-      setSucesso('')
-    }
-  }
-
-  const handleEditar = (categoria) => {
-    setCategoriaEmEdicao(categoria)
-    setNomeCategoria(categoria.nome)
-    setTipoSelecionado(categoria.tipo)
+    fecharModal()
     setErro('')
-    setSucesso('')
+    await carregarCategorias()
   }
 
   const handleExcluir = async (categoria) => {
     try {
       await categoriaService.excluir(categoria.id)
-      if (categoriaEmEdicao?.id === categoria.id) {
-        limparFormulario()
-      }
       await carregarCategorias()
     } catch (erroRequisicao) {
       setErro('Não foi possível excluir a categoria.')
@@ -90,92 +95,43 @@ function Categorias() {
 
   return (
     <div className={styles.pagina}>
-      <h1>Categorias</h1>
-
-      <form className={styles.form} onSubmit={handleSalvar}>
-        <div className={styles.toggleGroup} role="tablist" aria-label="Tipo da categoria">
-          {Object.entries(tipoTexto).map(([tipo, texto]) => (
-            <button
-              key={tipo}
-              type="button"
-              role="tab"
-              aria-selected={tipoSelecionado === tipo}
-              className={`${styles.toggle} ${tipoSelecionado === tipo ? styles.toggleActive : ''}`}
-              onClick={() => {
-                setTipoSelecionado(tipo)
-                setErro('')
-                setSucesso('')
-              }}
-            >
-              {texto}
-            </button>
-          ))}
-        </div>
-
-        <label className={styles.label} htmlFor="nomeCategoria">
-          Nome da categoria
-        </label>
-        <input
-          id="nomeCategoria"
-          type="text"
-          className={styles.input}
-          value={nomeCategoria}
-          onChange={(event) => {
-            setNomeCategoria(event.target.value)
-            setErro('')
-            setSucesso('')
-          }}
-          placeholder="Ex: Supermercado"
-          maxLength={30}
-        />
-
-        <div className={styles.listHeader}>
-          <span>Categorias</span>
-          <span>{categoriasAtuais.length}</span>
-        </div>
-
-        {carregando ? (
-          <p>Carregando...</p>
-        ) : (
-          <div className={styles.categoryList}>
-            {categoriasAtuais.map((categoria) => (
-              <div key={categoria.id} className={styles.categoryChip}>
-                <span>{categoria.nome}</span>
-                <div className={styles.categoryActions}>
-                  <button type="button" onClick={() => handleEditar(categoria)} aria-label={`Editar ${categoria.nome}`}>
-                    ✎
-                  </button>
-                  <button type="button" onClick={() => handleExcluir(categoria)} aria-label={`Excluir ${categoria.nome}`}>
-                    ✕
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {erro ? (
-          <p className={styles.errorMessage} aria-live="polite">
-            {erro}
-          </p>
-        ) : null}
-
-        {sucesso ? (
-          <p className={styles.successMessage} aria-live="polite">
-            {sucesso}
-          </p>
-        ) : null}
-
-        <button type="submit" className={styles.submitButton}>
-          {categoriaEmEdicao ? '✓ Atualizar categoria' : '✓ Salvar categoria'}
+      <div className={styles.cabecalho}>
+        <h1>Gerenciar Categorias</h1>
+        <button type="button" className={styles.botaoNova} onClick={abrirNovaCategoria}>
+          + Nova Categoria
         </button>
+      </div>
 
-        {categoriaEmEdicao ? (
-          <button type="button" className={styles.cancelButton} onClick={limparFormulario}>
-            Cancelar edição
-          </button>
-        ) : null}
-      </form>
+      {erro ? (
+        <p className={styles.errorMessage} aria-live="polite">
+          {erro}
+        </p>
+      ) : null}
+
+      {carregando ? (
+        <p>Carregando...</p>
+      ) : (
+        <div className={styles.colunas}>
+          <ColunaCategorias
+            titulo="Categorias de Receita"
+            tipo="RECEITA"
+            categorias={categoriasReceita}
+            onEditar={abrirEdicao}
+            onExcluir={handleExcluir}
+          />
+          <ColunaCategorias
+            titulo="Categorias de Despesa"
+            tipo="DESPESA"
+            categorias={categoriasDespesa}
+            onEditar={abrirEdicao}
+            onExcluir={handleExcluir}
+          />
+        </div>
+      )}
+
+      {modalAberto ? (
+        <ModalCategoria categoriaEmEdicao={categoriaEmEdicao} onSalvar={handleSalvar} onCancelar={fecharModal} />
+      ) : null}
     </div>
   )
 }
