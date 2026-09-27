@@ -57,13 +57,28 @@ toda requisição.
   redireciona para `/login` se não houver usuário autenticado no
   contexto.
 
-## Sprint#1 — Telas necessárias
+## Sprint#1 — Telas necessárias (concluída)
 
 - Login
 - Cadastro de usuário
 - CRUD de Categoria (listar, criar, editar, excluir)
-- Registrar transação + listagem de transações
+- CRUD de Transação (registrar, listar, editar, excluir)
+- Dashboard com cards de Receitas/Despesas/Saldo (sem gráficos ainda)
 
-Sem telas de parcelamento, metas, simulação ou dashboard ainda —
-isso é para sprints futuras (ver `backend/CLAUDE.md` para o roadmap
-completo de módulos).
+## Sprint#2 — Telas necessárias
+
+- **Metas Financeiras** (caso de uso principal): listar metas com
+  progresso (barra ou %), criar/editar meta (nome, valor alvo,
+  categoria de receita vinculada opcional, data alvo opcional),
+  registrar aporte manual numa meta, excluir meta/aporte. Ativa o
+  item "Metas Financeiras" do menu lateral (hoje desabilitado).
+- **Gráficos no Dashboard**: os dois cards hoje com "Em breve"
+  (`Dashboard.jsx`) ganham gráficos de verdade com **Recharts**:
+  - "Evolução nos Últimos 6 Meses" — consome
+    `GET /transacoes/evolucao-mensal`.
+  - "Despesas por Categoria" — consome
+    `GET /transacoes/despesas-por-categoria`.
+
+Sem categorias pré-definidas, dropdown de categoria em cards, dados
+de mercado externos, parcelamento, simulação, indicador ou sugestões
+ainda — isso é para sprints futuras (ver `backend/CLAUDE.md`).

@@ -96,14 +96,20 @@ investimento é independente.
 - **RN004 — Parcelamento**: ao parcelar uma transação, o sistema divide
   o valor igualmente entre as parcelas e gera os lançamentos futuros
   automaticamente. Sugere um limite máximo de parcelas com base na
-  margem financeira disponível do usuário. *(Sprint#2 — ainda não
-  implementado)*
+  margem financeira disponível do usuário. *(ainda não implementado —
+  sprint a definir)*
 - **RN005 — Simulação de investimento**: consulta a API pública do
   Banco Central (taxas Selic, CDB, Poupança) e calcula o rendimento
   projetado para valor e prazo informados. *(Sprint#4)*
 - **RN006 — Sugestões personalizadas**: acionadas a partir dos alertas
   de risco do Indicador de comprometimento de renda e das taxas de
   mercado da Simulação de investimento. *(Sprint#4)*
+- **RN007 — Progresso de Meta Financeira**: o progresso de uma meta é a
+  soma dos aportes manuais registrados nela, mais — quando a meta tiver
+  uma categoria vinculada — a soma das receitas lançadas nessa
+  categoria. A categoria vinculada, se informada, deve ser do tipo
+  RECEITA. O valor de progresso nunca é armazenado — é sempre calculado
+  na hora, pra não ficar dessincronizado. *(Sprint#2)*
 
 O **Indicador de comprometimento de renda** aplica a regra 50/30/20
 (Warren e Tyagi): alerta de **atenção** quando despesas essenciais
@@ -172,7 +178,60 @@ ainda.
 
 ---
 
-## 6. Convenções de código
+## 6. Sprint#2 — Escopo atual
+
+Sprint#1 concluída e homologada. Sprint#2 é só duas coisas: Meta
+Financeira (caso de uso principal) e gráficos no Dashboard. Nada de
+Parcelamento, Simulação, Indicador, Sugestões ou categorias
+pré-definidas ainda.
+
+### 6.1 `MetaFinanceira`
+
+| Campo | Tipo | Regra |
+|-------|------|-------|
+| id | Long (PK, auto) | — |
+| usuario | Usuario (`@ManyToOne`) | obrigatório |
+| nome | String | ex: "Viagem pra praia" |
+| valorAlvo | BigDecimal(10,2) | obrigatório |
+| categoria | Categoria (`@ManyToOne`) | opcional — se informada, deve ser do tipo RECEITA (RN007) |
+| dataAlvo | LocalDate | opcional |
+| criadoEm | LocalDateTime | preenchido automaticamente na criação |
+
+Não tem campo `valorAtual` — ver RN007 (seção 4): o progresso é
+calculado na hora a partir dos `Aporte`s e, se houver categoria
+vinculada, das receitas lançadas nela.
+
+### 6.2 `Aporte`
+
+| Campo | Tipo | Regra |
+|-------|------|-------|
+| id | Long (PK, auto) | — |
+| meta | MetaFinanceira (`@ManyToOne`) | obrigatório |
+| valor | BigDecimal(10,2) | obrigatório |
+| data | LocalDate | obrigatório |
+| criadoEm | LocalDateTime | preenchido automaticamente na criação |
+
+Mesmo padrão de isolamento por usuário das entidades anteriores:
+`MetaFinanceira` e `Aporte` só são visíveis/editáveis pelo dono.
+
+### 6.3 Endpoints novos
+
+- CRUD completo em `/metas` (`POST`, `GET`, `GET /{id}`, `PUT /{id}`,
+  `DELETE /{id}`).
+- `POST /metas/{id}/aportes` — registra um aporte manual.
+- `DELETE /metas/{id}/aportes/{aporteId}` — remove um aporte
+  (corrigir lançamento errado).
+- `GET /transacoes/evolucao-mensal` — totais de receita/despesa dos
+  últimos 6 meses (sempre 6 posições, meses sem lançamento entram
+  com total 0), pra alimentar o gráfico "Evolução nos Últimos 6
+  Meses" do Dashboard.
+- `GET /transacoes/despesas-por-categoria` — total de despesas
+  agrupado por categoria no mês atual, pra alimentar o gráfico
+  "Despesas por Categoria" do Dashboard.
+
+---
+
+## 7. Convenções de código
 
 - Nomes de classes, métodos, variáveis, parâmetros e pacotes internos
   em **português**, em todo o código (não só nas entidades) — ex:
@@ -191,7 +250,7 @@ ainda.
 
 ---
 
-## 7. Como rodar localmente
+## 8. Como rodar localmente
 
 O banco Postgres é compartilhado (hospedado no Neon) — ninguém precisa
 instalar Postgres localmente.
@@ -218,25 +277,22 @@ manual.
 
 ---
 
-## 8. Próximos passos (na ordem)
+## 9. Próximos passos (na ordem)
 
-1. `repository` — interfaces `JpaRepository` para as 4 entidades acima.
-2. `service` — regras de negócio RN001, RN002 (autenticação) e RN003
-   (validação de tipo compatível entre transação e categoria).
-3. `controller` — endpoints REST, todos com CRUD completo (exceto
-   Usuario/Auth, que só tem cadastro+login):
-   - `Usuario`/Auth: `POST /usuarios`, `POST /login`.
-   - `Categoria`: `POST`, `GET`, `GET /{id}`, `PUT /{id}`,
-     `DELETE /{id}` em `/categorias`.
-   - `Transacao`: `POST`, `GET`, `GET /{id}`, `PUT /{id}`,
-     `DELETE /{id}` em `/transacoes`. Valida RN003 (tipo da transação
-     deve bater com o tipo da categoria vinculada) e RN implícita de
-     que a categoria usada precisa pertencer ao mesmo usuário.
-4. Plano de testes da Sprint#1 (formato da disciplina "Testes de
-   Software").
-5. Dockerfile + docker-compose.yml para disponibilizar a aplicação
-   (exigência do edital para soluções web).
+Sprint#1 concluída (repository/service/controller das 4 entidades,
+plano de testes, Docker). Próximos passos são do Sprint#2:
 
-Não avance para os módulos de Parcelamento, Meta, Simulação, Indicador
-ou Sugestões sem antes confirmar que a Sprint#1 está completa e
-homologada pelo professor.
+1. `model`/`repository`/`service`/`controller` de `MetaFinanceira` e
+   `Aporte`, seguindo o mesmo padrão em camadas já usado (isolamento
+   por usuário, exceções customizadas + `TratadorDeExcecoes`).
+2. RN007 no `MetaFinanceiraService`: validar que a categoria
+   vinculada (quando informada) é do tipo RECEITA, e calcular o
+   progresso (aportes + receitas da categoria) na leitura, nunca
+   armazenado.
+3. `GET /transacoes/evolucao-mensal` e
+   `GET /transacoes/despesas-por-categoria` no `TransacaoController`/
+   `TransacaoService`.
+
+Não avance para Parcelamento, Simulação, Indicador, Sugestões ou
+categorias pré-definidas sem alinhar antes — não fazem parte do
+Sprint#2.
