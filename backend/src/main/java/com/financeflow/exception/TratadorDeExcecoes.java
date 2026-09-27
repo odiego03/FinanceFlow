@@ -39,6 +39,21 @@ public class TratadorDeExcecoes {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("mensagem", excecao.getMessage()));
     }
 
+    @ExceptionHandler(MetaNaoEncontradaException.class)
+    public ResponseEntity<Map<String, String>> tratarMetaNaoEncontrada(MetaNaoEncontradaException excecao) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("mensagem", excecao.getMessage()));
+    }
+
+    @ExceptionHandler(AporteNaoEncontradoException.class)
+    public ResponseEntity<Map<String, String>> tratarAporteNaoEncontrado(AporteNaoEncontradoException excecao) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("mensagem", excecao.getMessage()));
+    }
+
+    @ExceptionHandler(CategoriaInvalidaParaMetaException.class)
+    public ResponseEntity<Map<String, String>> tratarCategoriaInvalidaParaMeta(CategoriaInvalidaParaMetaException excecao) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("mensagem", excecao.getMessage()));
+    }
+
     @ExceptionHandler(HttpMessageNotReadableException.class)
     public ResponseEntity<Map<String, String>> tratarCorpoInvalido(HttpMessageNotReadableException excecao) {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("mensagem", "corpo da requisição inválido"));
@@ -51,5 +66,10 @@ public class TratadorDeExcecoes {
             erros.put(erro.getField(), erro.getDefaultMessage());
         }
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(erros);
+    }
+
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<Map<String, String>> tratarErroInesperado(Exception excecao) {
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("mensagem", "erro inesperado no servidor"));
     }
 }

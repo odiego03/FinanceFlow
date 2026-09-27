@@ -1,5 +1,7 @@
 package com.financeflow.service;
 
+import com.financeflow.dto.DespesaPorCategoriaResposta;
+import com.financeflow.dto.EvolucaoMensalResposta;
 import com.financeflow.dto.TransacaoRequisicao;
 import com.financeflow.dto.TransacaoResposta;
 import com.financeflow.exception.CategoriaNaoEncontradaException;
@@ -14,8 +16,13 @@ import com.financeflow.repository.TransacaoRepository;
 import com.financeflow.repository.UsuarioRepository;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.time.YearMonth;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service
 public class TransacaoService {
@@ -80,6 +87,46 @@ public class TransacaoService {
     public void deletar(Long id, String emailUsuario) {
         Transacao transacao = buscarEntidadePorId(id, emailUsuario);
         repositorioTransacao.delete(transacao);
+    }
+
+    public List<EvolucaoMensalResposta> evolucaoMensal(String emailUsuario) {
+        Long usuarioId = buscarUsuarioPorEmail(emailUsuario).getId();
+        List<Transacao> transacoes = repositorioTransacao.findByUsuarioId(usuarioId);
+
+        List<EvolucaoMensalResposta> resultado = new ArrayList<>();
+        YearMonth mesAtual = YearMonth.now();
+
+        for (int i = 5; i >= 0; i--) {
+            YearMonth mes = mesAtual.minusMonths(i);
+            BigDecimal totalReceitas = somarPorTipoEMes(transacoes, TipoMovimentacao.RECEITA, mes);
+            BigDecimal totalDespesas = somarPorTipoEMes(transacoes, TipoMovimentacao.DESPESA, mes);
+            resultado.add(new EvolucaoMensalResposta(mes.toString(), totalReceitas, totalDespesas));
+        }
+
+        return resultado;
+    }
+
+    public List<DespesaPorCategoriaResposta> despesasPorCategoria(String emailUsuario) {
+        Long usuarioId = buscarUsuarioPorEmail(emailUsuario).getId();
+        YearMonth mesAtual = YearMonth.now();
+
+        Map<String, BigDecimal> totaisPorCategoria = repositorioTransacao.findByUsuarioId(usuarioId).stream()
+                .filter(t -> t.getTipo() == TipoMovimentacao.DESPESA && YearMonth.from(t.getData()).equals(mesAtual))
+                .collect(Collectors.groupingBy(
+                        t -> t.getCategoria().getNome(),
+                        Collectors.reducing(BigDecimal.ZERO, Transacao::getValor, BigDecimal::add)
+                ));
+
+        return totaisPorCategoria.entrySet().stream()
+                .map(entrada -> new DespesaPorCategoriaResposta(entrada.getKey(), entrada.getValue()))
+                .toList();
+    }
+
+    private BigDecimal somarPorTipoEMes(List<Transacao> transacoes, TipoMovimentacao tipo, YearMonth mes) {
+        return transacoes.stream()
+                .filter(t -> t.getTipo() == tipo && YearMonth.from(t.getData()).equals(mes))
+                .map(Transacao::getValor)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
     private void validarTipoCompativel(TipoMovimentacao tipo, Categoria categoria) {
