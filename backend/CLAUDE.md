@@ -96,14 +96,26 @@ investimento é independente.
 - **RN004 — Parcelamento**: ao parcelar uma transação, o sistema divide
   o valor igualmente entre as parcelas e gera os lançamentos futuros
   automaticamente. Sugere um limite máximo de parcelas com base na
-  margem financeira disponível do usuário. *(Sprint#2 — ainda não
-  implementado)*
+  margem financeira disponível do usuário. *(ainda não implementado —
+  sprint a definir)*
 - **RN005 — Simulação de investimento**: consulta a API pública do
   Banco Central (taxas Selic, CDB, Poupança) e calcula o rendimento
   projetado para valor e prazo informados. *(Sprint#4)*
 - **RN006 — Sugestões personalizadas**: acionadas a partir dos alertas
   de risco do Indicador de comprometimento de renda e das taxas de
   mercado da Simulação de investimento. *(Sprint#4)*
+- **RN007 — Progresso de Meta Financeira**: toda `MetaFinanceira` exige
+  uma categoria vinculada (obrigatória), que deve ser do tipo RECEITA.
+  O progresso NÃO é mais a soma automática de todas as receitas da
+  categoria — é a soma das `ContribuicaoMeta` explicitamente
+  registradas, cada uma amarrada a uma Transação. Ao lançar uma
+  Transação RECEITA numa categoria vinculada a alguma meta, o frontend
+  pergunta ao usuário quanto (se algo) daquele valor deve ir pra meta;
+  o valor de uma contribuição nunca pode ultrapassar o saldo ainda não
+  destinado da Transação (soma de contribuições daquela Transação,
+  entre todas as metas, ≤ valor da Transação). O valor de progresso da
+  meta nunca é armazenado nela — é sempre calculado na hora, somando
+  as contribuições. *(Sprint#2)*
 
 O **Indicador de comprometimento de renda** aplica a regra 50/30/20
 (Warren e Tyagi): alerta de **atenção** quando despesas essenciais
@@ -172,7 +184,158 @@ ainda.
 
 ---
 
-## 6. Convenções de código
+## 6. Sprint#2 — Escopo atual
+
+Sprint#1 concluída e homologada. Sprint#2 cobre: Meta Financeira (caso
+de uso principal), gráficos no Dashboard, categorias pré-definidas com
+ícone/cor, e um módulo de indicadores de mercado (Selic, Dólar,
+Ibovespa) para o rodapé do frontend. Nada de Parcelamento, Simulação
+de investimento completa (RN005/RN006), Indicador de comprometimento
+de renda ou Sugestões ainda — essas seguem para sprints futuras.
+
+### 6.1 `MetaFinanceira`
+
+| Campo | Tipo | Regra |
+|-------|------|-------|
+| id | Long (PK, auto) | — |
+| usuario | Usuario (`@ManyToOne`) | obrigatório |
+| nome | String | ex: "Viagem pra praia" |
+| valorAlvo | BigDecimal(10,2) | obrigatório |
+| categoria | Categoria (`@ManyToOne`) | obrigatória — deve ser do tipo RECEITA (RN007) |
+| dataAlvo | LocalDate | opcional |
+| criadoEm | LocalDateTime | preenchido automaticamente na criação |
+
+Não tem campo `valorAtual` — ver RN007 (seção 4): o progresso é
+sempre calculado na hora, a partir da soma das `ContribuicaoMeta`
+vinculadas a ela (ver 6.1.1).
+
+Mesmo padrão de isolamento por usuário das entidades anteriores:
+`MetaFinanceira` só é visível/editável pelo dono.
+
+> Havia uma entidade `Aporte` (lançamento manual de progresso, livre,
+> sem vínculo com uma Transação específica) numa versão anterior desta
+> mesma sprint — foi removida em favor de `ContribuicaoMeta` (6.1.1),
+> que amarra cada contribuição a uma Transação real e limita o valor
+> ao saldo dela, em vez de deixar o usuário digitar qualquer valor a
+> qualquer momento.
+
+#### 6.1.1 `ContribuicaoMeta`
+
+| Campo | Tipo | Regra |
+|-------|------|-------|
+| id | Long (PK, auto) | — |
+| meta | MetaFinanceira (`@ManyToOne`) | obrigatório |
+| transacao | Transacao (`@ManyToOne`) | obrigatório |
+| valor | BigDecimal(10,2) | obrigatório, > 0 |
+| criadoEm | LocalDateTime | preenchido automaticamente na criação |
+
+Registrada via `POST /metas/{id}/contribuicoes` (`transacaoId` +
+`valor`). `MetaFinanceiraService.registrarContribuicao` valida: a
+Transação pertence ao usuário autenticado, é do tipo RECEITA, está na
+mesma categoria da meta, `valor` não ultrapassa o saldo ainda livre da
+Transação (`valor da Transação` − soma de todas as contribuições já
+feitas a partir dela, para qualquer meta) **e** `valor` não ultrapassa
+o quanto falta pra bater `valorAlvo` da meta (`valorAlvo` − soma das
+contribuições já feitas a essa meta) — uma meta nunca recebe mais do
+que o próprio alvo. Isso permite que uma única Transação alimente mais
+de uma meta, desde que a soma não passe do valor lançado.
+
+`TransacaoResposta` inclui `valorContribuidoMetas` (soma já destinada
+a metas a partir daquela Transação) — o frontend usa isso pra saber
+quanto ainda pode ser contribuído numa transação já existente (ver
+`frontend/CLAUDE.md`, botão de meta na tela de Transações).
+
+Consequências em cascata, tratadas em `TransacaoService`:
+- Editar uma Transação (`PUT /transacoes/{id}`) pra um `valor` menor
+  que o total já contribuído a partir dela lança
+  `ContribuicaoInvalidaException` (400) — não deixa o saldo negativo.
+- Excluir uma Transação (`DELETE /transacoes/{id}`) apaga em cascata
+  suas `ContribuicaoMeta` (senão ficariam órfãs).
+- Excluir uma `MetaFinanceira` apaga em cascata suas
+  `ContribuicaoMeta`.
+
+Não há re-validação quando a categoria da meta muda (`PUT /metas/{id}`
+com `categoriaId` diferente) — contribuições já registradas continuam
+contando pro progresso mesmo que a meta passe a apontar pra outra
+categoria depois. Aceitável pelo escopo atual; revisar se isso virar
+um problema real de uso.
+
+### 6.2 `Categoria` — `icone` e `cor`
+
+`Categoria` ganhou dois campos opcionais (`nullable`): `icone` e `cor`
+(hex, ex: "#f97316"). `icone` guarda o **nome da classe do Bootstrap
+Icons sem o prefixo `bi-`** (ex: "cup-hot-fill" → renderizado no
+frontend como `<i class="bi bi-cup-hot-fill">`), não mais emoji — ver
+6.3. Usados pelo seletor de categoria em cards no frontend. Categorias
+criadas antes dessa mudança (com emoji no `icone`, de uma versão
+anterior) ficam sem ícone visível até serem editadas — o valor salvo
+não é um nome de classe válido, então nada renderiza; não há migração
+automática desses dados.
+
+### 6.3 Categorias pré-definidas
+
+`CategoriasPredefinidas` (`service/CategoriasPredefinidas.java`) é um
+catálogo estático (~18 itens) de categorias comuns de receita/despesa,
+cada uma com `nome`, `tipo`, `icone` (classe do Bootstrap Icons) e
+`cor`.
+
+- Todo usuário novo recebe automaticamente as categorias do catálogo
+  no cadastro (`UsuarioService.cadastrar` chama
+  `CategoriaService.semearPredefinidas`).
+- `GET /categorias/predefinidas` expõe o catálogo (sem `id`/`usuario`).
+- `POST /categorias/predefinidas` adiciona, para o usuário autenticado,
+  as categorias do catálogo que ele ainda não tem (comparação por
+  `nome`+`tipo`). Não tem botão correspondente no frontend — a tela de
+  Categorias chama esse endpoint silenciosamente ao carregar (ver
+  `frontend/CLAUDE.md`), pra retrocompatibilizar usuários criados
+  antes dessa mudança sem exigir ação manual.
+
+### 6.4 Indicadores de mercado (Selic, Dólar, Ibovespa)
+
+`IndicadorMercadoService`/`IndicadorMercadoController`
+(`GET /indicadores/mercado`, autenticado) consultam:
+
+- Selic (série 432) e Dólar comercial (série 1) na API SGS do Banco
+  Central — gratuita, sem chave.
+- Ibovespa na API pública do Yahoo Finance
+  (`query1.finance.yahoo.com/v8/finance/chart/^BVSP`) — gratuita, sem
+  chave nem cadastro, só exige um header `User-Agent` (sem ele o Yahoo
+  responde `429`). Foi usada no lugar da brapi.dev porque essa passou
+  a exigir token de autenticação, o que exigiria distribuir um segredo
+  compartilhado pra todo mundo que rodasse o projeto — o Yahoo funciona
+  pra qualquer pessoa que rodar o backend, sem configuração nenhuma.
+  Resposta parseada como `JsonNode` (não um DTO tipado) porque o JSON
+  do Yahoo tem dezenas de campos irrelevantes — só `chart.result[0]
+  .meta.regularMarketPrice` importa.
+- Se qualquer uma das 3 chamadas falhar (rede instável, API fora do
+  ar, mudança de formato), aquele campo específico vem `null` na
+  resposta — o frontend simplesmente omite esse indicador, não é
+  tratado como erro.
+
+Resposta cacheada em memória por 5 minutos (sem Spring Cache — campo
+simples no service) pra não martelar as APIs externas a cada request
+do rodapé.
+
+### 6.5 Endpoints novos
+
+- CRUD completo em `/metas` (`POST`, `GET`, `GET /{id}`, `PUT /{id}`,
+  `DELETE /{id}`) e `POST /metas/{id}/contribuicoes` (ver 6.1.1,
+  RN007).
+- `GET /transacoes/evolucao-mensal` — totais de receita/despesa dos
+  últimos 6 meses (sempre 6 posições, meses sem lançamento entram
+  com total 0), pra alimentar o gráfico "Evolução nos Últimos 6
+  Meses" do Dashboard.
+- `GET /transacoes/despesas-por-categoria` — total de despesas
+  agrupado por categoria no mês atual, pra alimentar o gráfico
+  "Despesas por Categoria" do Dashboard.
+- `GET /categorias/predefinidas` e `POST /categorias/predefinidas` —
+  catálogo de categorias pré-definidas e adoção das que faltam (ver
+  seção 6.3).
+- `GET /indicadores/mercado` — Selic, Dólar e Ibovespa (ver seção 6.4).
+
+---
+
+## 7. Convenções de código
 
 - Nomes de classes, métodos, variáveis, parâmetros e pacotes internos
   em **português**, em todo o código (não só nas entidades) — ex:
@@ -191,7 +354,7 @@ ainda.
 
 ---
 
-## 7. Como rodar localmente
+## 8. Como rodar localmente
 
 O banco Postgres é compartilhado (hospedado no Neon) — ninguém precisa
 instalar Postgres localmente.
@@ -218,25 +381,14 @@ manual.
 
 ---
 
-## 8. Próximos passos (na ordem)
+## 9. Próximos passos (na ordem)
 
-1. `repository` — interfaces `JpaRepository` para as 4 entidades acima.
-2. `service` — regras de negócio RN001, RN002 (autenticação) e RN003
-   (validação de tipo compatível entre transação e categoria).
-3. `controller` — endpoints REST, todos com CRUD completo (exceto
-   Usuario/Auth, que só tem cadastro+login):
-   - `Usuario`/Auth: `POST /usuarios`, `POST /login`.
-   - `Categoria`: `POST`, `GET`, `GET /{id}`, `PUT /{id}`,
-     `DELETE /{id}` em `/categorias`.
-   - `Transacao`: `POST`, `GET`, `GET /{id}`, `PUT /{id}`,
-     `DELETE /{id}` em `/transacoes`. Valida RN003 (tipo da transação
-     deve bater com o tipo da categoria vinculada) e RN implícita de
-     que a categoria usada precisa pertencer ao mesmo usuário.
-4. Plano de testes da Sprint#1 (formato da disciplina "Testes de
-   Software").
-5. Dockerfile + docker-compose.yml para disponibilizar a aplicação
-   (exigência do edital para soluções web).
+Sprint#2 concluída: `MetaFinanceira` com progresso via
+`ContribuicaoMeta` (contribuição por Transação, limitada ao saldo dela
+— RN007), gráficos do Dashboard, `icone` (Bootstrap Icons)/`cor` em
+`Categoria`, categorias pré-definidas com seed silencioso e
+indicadores de mercado (Selic/Dólar/Ibovespa).
 
-Não avance para os módulos de Parcelamento, Meta, Simulação, Indicador
-ou Sugestões sem antes confirmar que a Sprint#1 está completa e
-homologada pelo professor.
+Não avance para Parcelamento, Simulação de investimento completa
+(RN005/RN006), Indicador de comprometimento de renda ou Sugestões sem
+alinhar antes — seguem para sprints futuras.

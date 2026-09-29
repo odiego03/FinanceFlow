@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import IconeCategoria from '../components/IconeCategoria'
 import ModalCategoria from '../components/ModalCategoria'
 import ModalConfirmacao from '../components/ModalConfirmacao'
 import * as categoriaService from '../services/categoriaService'
@@ -6,7 +7,6 @@ import styles from './Categorias.module.css'
 
 function ColunaCategorias({ titulo, tipo, categorias, onEditar, onExcluir }) {
   const classeTitulo = tipo === 'RECEITA' ? styles.tituloReceita : styles.tituloDespesa
-  const classeBolinha = tipo === 'RECEITA' ? styles.bolinhaReceita : styles.bolinhaDespesa
 
   return (
     <div className={styles.coluna}>
@@ -17,7 +17,7 @@ function ColunaCategorias({ titulo, tipo, categorias, onEditar, onExcluir }) {
       ) : (
         categorias.map((categoria) => (
           <div key={categoria.id} className={styles.itemCategoria}>
-            <span className={`${styles.bolinha} ${classeBolinha}`} />
+            <IconeCategoria icone={categoria.icone} cor={categoria.cor} size={28} />
             <span className={styles.nomeCategoria}>{categoria.nome}</span>
             <div className={styles.acoesItem}>
               <button type="button" onClick={() => onEditar(categoria)} aria-label={`Editar ${categoria.nome}`}>
@@ -54,7 +54,15 @@ function Categorias() {
   }
 
   useEffect(() => {
-    carregarCategorias()
+    const carregarComPredefinidas = async () => {
+      try {
+        await categoriaService.adicionarPredefinidas()
+      } catch (erroRequisicao) {
+        // usuário mantém só as categorias que já tinha se essa chamada falhar
+      }
+      await carregarCategorias()
+    }
+    carregarComPredefinidas()
   }, [])
 
   const categoriasReceita = useMemo(() => categorias.filter((c) => c.tipo === 'RECEITA'), [categorias])
@@ -75,11 +83,11 @@ function Categorias() {
     setCategoriaEmEdicao(null)
   }
 
-  const handleSalvar = async ({ nome, tipo }) => {
+  const handleSalvar = async ({ nome, tipo, icone, cor }) => {
     if (categoriaEmEdicao) {
-      await categoriaService.atualizar(categoriaEmEdicao.id, { nome, tipo })
+      await categoriaService.atualizar(categoriaEmEdicao.id, { nome, tipo, icone, cor })
     } else {
-      await categoriaService.criar({ nome, tipo })
+      await categoriaService.criar({ nome, tipo, icone, cor })
     }
     fecharModal()
     setErro('')

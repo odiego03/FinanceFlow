@@ -7,6 +7,7 @@
   justify-content: center;
   z-index: 50;
   padding: 20px;
+  overflow-y: auto;
 }
 
 .modal {
@@ -15,10 +16,9 @@
   padding: 28px;
   width: 100%;
   max-width: 420px;
-  max-height: 90vh;
-  overflow-y: auto;
   box-sizing: border-box;
   box-shadow: 0 20px 50px rgba(0, 0, 0, 0.25);
+  margin: auto;
 }
 
 .modal h2 {
@@ -45,6 +45,7 @@
   color: #1f2937;
   box-sizing: border-box;
   outline: none;
+  background: #ffffff;
 }
 
 .input:focus {
@@ -52,81 +53,11 @@
   box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
 }
 
-.contador {
+.ajuda {
   display: block;
   margin-top: 4px;
   font-size: 0.78rem;
   color: #9ca3af;
-}
-
-.tipoGroup {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
-}
-
-.tipoBotao {
-  border: 1.5px solid #e2e8f0;
-  background: #f8fafc;
-  border-radius: 10px;
-  padding: 12px;
-  font-weight: 700;
-  color: #6b7280;
-  cursor: pointer;
-}
-
-.tipoReceitaAtivo {
-  background: #16a34a;
-  border-color: #16a34a;
-  color: #ffffff;
-}
-
-.tipoDespesaAtivo {
-  background: #dc2626;
-  border-color: #dc2626;
-  color: #ffffff;
-}
-
-.iconeGroup {
-  display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
-  gap: 8px;
-}
-
-.iconeBotao {
-  border: 1.5px solid #e2e8f0;
-  background: #f8fafc;
-  border-radius: 10px;
-  padding: 8px 0;
-  font-size: 1.1rem;
-  color: #4b5563;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.iconeSelecionado {
-  border-color: #2563eb;
-  background: #eef2ff;
-}
-
-.corGroup {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-}
-
-.corBotao {
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  border: 2px solid transparent;
-  cursor: pointer;
-}
-
-.corSelecionada {
-  border-color: #111827;
 }
 
 .errorMessage {

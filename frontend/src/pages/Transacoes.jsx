@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import ModalConfirmacao from '../components/ModalConfirmacao'
+import ModalContribuicaoMeta from '../components/ModalContribuicaoMeta'
 import ModalTransacao from '../components/ModalTransacao'
 import * as categoriaService from '../services/categoriaService'
+import * as metaService from '../services/metaService'
 import * as transacaoService from '../services/transacaoService'
 import styles from './Transacoes.module.css'
 
@@ -21,6 +23,7 @@ const opcoesFiltro = [
 function Transacoes() {
   const [transacoes, setTransacoes] = useState([])
   const [categorias, setCategorias] = useState([])
+  const [metas, setMetas] = useState([])
   const [carregando, setCarregando] = useState(true)
   const [erro, setErro] = useState('')
   const [busca, setBusca] = useState('')
@@ -28,15 +31,18 @@ function Transacoes() {
   const [modalAberto, setModalAberto] = useState(false)
   const [transacaoEmEdicao, setTransacaoEmEdicao] = useState(null)
   const [transacaoParaExcluir, setTransacaoParaExcluir] = useState(null)
+  const [contribuicaoPendente, setContribuicaoPendente] = useState(null)
 
   const carregarDados = async () => {
     try {
-      const [dadosTransacoes, dadosCategorias] = await Promise.all([
+      const [dadosTransacoes, dadosCategorias, dadosMetas] = await Promise.all([
         transacaoService.listar(),
         categoriaService.listar(),
+        metaService.listar(),
       ])
       setTransacoes(dadosTransacoes)
       setCategorias(dadosCategorias)
+      setMetas(dadosMetas)
     } catch (erroRequisicao) {
       setErro('Não foi possível carregar os dados.')
     } finally {
@@ -77,13 +83,33 @@ function Transacoes() {
   }
 
   const handleSalvar = async (dto) => {
-    if (transacaoEmEdicao) {
-      await transacaoService.atualizar(transacaoEmEdicao.id, dto)
+    const estavaEditando = Boolean(transacaoEmEdicao)
+    let transacaoSalva
+    if (estavaEditando) {
+      transacaoSalva = await transacaoService.atualizar(transacaoEmEdicao.id, dto)
     } else {
-      await transacaoService.criar(dto)
+      transacaoSalva = await transacaoService.criar(dto)
     }
     fecharModal()
     setErro('')
+    await carregarDados()
+
+    if (!estavaEditando && transacaoSalva.tipo === 'RECEITA' && metasPorCategoria(transacaoSalva.categoriaId).length > 0) {
+      abrirContribuicaoMeta(transacaoSalva)
+    }
+  }
+
+  const metasPorCategoria = (categoriaId) => metas.filter((meta) => meta.categoriaId === categoriaId)
+
+  const abrirContribuicaoMeta = (transacao) => {
+    setContribuicaoPendente({ transacao, metas: metasPorCategoria(transacao.categoriaId) })
+  }
+
+  const handleConfirmarContribuicao = async (contribuicoes) => {
+    for (const { metaId, valor } of contribuicoes) {
+      await metaService.contribuir(metaId, { transacaoId: contribuicaoPendente.transacao.id, valor })
+    }
+    setContribuicaoPendente(null)
     await carregarDados()
   }
 
@@ -169,6 +195,16 @@ function Transacoes() {
                   </td>
                   <td>
                     <div className={styles.acoesLinha}>
+                      {transacao.tipo === 'RECEITA' && metasPorCategoria(transacao.categoriaId).length > 0 ? (
+                        <button
+                          type="button"
+                          onClick={() => abrirContribuicaoMeta(transacao)}
+                          aria-label="Adicionar a uma meta financeira"
+                          title="Adicionar a uma meta financeira"
+                        >
+                          🎯
+                        </button>
+                      ) : null}
                       <button type="button" onClick={() => abrirEdicao(transacao)} aria-label="Editar transação">
                         ✎
                       </button>
@@ -203,6 +239,15 @@ function Transacoes() {
           mensagem={`Tem certeza que deseja excluir "${transacaoParaExcluir.descricao || transacaoParaExcluir.categoriaNome}"? Essa ação não pode ser desfeita.`}
           onConfirmar={confirmarExclusao}
           onCancelar={() => setTransacaoParaExcluir(null)}
+        />
+      ) : null}
+
+      {contribuicaoPendente ? (
+        <ModalContribuicaoMeta
+          transacao={contribuicaoPendente.transacao}
+          metas={contribuicaoPendente.metas}
+          onConfirmar={handleConfirmarContribuicao}
+          onFechar={() => setContribuicaoPendente(null)}
         />
       ) : null}
     </div>
