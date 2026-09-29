@@ -6,6 +6,8 @@ import jakarta.validation.constraints.NotNull;
 
 public record CategoriaRequisicao(
         @NotBlank(message = "nome é obrigatório") String nome,
-        @NotNull(message = "tipo é obrigatório") TipoMovimentacao tipo
+        @NotNull(message = "tipo é obrigatório") TipoMovimentacao tipo,
+        String icone,
+        String cor
 ) {
 }
