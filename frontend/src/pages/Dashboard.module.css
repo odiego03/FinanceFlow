@@ -110,7 +110,7 @@
   color: #111827;
 }
 
-.graficoCarregando {
+.graficoPlaceholder {
   height: 200px;
   border-radius: 10px;
   background: #f4f6fb;
@@ -119,5 +119,4 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  margin: 0;
 }

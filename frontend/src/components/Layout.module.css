@@ -1,5 +1,5 @@
 .app {
-  height: 100vh;
+  min-height: 100vh;
   display: flex;
   flex-direction: column;
   background: #f4f6fb;
@@ -126,7 +126,7 @@
   .sidebar {
     position: fixed;
     top: 64px;
-    bottom: 40px;
+    bottom: 0;
     left: 0;
     z-index: 20;
     width: 240px;
@@ -148,7 +148,7 @@
     position: fixed;
     top: 64px;
     right: 0;
-    bottom: 40px;
+    bottom: 0;
     left: 240px;
     background: rgba(15, 23, 42, 0.4);
     border: none;

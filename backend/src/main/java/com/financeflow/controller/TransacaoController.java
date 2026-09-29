@@ -1,7 +1,5 @@
 package com.financeflow.controller;
 
-import com.financeflow.dto.DespesaPorCategoriaResposta;
-import com.financeflow.dto.EvolucaoMensalResposta;
 import com.financeflow.dto.TransacaoRequisicao;
 import com.financeflow.dto.TransacaoResposta;
 import com.financeflow.service.TransacaoService;
@@ -40,16 +38,6 @@ public class TransacaoController {
     @GetMapping
     public List<TransacaoResposta> listar(Authentication autenticacao) {
         return transacaoService.listar(autenticacao.getName());
-    }
-
-    @GetMapping("/evolucao-mensal")
-    public List<EvolucaoMensalResposta> evolucaoMensal(Authentication autenticacao) {
-        return transacaoService.evolucaoMensal(autenticacao.getName());
-    }
-
-    @GetMapping("/despesas-por-categoria")
-    public List<DespesaPorCategoriaResposta> despesasPorCategoria(Authentication autenticacao) {
-        return transacaoService.despesasPorCategoria(autenticacao.getName());
     }
 
     @GetMapping("/{id}")
