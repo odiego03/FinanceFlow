@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
+import RodapeMercado from './RodapeMercado'
 import styles from './Layout.module.css'
 
 const itensAtivos = [
@@ -81,6 +82,8 @@ function Layout() {
           <Outlet />
         </main>
       </div>
+
+      <RodapeMercado />
     </div>
   )
 }

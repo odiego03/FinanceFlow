@@ -32,7 +32,7 @@ public class MetaFinanceira {
     private BigDecimal valorAlvo;
 
     @ManyToOne
-    @JoinColumn(name = "categoria_id")
+    @JoinColumn(name = "categoria_id", nullable = false)
     private Categoria categoria;
 
     @Column(name = "data_alvo")

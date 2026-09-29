@@ -30,6 +30,10 @@ public class Categoria {
     @JoinColumn(name = "usuario_id", nullable = false)
     private Usuario usuario;
 
+    private String icone;
+
+    private String cor;
+
     public Long getId() {
         return id;
     }
@@ -60,5 +64,21 @@ public class Categoria {
 
     public void setUsuario(Usuario usuario) {
         this.usuario = usuario;
+    }
+
+    public String getIcone() {
+        return icone;
+    }
+
+    public void setIcone(String icone) {
+        this.icone = icone;
+    }
+
+    public String getCor() {
+        return cor;
+    }
+
+    public void setCor(String cor) {
+        this.cor = cor;
     }
 }

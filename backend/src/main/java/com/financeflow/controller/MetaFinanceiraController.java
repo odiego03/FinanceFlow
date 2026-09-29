@@ -1,7 +1,7 @@
 package com.financeflow.controller;
 
-import com.financeflow.dto.AporteRequisicao;
-import com.financeflow.dto.AporteResposta;
+import com.financeflow.dto.ContribuicaoMetaRequisicao;
+import com.financeflow.dto.ContribuicaoMetaResposta;
 import com.financeflow.dto.MetaFinanceiraRequisicao;
 import com.financeflow.dto.MetaFinanceiraResposta;
 import com.financeflow.service.MetaFinanceiraService;
@@ -59,18 +59,11 @@ public class MetaFinanceiraController {
         return ResponseEntity.noContent().build();
     }
 
-    @PostMapping("/{id}/aportes")
-    public ResponseEntity<AporteResposta> registrarAporte(@PathVariable Long id,
-                                                            @Valid @RequestBody AporteRequisicao requisicao,
-                                                            Authentication autenticacao) {
-        AporteResposta resposta = metaFinanceiraService.registrarAporte(id, requisicao, autenticacao.getName());
+    @PostMapping("/{id}/contribuicoes")
+    public ResponseEntity<ContribuicaoMetaResposta> registrarContribuicao(@PathVariable Long id,
+                                                                            @Valid @RequestBody ContribuicaoMetaRequisicao requisicao,
+                                                                            Authentication autenticacao) {
+        ContribuicaoMetaResposta resposta = metaFinanceiraService.registrarContribuicao(id, requisicao, autenticacao.getName());
         return ResponseEntity.status(HttpStatus.CREATED).body(resposta);
-    }
-
-    @DeleteMapping("/{id}/aportes/{aporteId}")
-    public ResponseEntity<Void> excluirAporte(@PathVariable Long id, @PathVariable Long aporteId,
-                                               Authentication autenticacao) {
-        metaFinanceiraService.excluirAporte(id, aporteId, autenticacao.getName());
-        return ResponseEntity.noContent().build();
     }
 }

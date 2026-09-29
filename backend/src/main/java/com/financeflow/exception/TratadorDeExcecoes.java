@@ -44,13 +44,13 @@ public class TratadorDeExcecoes {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("mensagem", excecao.getMessage()));
     }
 
-    @ExceptionHandler(AporteNaoEncontradoException.class)
-    public ResponseEntity<Map<String, String>> tratarAporteNaoEncontrado(AporteNaoEncontradoException excecao) {
-        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("mensagem", excecao.getMessage()));
-    }
-
     @ExceptionHandler(CategoriaInvalidaParaMetaException.class)
     public ResponseEntity<Map<String, String>> tratarCategoriaInvalidaParaMeta(CategoriaInvalidaParaMetaException excecao) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("mensagem", excecao.getMessage()));
+    }
+
+    @ExceptionHandler(ContribuicaoInvalidaException.class)
+    public ResponseEntity<Map<String, String>> tratarContribuicaoInvalida(ContribuicaoInvalidaException excecao) {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("mensagem", excecao.getMessage()));
     }
 

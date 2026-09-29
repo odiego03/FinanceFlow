@@ -5,6 +5,7 @@ import com.financeflow.dto.EvolucaoMensalResposta;
 import com.financeflow.dto.TransacaoRequisicao;
 import com.financeflow.dto.TransacaoResposta;
 import com.financeflow.exception.CategoriaNaoEncontradaException;
+import com.financeflow.exception.ContribuicaoInvalidaException;
 import com.financeflow.exception.TipoIncompativelException;
 import com.financeflow.exception.TransacaoNaoEncontradaException;
 import com.financeflow.model.Categoria;
@@ -12,6 +13,7 @@ import com.financeflow.model.TipoMovimentacao;
 import com.financeflow.model.Transacao;
 import com.financeflow.model.Usuario;
 import com.financeflow.repository.CategoriaRepository;
+import com.financeflow.repository.ContribuicaoMetaRepository;
 import com.financeflow.repository.TransacaoRepository;
 import com.financeflow.repository.UsuarioRepository;
 import org.springframework.stereotype.Service;
@@ -30,12 +32,14 @@ public class TransacaoService {
     private final TransacaoRepository repositorioTransacao;
     private final CategoriaRepository repositorioCategoria;
     private final UsuarioRepository repositorioUsuario;
+    private final ContribuicaoMetaRepository repositorioContribuicao;
 
     public TransacaoService(TransacaoRepository repositorioTransacao, CategoriaRepository repositorioCategoria,
-                             UsuarioRepository repositorioUsuario) {
+                             UsuarioRepository repositorioUsuario, ContribuicaoMetaRepository repositorioContribuicao) {
         this.repositorioTransacao = repositorioTransacao;
         this.repositorioCategoria = repositorioCategoria;
         this.repositorioUsuario = repositorioUsuario;
+        this.repositorioContribuicao = repositorioContribuicao;
     }
 
     public TransacaoResposta cadastrar(TransacaoRequisicao requisicao, String emailUsuario) {
@@ -54,24 +58,30 @@ public class TransacaoService {
 
         repositorioTransacao.save(transacao);
 
-        return TransacaoResposta.de(transacao);
+        return montarResposta(transacao);
     }
 
     public List<TransacaoResposta> listar(String emailUsuario) {
         Long usuarioId = buscarUsuarioPorEmail(emailUsuario).getId();
         return repositorioTransacao.findByUsuarioId(usuarioId).stream()
-                .map(TransacaoResposta::de)
+                .map(this::montarResposta)
                 .toList();
     }
 
     public TransacaoResposta buscarPorId(Long id, String emailUsuario) {
-        return TransacaoResposta.de(buscarEntidadePorId(id, emailUsuario));
+        return montarResposta(buscarEntidadePorId(id, emailUsuario));
     }
 
     public TransacaoResposta atualizar(Long id, TransacaoRequisicao requisicao, String emailUsuario) {
         Transacao transacao = buscarEntidadePorId(id, emailUsuario);
         Categoria categoria = buscarCategoriaDoUsuario(requisicao.categoriaId(), transacao.getUsuario().getId());
         validarTipoCompativel(requisicao.tipo(), categoria);
+
+        BigDecimal jaContribuido = repositorioContribuicao.somarPorTransacao(transacao.getId());
+        if (requisicao.valor().compareTo(jaContribuido) < 0) {
+            throw new ContribuicaoInvalidaException(
+                    "o valor da transação não pode ficar menor que o total já contribuído para metas (" + jaContribuido + ")");
+        }
 
         transacao.setCategoria(categoria);
         transacao.setTipo(requisicao.tipo());
@@ -81,11 +91,12 @@ public class TransacaoService {
 
         repositorioTransacao.save(transacao);
 
-        return TransacaoResposta.de(transacao);
+        return montarResposta(transacao);
     }
 
     public void deletar(Long id, String emailUsuario) {
         Transacao transacao = buscarEntidadePorId(id, emailUsuario);
+        repositorioContribuicao.deleteAll(repositorioContribuicao.findByTransacaoId(transacao.getId()));
         repositorioTransacao.delete(transacao);
     }
 
@@ -120,6 +131,11 @@ public class TransacaoService {
         return totaisPorCategoria.entrySet().stream()
                 .map(entrada -> new DespesaPorCategoriaResposta(entrada.getKey(), entrada.getValue()))
                 .toList();
+    }
+
+    private TransacaoResposta montarResposta(Transacao transacao) {
+        BigDecimal valorContribuidoMetas = repositorioContribuicao.somarPorTransacao(transacao.getId());
+        return TransacaoResposta.de(transacao, valorContribuidoMetas);
     }
 
     private BigDecimal somarPorTipoEMes(List<Transacao> transacoes, TipoMovimentacao tipo, YearMonth mes) {

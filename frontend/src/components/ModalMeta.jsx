@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import SeletorCategoria from './SeletorCategoria'
 import styles from './ModalMeta.module.css'
 
 function ModalMeta({ metaEmEdicao, categoriasReceita, onSalvar, onCancelar }) {
@@ -23,13 +24,17 @@ function ModalMeta({ metaEmEdicao, categoriasReceita, onSalvar, onCancelar }) {
       setErro('Informe um valor alvo válido.')
       return
     }
+    if (!categoriaId) {
+      setErro('Selecione a categoria de receita vinculada.')
+      return
+    }
 
     setSalvando(true)
     try {
       await onSalvar({
         nome: nomeLimpo,
         valorAlvo: Number(valorAlvo),
-        categoriaId: categoriaId ? Number(categoriaId) : null,
+        categoriaId: Number(categoriaId),
         dataAlvo: dataAlvo || null,
       })
     } catch (erroRequisicao) {
@@ -70,24 +75,10 @@ function ModalMeta({ metaEmEdicao, categoriasReceita, onSalvar, onCancelar }) {
             onChange={(event) => setValorAlvo(event.target.value)}
           />
 
-          <label className={styles.label} htmlFor="categoriaMeta">
-            Categoria de receita vinculada (opcional)
-          </label>
-          <select
-            id="categoriaMeta"
-            className={styles.input}
-            value={categoriaId}
-            onChange={(event) => setCategoriaId(event.target.value)}
-          >
-            <option value="">Nenhuma — só aportes manuais</option>
-            {categoriasReceita.map((categoria) => (
-              <option key={categoria.id} value={categoria.id}>
-                {categoria.nome}
-              </option>
-            ))}
-          </select>
+          <span className={styles.label}>Categoria de receita vinculada</span>
+          <SeletorCategoria categorias={categoriasReceita} value={categoriaId} onChange={setCategoriaId} />
           <span className={styles.ajuda}>
-            Receitas lançadas nessa categoria contam automaticamente pro progresso.
+            Receitas lançadas nessa categoria contam automaticamente pro progresso da meta.
           </span>
 
           <label className={styles.label} htmlFor="dataAlvoMeta">

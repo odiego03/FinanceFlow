@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from 'react'
-import ModalAporte from '../components/ModalAporte'
 import ModalConfirmacao from '../components/ModalConfirmacao'
 import ModalMeta from '../components/ModalMeta'
 import * as categoriaService from '../services/categoriaService'
@@ -20,9 +19,7 @@ function Metas() {
   const [erro, setErro] = useState('')
   const [modalMetaAberto, setModalMetaAberto] = useState(false)
   const [metaEmEdicao, setMetaEmEdicao] = useState(null)
-  const [metaParaAporte, setMetaParaAporte] = useState(null)
   const [metaParaExcluir, setMetaParaExcluir] = useState(null)
-  const [aporteParaExcluir, setAporteParaExcluir] = useState(null)
 
   const carregarDados = async () => {
     try {
@@ -82,24 +79,6 @@ function Metas() {
     }
   }
 
-  const handleSalvarAporte = async (dto) => {
-    await metaService.registrarAporte(metaParaAporte.id, dto)
-    setMetaParaAporte(null)
-    setErro('')
-    await carregarDados()
-  }
-
-  const confirmarExclusaoAporte = async () => {
-    try {
-      await metaService.excluirAporte(aporteParaExcluir.metaId, aporteParaExcluir.aporteId)
-      await carregarDados()
-      setAporteParaExcluir(null)
-    } catch (erroRequisicao) {
-      setErro('Não foi possível excluir o aporte.')
-      setAporteParaExcluir(null)
-    }
-  }
-
   return (
     <div className={styles.pagina}>
       <div className={styles.cabecalho}>
@@ -138,9 +117,7 @@ function Metas() {
                 </div>
 
                 <div className={styles.metaInfo}>
-                  {meta.categoriaNome ? (
-                    <span className={styles.badgeCategoria}>Auto: {meta.categoriaNome}</span>
-                  ) : null}
+                  <span className={styles.badgeCategoria}>Auto: {meta.categoriaNome}</span>
                   {meta.dataAlvo ? (
                     <span className={styles.badgeData}>Até {formatadorData.format(new Date(`${meta.dataAlvo}T00:00:00`))}</span>
                   ) : null}
@@ -154,30 +131,6 @@ function Metas() {
                   <strong>{formatadorMoeda.format(meta.valorAtual)}</strong>
                   <span> de {formatadorMoeda.format(meta.valorAlvo)} ({percentual.toFixed(0)}%)</span>
                 </div>
-
-                {meta.aportes.length > 0 ? (
-                  <div className={styles.listaAportes}>
-                    {meta.aportes.map((aporte) => (
-                      <div key={aporte.id} className={styles.aporteItem}>
-                        <span>
-                          {formatadorData.format(new Date(`${aporte.data}T00:00:00`))} —{' '}
-                          {formatadorMoeda.format(aporte.valor)}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => setAporteParaExcluir({ metaId: meta.id, aporteId: aporte.id })}
-                          aria-label="Excluir aporte"
-                        >
-                          ✕
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                ) : null}
-
-                <button type="button" className={styles.botaoAporte} onClick={() => setMetaParaAporte(meta)}>
-                  + Registrar aporte
-                </button>
               </div>
             )
           })}
@@ -193,29 +146,12 @@ function Metas() {
         />
       ) : null}
 
-      {metaParaAporte ? (
-        <ModalAporte
-          nomeMeta={metaParaAporte.nome}
-          onSalvar={handleSalvarAporte}
-          onCancelar={() => setMetaParaAporte(null)}
-        />
-      ) : null}
-
       {metaParaExcluir ? (
         <ModalConfirmacao
           titulo="Excluir meta"
-          mensagem={`Tem certeza que deseja excluir "${metaParaExcluir.nome}"? Os aportes registrados nela também serão excluídos.`}
+          mensagem={`Tem certeza que deseja excluir "${metaParaExcluir.nome}"?`}
           onConfirmar={confirmarExclusaoMeta}
           onCancelar={() => setMetaParaExcluir(null)}
-        />
-      ) : null}
-
-      {aporteParaExcluir ? (
-        <ModalConfirmacao
-          titulo="Excluir aporte"
-          mensagem="Tem certeza que deseja excluir esse aporte?"
-          onConfirmar={confirmarExclusaoAporte}
-          onCancelar={() => setAporteParaExcluir(null)}
         />
       ) : null}
     </div>

@@ -15,10 +15,11 @@ public record TransacaoResposta(
         BigDecimal valor,
         String descricao,
         LocalDate data,
-        LocalDateTime criadoEm
+        LocalDateTime criadoEm,
+        BigDecimal valorContribuidoMetas
 ) {
 
-    public static TransacaoResposta de(Transacao transacao) {
+    public static TransacaoResposta de(Transacao transacao, BigDecimal valorContribuidoMetas) {
         return new TransacaoResposta(
                 transacao.getId(),
                 transacao.getCategoria().getId(),
@@ -27,7 +28,8 @@ public record TransacaoResposta(
                 transacao.getValor(),
                 transacao.getDescricao(),
                 transacao.getData(),
-                transacao.getCriadoEm()
+                transacao.getCriadoEm(),
+                valorContribuidoMetas
         );
     }
 }

@@ -10,7 +10,7 @@ import java.time.LocalDate;
 public record MetaFinanceiraRequisicao(
         @NotBlank(message = "nome é obrigatório") String nome,
         @NotNull(message = "valorAlvo é obrigatório") @Positive(message = "valorAlvo deve ser maior que zero") BigDecimal valorAlvo,
-        Long categoriaId,
+        @NotNull(message = "categoriaId é obrigatório") Long categoriaId,
         LocalDate dataAlvo
 ) {
 }

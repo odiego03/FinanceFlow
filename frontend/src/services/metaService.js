@@ -19,11 +19,7 @@ export async function excluir(id) {
   await api.delete(`/metas/${id}`)
 }
 
-export async function registrarAporte(metaId, aporte) {
-  const { data } = await api.post(`/metas/${metaId}/aportes`, aporte)
+export async function contribuir(metaId, contribuicao) {
+  const { data } = await api.post(`/metas/${metaId}/contribuicoes`, contribuicao)
   return data
-}
-
-export async function excluirAporte(metaId, aporteId) {
-  await api.delete(`/metas/${metaId}/aportes/${aporteId}`)
 }

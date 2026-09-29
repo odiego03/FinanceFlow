@@ -6,7 +6,6 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.List;
 
 public record MetaFinanceiraResposta(
         Long id,
@@ -17,11 +16,10 @@ public record MetaFinanceiraResposta(
         LocalDate dataAlvo,
         BigDecimal valorAtual,
         BigDecimal percentualConcluido,
-        LocalDateTime criadoEm,
-        List<AporteResposta> aportes
+        LocalDateTime criadoEm
 ) {
 
-    public static MetaFinanceiraResposta de(MetaFinanceira meta, BigDecimal valorAtual, List<AporteResposta> aportes) {
+    public static MetaFinanceiraResposta de(MetaFinanceira meta, BigDecimal valorAtual) {
         BigDecimal percentual = valorAtual
                 .divide(meta.getValorAlvo(), 4, RoundingMode.HALF_UP)
                 .multiply(BigDecimal.valueOf(100))
@@ -31,13 +29,12 @@ public record MetaFinanceiraResposta(
                 meta.getId(),
                 meta.getNome(),
                 meta.getValorAlvo(),
-                meta.getCategoria() != null ? meta.getCategoria().getId() : null,
-                meta.getCategoria() != null ? meta.getCategoria().getNome() : null,
+                meta.getCategoria().getId(),
+                meta.getCategoria().getNome(),
                 meta.getDataAlvo(),
                 valorAtual,
                 percentual,
-                meta.getCriadoEm(),
-                aportes
+                meta.getCriadoEm()
         );
     }
 }

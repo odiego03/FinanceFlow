@@ -10,12 +10,11 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 
 import java.math.BigDecimal;
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "aportes")
-public class Aporte {
+@Table(name = "contribuicoes_meta")
+public class ContribuicaoMeta {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -25,11 +24,12 @@ public class Aporte {
     @JoinColumn(name = "meta_id", nullable = false)
     private MetaFinanceira meta;
 
+    @ManyToOne
+    @JoinColumn(name = "transacao_id", nullable = false)
+    private Transacao transacao;
+
     @Column(nullable = false, precision = 10, scale = 2)
     private BigDecimal valor;
-
-    @Column(nullable = false)
-    private LocalDate data;
 
     @Column(name = "criado_em", nullable = false, updatable = false)
     private LocalDateTime criadoEm;
@@ -50,20 +50,20 @@ public class Aporte {
         this.meta = meta;
     }
 
+    public Transacao getTransacao() {
+        return transacao;
+    }
+
+    public void setTransacao(Transacao transacao) {
+        this.transacao = transacao;
+    }
+
     public BigDecimal getValor() {
         return valor;
     }
 
     public void setValor(BigDecimal valor) {
         this.valor = valor;
-    }
-
-    public LocalDate getData() {
-        return data;
-    }
-
-    public void setData(LocalDate data) {
-        this.data = data;
     }
 
     public LocalDateTime getCriadoEm() {
