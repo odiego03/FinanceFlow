@@ -50,11 +50,8 @@ Pré-requisito: Docker e Docker Compose instalados.
    ```
 2. Suba os containers:
    ```bash
-   docker compose up -d --build
+   docker compose up --build
    ```
-   Depois de um `git pull` que trouxe mudança de código, rode esse
-   mesmo comando de novo com `--build` — sem ele o Docker reaproveita
-   as imagens antigas em cache e as mudanças não aparecem.
 3. Acesse:
    - Frontend: `http://localhost:3000`
    - Backend: `http://localhost:8080`

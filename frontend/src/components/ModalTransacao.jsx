@@ -1,5 +1,4 @@
 import { useMemo, useState } from 'react'
-import SeletorCategoria from './SeletorCategoria'
 import styles from './ModalTransacao.module.css'
 
 function ModalTransacao({ transacaoEmEdicao, categorias, onSalvar, onCancelar }) {
@@ -84,8 +83,22 @@ function ModalTransacao({ transacaoEmEdicao, categorias, onSalvar, onCancelar })
             onChange={(event) => setValor(event.target.value)}
           />
 
-          <span className={styles.label}>Categoria</span>
-          <SeletorCategoria categorias={categoriasDoTipo} value={categoriaId} onChange={setCategoriaId} />
+          <label className={styles.label} htmlFor="categoriaTransacao">
+            Categoria
+          </label>
+          <select
+            id="categoriaTransacao"
+            className={styles.input}
+            value={categoriaId}
+            onChange={(event) => setCategoriaId(event.target.value)}
+          >
+            <option value="">Selecione uma categoria</option>
+            {categoriasDoTipo.map((categoria) => (
+              <option key={categoria.id} value={categoria.id}>
+                {categoria.nome}
+              </option>
+            ))}
+          </select>
 
           <label className={styles.label} htmlFor="descricaoTransacao">
             Descrição

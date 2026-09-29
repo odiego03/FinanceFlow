@@ -18,13 +18,3 @@ export async function atualizar(id, categoria) {
 export async function excluir(id) {
   await api.delete(`/categorias/${id}`)
 }
-
-export async function listarPredefinidas() {
-  const { data } = await api.get('/categorias/predefinidas')
-  return data
-}
-
-export async function adicionarPredefinidas() {
-  const { data } = await api.post('/categorias/predefinidas')
-  return data
-}

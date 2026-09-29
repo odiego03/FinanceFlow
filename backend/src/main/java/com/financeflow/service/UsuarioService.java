@@ -15,13 +15,10 @@ public class UsuarioService {
 
     private final UsuarioRepository repositorioUsuario;
     private final PasswordEncoder codificadorSenha;
-    private final CategoriaService categoriaService;
 
-    public UsuarioService(UsuarioRepository repositorioUsuario, PasswordEncoder codificadorSenha,
-                           CategoriaService categoriaService) {
+    public UsuarioService(UsuarioRepository repositorioUsuario, PasswordEncoder codificadorSenha) {
         this.repositorioUsuario = repositorioUsuario;
         this.codificadorSenha = codificadorSenha;
-        this.categoriaService = categoriaService;
     }
 
     public UsuarioResposta cadastrar(UsuarioCadastroRequisicao requisicao) {
@@ -36,7 +33,6 @@ public class UsuarioService {
         usuario.setCriadoEm(LocalDateTime.now());
 
         repositorioUsuario.save(usuario);
-        categoriaService.semearPredefinidas(usuario);
 
         return UsuarioResposta.de(usuario);
     }
