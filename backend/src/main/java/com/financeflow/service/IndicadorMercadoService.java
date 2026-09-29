@@ -1,16 +1,16 @@
 package com.financeflow.service;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.financeflow.dto.IndicadorMercadoResposta;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpHeaders;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 
 import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.LocalDateTime;
-import java.util.List;
 
 @Service
 public class IndicadorMercadoService {
@@ -19,17 +19,16 @@ public class IndicadorMercadoService {
     private static final Duration DURACAO_CACHE = Duration.ofMinutes(5);
     private static final String URL_SGS_SELIC = "https://api.bcb.gov.br/dados/serie/bcdata.sgs.432/dados/ultimos/1?formato=json";
     private static final String URL_SGS_DOLAR = "https://api.bcb.gov.br/dados/serie/bcdata.sgs.1/dados/ultimos/1?formato=json";
-    private static final String URL_IBOVESPA = "https://brapi.dev/api/quote/%5EBVSP";
+    private static final String HOST_YAHOO = "query1.finance.yahoo.com";
+    private static final String SIMBOLO_IBOVESPA = "^BVSP";
 
     private final RestClient restClient;
-    private final String tokenBrapi;
 
     private volatile IndicadorMercadoResposta cache;
     private volatile LocalDateTime cacheEm;
 
-    public IndicadorMercadoService(RestClient restClient, @Value("${brapi.token:}") String tokenBrapi) {
+    public IndicadorMercadoService(RestClient restClient) {
         this.restClient = restClient;
-        this.tokenBrapi = tokenBrapi;
     }
 
     public synchronized IndicadorMercadoResposta obterIndicadores() {
@@ -63,29 +62,27 @@ public class IndicadorMercadoService {
     }
 
     private BigDecimal buscarIbovespa() {
-        if (tokenBrapi == null || tokenBrapi.isBlank()) {
-            log.info("brapi.token não configurado — Ibovespa não será exibido");
-            return null;
-        }
         try {
-            String url = URL_IBOVESPA + "?token=" + tokenBrapi;
-            RespostaBrapi resposta = restClient.get().uri(url).retrieve().body(RespostaBrapi.class);
-            if (resposta == null || resposta.results() == null || resposta.results().isEmpty()) {
-                return null;
-            }
-            return resposta.results().get(0).regularMarketPrice();
+            JsonNode resposta = restClient.get()
+                    .uri(uriBuilder -> uriBuilder
+                            .scheme("https")
+                            .host(HOST_YAHOO)
+                            .path("/v8/finance/chart/{simbolo}")
+                            .queryParam("range", "1d")
+                            .queryParam("interval", "1d")
+                            .build(SIMBOLO_IBOVESPA))
+                    .header(HttpHeaders.USER_AGENT, "Mozilla/5.0")
+                    .retrieve()
+                    .body(JsonNode.class);
+
+            JsonNode preco = resposta.path("chart").path("result").path(0).path("meta").path("regularMarketPrice");
+            return preco.isMissingNode() ? null : preco.decimalValue();
         } catch (Exception excecao) {
-            log.warn("falha ao consultar Ibovespa na brapi.dev: {}", excecao.getMessage());
+            log.warn("falha ao consultar Ibovespa no Yahoo Finance: {}", excecao.getMessage());
             return null;
         }
     }
 
     private record ItemSgs(String data, String valor) {
-    }
-
-    private record RespostaBrapi(List<ResultadoBrapi> results) {
-    }
-
-    private record ResultadoBrapi(BigDecimal regularMarketPrice) {
     }
 }

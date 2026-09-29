@@ -297,11 +297,20 @@ cada uma com `nome`, `tipo`, `icone` (classe do Bootstrap Icons) e
 
 - Selic (série 432) e Dólar comercial (série 1) na API SGS do Banco
   Central — gratuita, sem chave.
-- Ibovespa na brapi.dev — **exige token** (a API deixou de aceitar
-  consultas sem autenticação). Configurar via `BRAPI_TOKEN` (env var)
-  ou `brapi.token` em `application-local.properties`; sem token, o
-  campo `ibovespa` da resposta vem `null` e o frontend simplesmente
-  omite esse indicador — não é um erro.
+- Ibovespa na API pública do Yahoo Finance
+  (`query1.finance.yahoo.com/v8/finance/chart/^BVSP`) — gratuita, sem
+  chave nem cadastro, só exige um header `User-Agent` (sem ele o Yahoo
+  responde `429`). Foi usada no lugar da brapi.dev porque essa passou
+  a exigir token de autenticação, o que exigiria distribuir um segredo
+  compartilhado pra todo mundo que rodasse o projeto — o Yahoo funciona
+  pra qualquer pessoa que rodar o backend, sem configuração nenhuma.
+  Resposta parseada como `JsonNode` (não um DTO tipado) porque o JSON
+  do Yahoo tem dezenas de campos irrelevantes — só `chart.result[0]
+  .meta.regularMarketPrice` importa.
+- Se qualquer uma das 3 chamadas falhar (rede instável, API fora do
+  ar, mudança de formato), aquele campo específico vem `null` na
+  resposta — o frontend simplesmente omite esse indicador, não é
+  tratado como erro.
 
 Resposta cacheada em memória por 5 minutos (sem Spring Cache — campo
 simples no service) pra não martelar as APIs externas a cada request

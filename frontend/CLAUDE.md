@@ -125,8 +125,9 @@ toda requisição.
   renderizado em `Layout.jsx` (visível em todas as rotas
   autenticadas), consome `GET /indicadores/mercado` a cada 5 minutos
   via `services/indicadorMercadoService.js`. Indicador com valor
-  ausente (ex: Ibovespa sem `BRAPI_TOKEN` configurado no backend)
-  simplesmente não aparece — sem erro visível pro usuário.
+  ausente (alguma das 3 fontes externas fora do ar, ver
+  `backend/CLAUDE.md` 6.4) simplesmente não aparece — sem erro visível
+  pro usuário.
 
 Sem parcelamento, simulação de investimento completa, indicador de
 comprometimento de renda ou sugestões ainda — isso é para sprints
