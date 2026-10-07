@@ -12,11 +12,12 @@ decidido. Antes de sugerir mudanças de abordagem, leia tudo abaixo.
 
 ## 1. Stack tecnológica
 
-- **Linguagem**: Java
-- **Framework**: Spring Boot 3.x
+- **Linguagem**: Java 17
+- **Framework**: Spring Boot 3.3 (Web, Data JPA, Security, Validation)
 - **Persistência**: JPA / Hibernate (pacote `jakarta.persistence`)
-- **Build**: Maven
-- **Banco de dados**: PostgreeSQL
+- **Autenticação**: JWT via `jjwt` 0.12 + senha com `BCryptPasswordEncoder`
+- **Build**: Maven (wrapper `mvnw` versionado)
+- **Banco de dados**: PostgreSQL (hospedado no Neon, compartilhado)
 - **Frontend**: React (consome a API via HTTP/JSON — fora do escopo deste
   backend, mas relevante pra entender o formato de resposta esperado)
 
@@ -33,14 +34,14 @@ Controller  →  Service  →  Repository  →  Model / Banco de dados
 - **Controller**: recebe a requisição HTTP, valida formato básico (campo
   existe, tipo correto) e delega para o Service. **Não contém regra de
   negócio.**
-- **Service**: é onde vivem as regras de negócio (RN001 a RN006, ver
+- **Service**: é onde vivem as regras de negócio (RN001 a RN007, ver
   seção 4). Orquestra chamadas a um ou mais Repositories.
 - **Repository**: acesso a dados. No Spring, são interfaces que estendem
   `JpaRepository<Entidade, TipoId>` — o Spring Data gera a implementação
   de métodos básicos (`save`, `findById`, `findAll`, `deleteById`)
   automaticamente. Métodos de consulta customizados são declarados por
   assinatura (query methods) ou `@Query` quando necessário.
-- **Model**: entidades JPA, mapeadas para as tabelas do MySQL.
+- **Model**: entidades JPA, mapeadas para as tabelas do PostgreSQL.
 
 Estrutura de pacotes:
 
@@ -50,8 +51,24 @@ com.financeflow
 ├── repository   (interfaces JpaRepository)
 ├── service      (regras de negócio)
 ├── controller   (endpoints REST)
-└── dto          (objetos de entrada/saída da API, quando necessário)
+├── dto          (records de entrada/saída da API — sufixos Requisicao/Resposta)
+├── exception    (exceções de negócio + TratadorDeExcecoes, que mapeia cada uma pro status HTTP)
+├── security     (ProvedorTokenJwt e FiltroAutenticacaoJwt)
+└── config       (ConfiguracaoSeguranca — rotas públicas, CORS, BCrypt; ConfiguracaoHttp)
 ```
+
+Segurança: só `POST /usuarios` e `POST /login` são públicas; o resto
+exige `Authorization: Bearer <token>`. O e-mail do usuário vem do token
+(`Authentication.getName()`) e é passado do Controller pro Service. CORS
+liberado apenas para `http://localhost:5173`, `:4173` e `:3000` (lista
+fixa em `ConfiguracaoSeguranca`) — nova origem do frontend precisa ser
+adicionada lá.
+
+Erros de negócio viram respostas `{"mensagem": "..."}` com o status
+definido em `TratadorDeExcecoes` (404 para "não encontrado", 400 para
+regra violada, 409 para e-mail duplicado, 401 para credenciais
+inválidas). Erros de Bean Validation retornam 400 com um mapa
+`campo → mensagem`.
 
 **Por quê Repository como interface e não classe concreta direto:** o
 Service depende apenas do contrato (`interface`), nunca da implementação
@@ -63,9 +80,10 @@ graça" ao estender `JpaRepository`.
 
 ## 3. Módulos do sistema (visão geral do produto completo)
 
-O sistema é dividido em 8 módulos. Nem todos entram na Sprint#1 — a
-lista completa serve para você entender onde cada peça futura vai se
-encaixar.
+O sistema é dividido em 8 módulos. Usuário, Categoria, Transação e
+Meta financeira já estão implementados (Sprints #1 e #2); os demais
+são de sprints futuras — a lista completa serve para você entender
+onde cada peça futura vai se encaixar.
 
 | # | Módulo | Tipo | Depende de |
 |---|--------|------|------------|
@@ -124,11 +142,11 @@ total. *(Sprint#3)*
 
 ---
 
-## 5. Sprint#1 — Escopo atual
+## 5. Sprint#1 — Concluída
 
-Nesta sprint, **somente 4 classes de Model** serão implementadas.
-Nada de Parcelamento, Meta, Simulação, Indicador ou Sugestões ainda —
-isso é para sprints futuras.
+A Sprint#1 implementou as 4 classes de Model abaixo, com CRUD,
+cadastro de usuário, login JWT e `GET /usuarios/me` (dados do usuário
+autenticado, usado pelo frontend ao carregar a sessão).
 
 ### 5.1 `TipoMovimentacao` (enum)
 
@@ -178,15 +196,15 @@ existe.
 | data | LocalDate | obrigatório |
 | criadoEm | LocalDateTime | preenchido automaticamente na criação |
 
-Importante: nesta sprint, uma Transação é sempre um lançamento único —
+Importante: uma Transação continua sendo sempre um lançamento único —
 sem parcelamento. Não criar campos ou lógica relacionados a parcelas
 ainda.
 
 ---
 
-## 6. Sprint#2 — Escopo atual
+## 6. Sprint#2 — Concluída
 
-Sprint#1 concluída e homologada. Sprint#2 cobre: Meta Financeira (caso
+Sprint#2 cobriu: Meta Financeira (caso
 de uso principal), gráficos no Dashboard, categorias pré-definidas com
 ícone/cor, e um módulo de indicadores de mercado (Selic, Dólar,
 Ibovespa) para o rodapé do frontend. Nada de Parcelamento, Simulação
@@ -375,9 +393,17 @@ instalar Postgres localmente.
    java -jar target/financeflow-backend-0.1.0.jar --spring.profiles.active=local
    ```
 
+Alternativa ao arquivo local: `application.properties` lê variáveis de
+ambiente (`PGHOST`, `PGPORT`, `PGDATABASE`, `PGUSER`, `PGPASSWORD`,
+`PGSSLMODE`, `JWT_SECRET` — este com no mínimo 32 caracteres). É assim
+que o Docker Compose da raiz configura o backend, a partir do `.env`
+(ver `.env.example` e o README).
+
 As tabelas são criadas/atualizadas automaticamente pelo Hibernate
 (`spring.jpa.hibernate.ddl-auto=update`) — não precisa rodar SQL
 manual.
+
+Ainda não há testes automatizados (não existe `src/test`).
 
 ---
 

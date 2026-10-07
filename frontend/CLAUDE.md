@@ -4,26 +4,39 @@ Aplicação React que consome a API REST do backend (Spring Boot).
 
 ## Stack
 
-- **React** (functional components + hooks — sem class components)
+- **React 19** (functional components + hooks — sem class components)
+- **Build/dev server**: Vite (`npm run dev` em `localhost:5173`;
+  `npm run build` gera a pasta `build/`)
+- **Rotas**: React Router 7
 - **Estilização**: CSS Modules (`Componente.module.css` ao lado do
   componente)
 - **Cliente HTTP**: Axios
+- **Gráficos**: Recharts
+- **Ícones**: `bootstrap-icons` (CSS importado globalmente em `main.jsx`)
+- **Lint**: oxlint (`npm run lint`)
 - **Gerenciamento de estado**: Context API nativo (sem Redux/Zustand
   por enquanto — o escopo do projeto não justifica a dependência extra)
+
+URL da API vem de `VITE_API_URL` (ver `.env.example`); sem ela, usa
+`http://localhost:8080`.
 
 ## Estrutura de pastas
 
 ```
 frontend/src/
-├── components/       # componentes reutilizáveis (Button, Input, Card...)
-├── pages/            # telas (Login, Dashboard, Transacoes...)
-├── contexts/         # Context API (ex: AuthContext)
+├── components/       # componentes reutilizáveis (modais, SeletorCategoria, Layout, RodapeMercado...)
+├── pages/            # telas (Login, Dashboard, Transacoes, Categorias, Metas)
+├── contexts/         # Context API (AuthContext)
 ├── services/         # chamadas Axios à API (um arquivo por recurso)
-└── App.jsx
+├── App.jsx           # rotas
+└── main.jsx          # bootstrap (BrowserRouter + AuthProvider)
 ```
 
-Cada componente/página vem com seu próprio `.module.css` na mesma
-pasta (ex: `Login.jsx` + `Login.module.css`).
+Componentes/páginas com estilo próprio vêm com seu `.module.css` na
+mesma pasta (ex: `Login.jsx` + `Login.module.css`). Componentes sem
+estilo próprio ou com estilo inline não têm (`RotaProtegida`,
+`IconeCategoria`, `ModalContribuicaoMeta` — este reaproveita o CSS de
+`ModalMeta`).
 
 ## Convenção de nomes
 
@@ -38,40 +51,45 @@ Um arquivo por recurso, isolando o Axios do resto do app:
 
 ```
 services/
-├── api.js              # instância base do Axios (baseURL, interceptor de token)
-├── usuarioService.js
+├── api.js                      # instância base do Axios (baseURL, interceptor de token)
+├── usuarioService.js           # cadastro, login, usuário atual (GET /usuarios/me)
 ├── categoriaService.js
-└── transacaoService.js
+├── transacaoService.js
+├── metaService.js              # CRUD de metas + contribuições
+└── indicadorMercadoService.js  # Selic/Dólar/Ibovespa do rodapé
 ```
 
-`api.js` centraliza a URL base da API e o interceptor que injeta o
-token JWT (guardado no `AuthContext`) no header `Authorization` de
-toda requisição.
+`api.js` centraliza a URL base da API e o interceptor que lê o token
+JWT do `localStorage` (chave `CHAVE_TOKEN` = `financeflow.token`) e o
+injeta no header `Authorization` de toda requisição.
 
 ## Autenticação
 
 - Token JWT retornado pelo backend no login é guardado no
-  `AuthContext` (e persistido em `localStorage` para sobreviver a
-  reload da página).
-- Rotas que exigem login usam um componente `RotaProtegida` que
-  redireciona para `/login` se não houver usuário autenticado no
-  contexto.
+  `AuthContext` e persistido em `localStorage` (sobrevive a reload).
+  Só o `AuthContext` e o `api.js` mexem nessa chave — componentes não
+  acessam `localStorage` direto.
+- Ao carregar com token, o `AuthContext` chama `GET /usuarios/me`; se
+  falhar (token expirado/inválido), limpa o token e desloga.
+- Rotas que exigem login ficam dentro de `RotaProtegida` (em
+  `App.jsx`), que redireciona para `/login` se não houver token no
+  contexto. As rotas autenticadas são renderizadas dentro de `Layout`
+  (menu lateral + `RodapeMercado`).
 
-## Sprint#1 — Telas necessárias (concluída)
+## Sprint#1 — Telas (concluída)
 
-- Login
-- Cadastro de usuário
+- Login, com aba de cadastro de usuário na mesma tela (`Login.jsx`)
 - CRUD de Categoria (listar, criar, editar, excluir)
 - CRUD de Transação (registrar, listar, editar, excluir)
-- Dashboard com cards de Receitas/Despesas/Saldo (sem gráficos ainda)
+- Dashboard com cards de Receitas/Despesas/Saldo
 
-## Sprint#2 — Telas necessárias
+## Sprint#2 — Telas (concluída)
 
-- **Metas Financeiras** (caso de uso principal): listar metas com
-  progresso (barra ou %), criar/editar meta (nome, valor alvo,
-  categoria de receita vinculada **obrigatória**, data alvo opcional),
-  excluir meta. Ativa o item "Metas Financeiras" do menu lateral (hoje
-  desabilitado).
+- **Metas Financeiras** (caso de uso principal, `pages/Metas.jsx`):
+  listar metas com progresso (barra e %), criar/editar meta (nome,
+  valor alvo, categoria de receita vinculada **obrigatória**, data
+  alvo opcional), excluir meta. Item "Metas Financeiras" ativo no menu
+  lateral.
   - Progresso NÃO é mais automático a partir de todas as receitas da
     categoria — é a soma de contribuições explícitas. Ao salvar uma
     Transação nova do tipo RECEITA (`pages/Transacoes.jsx`,
@@ -95,12 +113,13 @@ toda requisição.
   - `ModalAporte` (registro livre de aporte, sem ligação com uma
     Transação) foi removido numa iteração anterior desta sprint e
     substituído por esse fluxo.
-- **Gráficos no Dashboard**: os dois cards hoje com "Em breve"
-  (`Dashboard.jsx`) ganham gráficos de verdade com **Recharts**:
+- **Gráficos no Dashboard** (`Dashboard.jsx`, com **Recharts**):
   - "Evolução nos Últimos 6 Meses" — consome
     `GET /transacoes/evolucao-mensal`.
   - "Despesas por Categoria" — consome
     `GET /transacoes/despesas-por-categoria`.
+  - O card "Comprometimento" continua com "Em breve" — depende do
+    Indicador de comprometimento de renda (Sprint#3).
 - **Categorias pré-definidas**: sem botão — `pages/Categorias.jsx`
   chama `categoriaService.adicionarPredefinidas()` silenciosamente
   toda vez que a tela carrega (erro dessa chamada é ignorado, só não

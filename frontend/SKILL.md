@@ -41,4 +41,5 @@ Usar os mesmos nomes em português do backend (`usuario`, `categoria`,
 ## Antes de implementar
 
 Confirme com o usuário se a tela faz parte do escopo da Sprint atual
-(ver `frontend/CLAUDE.md`, seção "Sprint#1 — Telas necessárias").
+(ver `frontend/CLAUDE.md`, seções de Sprint, e o escopo de sprints
+futuras em `backend/CLAUDE.md`).

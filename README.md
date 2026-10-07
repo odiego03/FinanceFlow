@@ -6,7 +6,7 @@ Laboratório de Engenharia de Software (Fatec Ipiranga, ADS, 2026/2).
 ## Stack
 
 - **Backend**: Java 17+, Spring Boot 3, JPA/Hibernate, Maven
-- **Frontend**: React
+- **Frontend**: React 19 + Vite, React Router, Axios, Recharts, Bootstrap Icons
 - **Banco de dados**: PostgreSQL (hospedado no Neon, compartilhado entre a equipe — ninguém precisa instalar Postgres local)
 - **Infraestrutura**: Docker + Docker Compose
 
@@ -71,16 +71,21 @@ Todas as rotas abaixo, exceto `POST /usuarios` e `POST /login`, exigem o header 
 |---|---|---|---|
 | POST | `/usuarios` | `{"nome", "email", "senha"}` | `201` dados do usuário (sem senha) · `409` email já cadastrado · `400` validação |
 | POST | `/login` | `{"email", "senha"}` | `200` `{"token": "..."}` · `401` credenciais inválidas |
+| GET | `/usuarios/me` | — | `200` dados do usuário autenticado |
 
 ### Categoria
 
 | Método | Rota | Body | Resposta |
 |---|---|---|---|
-| POST | `/categorias` | `{"nome", "tipo": "RECEITA"\|"DESPESA"}` | `201` categoria criada |
+| POST | `/categorias` | `{"nome", "tipo": "RECEITA"\|"DESPESA", "icone"?, "cor"?}` | `201` categoria criada |
 | GET | `/categorias` | — | `200` lista das categorias do usuário |
 | GET | `/categorias/{id}` | — | `200` · `404` não encontrada |
-| PUT | `/categorias/{id}` | `{"nome", "tipo"}` | `200` atualizada · `404` não encontrada |
+| PUT | `/categorias/{id}` | igual ao `POST` | `200` atualizada · `404` não encontrada |
 | DELETE | `/categorias/{id}` | — | `204` · `404` não encontrada |
+| GET | `/categorias/predefinidas` | — | `200` catálogo de categorias pré-definidas |
+| POST | `/categorias/predefinidas` | — | `200` lista das categorias do catálogo que faltavam e foram adicionadas ao usuário |
+
+`icone` é o nome de uma classe do Bootstrap Icons sem o prefixo `bi-` (ex: `"cup-hot-fill"`); `cor` é hex (ex: `"#f97316"`). Todo usuário novo já recebe as categorias pré-definidas no cadastro.
 
 ### Transação
 
@@ -89,10 +94,31 @@ Todas as rotas abaixo, exceto `POST /usuarios` e `POST /login`, exigem o header 
 | POST | `/transacoes` | `{"categoriaId", "tipo": "RECEITA"\|"DESPESA", "valor", "descricao"?, "data": "AAAA-MM-DD"}` | `201` criada · `400` tipo incompatível com a categoria ou valor inválido · `404` categoria não encontrada |
 | GET | `/transacoes` | — | `200` lista das transações do usuário |
 | GET | `/transacoes/{id}` | — | `200` · `404` não encontrada |
-| PUT | `/transacoes/{id}` | igual ao `POST` | `200` atualizada · `404` não encontrada |
-| DELETE | `/transacoes/{id}` | — | `204` · `404` não encontrada |
+| PUT | `/transacoes/{id}` | igual ao `POST` | `200` atualizada · `400` valor menor que o já contribuído para metas · `404` não encontrada |
+| DELETE | `/transacoes/{id}` | — | `204` (apaga também as contribuições a metas feitas a partir dela) · `404` não encontrada |
+| GET | `/transacoes/evolucao-mensal` | — | `200` `[{"mes", "totalReceitas", "totalDespesas"}]` dos últimos 6 meses |
+| GET | `/transacoes/despesas-por-categoria` | — | `200` `[{"categoriaNome", "total"}]` do mês atual |
 
-Regra de negócio: o `tipo` da transação precisa ser igual ao `tipo` da categoria vinculada (RN003), e a categoria usada precisa pertencer ao mesmo usuário autenticado.
+Regra de negócio: o `tipo` da transação precisa ser igual ao `tipo` da categoria vinculada (RN003), e a categoria usada precisa pertencer ao mesmo usuário autenticado. A resposta inclui `valorContribuidoMetas` (quanto daquela transação já foi destinado a metas).
+
+### Meta financeira
+
+| Método | Rota | Body | Resposta |
+|---|---|---|---|
+| POST | `/metas` | `{"nome", "valorAlvo", "categoriaId", "dataAlvo"?: "AAAA-MM-DD"}` | `201` criada · `400` categoria não é de RECEITA ou validação · `404` categoria não encontrada |
+| GET | `/metas` | — | `200` lista das metas do usuário, com `valorAtual` e `percentualConcluido` |
+| GET | `/metas/{id}` | — | `200` · `404` não encontrada |
+| PUT | `/metas/{id}` | igual ao `POST` | `200` atualizada · `404` não encontrada |
+| DELETE | `/metas/{id}` | — | `204` (apaga também as contribuições) · `404` não encontrada |
+| POST | `/metas/{id}/contribuicoes` | `{"transacaoId", "valor"}` | `201` contribuição registrada · `400` transação não é receita da categoria da meta, ou valor maior que o saldo livre da transação / que o quanto falta para a meta · `404` meta ou transação não encontrada |
+
+Regra de negócio (RN007): o progresso da meta é a soma das contribuições registradas, cada uma ligada a uma transação de receita da mesma categoria da meta.
+
+### Indicadores de mercado
+
+| Método | Rota | Body | Resposta |
+|---|---|---|---|
+| GET | `/indicadores/mercado` | — | `200` `{"selic", "dolar", "ibovespa", "atualizadoEm"}` — campo `null` se a fonte externa falhar; cache de 5 minutos |
 
 ## Protótipo
 
@@ -105,4 +131,5 @@ _adicionar nomes dos integrantes_
 ## Documentação
 
 - Regras de negócio e arquitetura: `backend/CLAUDE.md`
+- Frontend (estrutura, telas, convenções): `frontend/CLAUDE.md`
 - Proposta técnica completa: pasta compartilhada no Teams da equipe
