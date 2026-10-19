@@ -28,3 +28,16 @@ export async function despesasPorCategoria() {
   const { data } = await api.get('/transacoes/despesas-por-categoria')
   return data
 }
+
+export async function importarPreview(banco, arquivo) {
+  const formData = new FormData()
+  formData.append('banco', banco)
+  formData.append('arquivo', arquivo)
+  const { data } = await api.post('/transacoes/importar/preview', formData)
+  return data
+}
+
+export async function importarConfirmar(linhas) {
+  const { data } = await api.post('/transacoes/importar/confirmar', { linhas })
+  return data
+}

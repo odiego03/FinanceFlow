@@ -1,0 +1,241 @@
+.backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+  padding: 20px;
+  overflow-y: auto;
+}
+
+.modal {
+  background: #ffffff;
+  border-radius: 16px;
+  padding: 28px;
+  width: 100%;
+  max-width: 420px;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-sizing: border-box;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.25);
+  margin: auto;
+}
+
+.modalLargo {
+  max-width: 820px;
+}
+
+.modal h2 {
+  margin: 0 0 20px;
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: #111827;
+}
+
+.label {
+  display: block;
+  margin: 16px 0 6px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #374151;
+}
+
+.input {
+  width: 100%;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 11px 12px;
+  font-size: 0.98rem;
+  color: #1f2937;
+  box-sizing: border-box;
+  outline: none;
+  background: #ffffff;
+}
+
+.input:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+}
+
+.ajuda {
+  display: block;
+  margin-top: 6px;
+  font-size: 0.78rem;
+  color: #9ca3af;
+}
+
+.bancoGroup {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.bancoBotao {
+  border: 1.5px solid #e2e8f0;
+  background: #f8fafc;
+  border-radius: 10px;
+  padding: 12px;
+  font-weight: 700;
+  color: #6b7280;
+  cursor: pointer;
+}
+
+.bancoBotaoAtivo {
+  background: #2563eb;
+  border-color: #2563eb;
+  color: #ffffff;
+}
+
+.errorMessage {
+  margin: 12px 0 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  background: rgba(239, 68, 68, 0.08);
+  color: #b91c1c;
+  border: 1px solid rgba(239, 68, 68, 0.2);
+}
+
+.acoes {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 24px;
+}
+
+.cancelar {
+  border: none;
+  background: #f1f5f9;
+  color: #374151;
+  font-weight: 600;
+  padding: 10px 18px;
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.cancelar:hover {
+  background: #e2e8f0;
+}
+
+.confirmar {
+  border: none;
+  background: #2563eb;
+  color: #ffffff;
+  font-weight: 700;
+  padding: 10px 20px;
+  border-radius: 10px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.confirmar:hover:not(:disabled) {
+  background: #1d4ed8;
+}
+
+.confirmar:disabled {
+  opacity: 0.7;
+  cursor: default;
+}
+
+.tabelaWrapper {
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  overflow-x: auto;
+  max-height: 55vh;
+  overflow-y: auto;
+}
+
+.tabela {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+}
+
+.tabela th {
+  position: sticky;
+  top: 0;
+  background: #ffffff;
+  text-align: left;
+  padding: 12px 14px;
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #6b7280;
+  border-bottom: 1px solid #e5e7eb;
+  white-space: nowrap;
+}
+
+.tabela td {
+  padding: 10px 14px;
+  border-bottom: 1px solid #f1f5f9;
+  color: #1f2937;
+  white-space: nowrap;
+}
+
+.tabela tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.selectCategoria {
+  border: 1.5px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 6px 8px;
+  font-size: 0.85rem;
+  color: #1f2937;
+  background: #ffffff;
+  min-width: 160px;
+}
+
+.selectCategoria:disabled {
+  opacity: 0.5;
+}
+
+.valorPositivo {
+  color: #16a34a;
+  font-weight: 700;
+}
+
+.valorNegativo {
+  color: #dc2626;
+  font-weight: 700;
+}
+
+.badgeAutomatica,
+.badgePendente,
+.badgeDuplicada {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.76rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.badgeAutomatica {
+  background: rgba(22, 163, 74, 0.12);
+  color: #16a34a;
+}
+
+.badgePendente {
+  background: rgba(234, 179, 8, 0.14);
+  color: #a16207;
+}
+
+.badgeDuplicada {
+  background: #f1f5f9;
+  color: #6b7280;
+}
+
+@media (max-width: 480px) {
+  .modal {
+    padding: 20px;
+  }
+
+  .bancoGroup {
+    grid-template-columns: 1fr;
+  }
+}

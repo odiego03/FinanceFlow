@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import ModalConfirmacao from '../components/ModalConfirmacao'
 import ModalContribuicaoMeta from '../components/ModalContribuicaoMeta'
+import ModalImportarExtrato from '../components/ModalImportarExtrato'
 import ModalTransacao from '../components/ModalTransacao'
 import * as categoriaService from '../services/categoriaService'
 import * as metaService from '../services/metaService'
@@ -32,6 +33,8 @@ function Transacoes() {
   const [transacaoEmEdicao, setTransacaoEmEdicao] = useState(null)
   const [transacaoParaExcluir, setTransacaoParaExcluir] = useState(null)
   const [contribuicaoPendente, setContribuicaoPendente] = useState(null)
+  const [modalImportarAberto, setModalImportarAberto] = useState(false)
+  const [mensagemImportacao, setMensagemImportacao] = useState('')
 
   const carregarDados = async () => {
     try {
@@ -113,6 +116,12 @@ function Transacoes() {
     await carregarDados()
   }
 
+  const handleConcluirImportacao = async (quantidadeCriada) => {
+    setModalImportarAberto(false)
+    setMensagemImportacao(`${quantidadeCriada} transação(ões) importada(s) com sucesso.`)
+    await carregarDados()
+  }
+
   const confirmarExclusao = async () => {
     try {
       await transacaoService.excluir(transacaoParaExcluir.id)
@@ -128,9 +137,14 @@ function Transacoes() {
     <div className={styles.pagina}>
       <div className={styles.cabecalho}>
         <h1>Receitas e Despesas</h1>
-        <button type="button" className={styles.botaoNova} onClick={abrirNovaTransacao}>
-          + Nova Transação
-        </button>
+        <div className={styles.acoesCabecalho}>
+          <button type="button" className={styles.botaoImportar} onClick={() => setModalImportarAberto(true)}>
+            Importar extrato
+          </button>
+          <button type="button" className={styles.botaoNova} onClick={abrirNovaTransacao}>
+            + Nova Transação
+          </button>
+        </div>
       </div>
 
       <div className={styles.filtros}>
@@ -154,6 +168,12 @@ function Transacoes() {
           ))}
         </div>
       </div>
+
+      {mensagemImportacao ? (
+        <p className={styles.mensagemSucesso} aria-live="polite">
+          {mensagemImportacao}
+        </p>
+      ) : null}
 
       {erro ? (
         <p className={styles.errorMessage} aria-live="polite">
@@ -248,6 +268,14 @@ function Transacoes() {
           metas={contribuicaoPendente.metas}
           onConfirmar={handleConfirmarContribuicao}
           onFechar={() => setContribuicaoPendente(null)}
+        />
+      ) : null}
+
+      {modalImportarAberto ? (
+        <ModalImportarExtrato
+          categorias={categorias}
+          onConcluir={handleConcluirImportacao}
+          onCancelar={() => setModalImportarAberto(false)}
         />
       ) : null}
     </div>

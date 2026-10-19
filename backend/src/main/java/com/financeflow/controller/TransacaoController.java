@@ -1,9 +1,14 @@
 package com.financeflow.controller;
 
+import com.financeflow.dto.BancoExtrato;
 import com.financeflow.dto.DespesaPorCategoriaResposta;
 import com.financeflow.dto.EvolucaoMensalResposta;
+import com.financeflow.dto.ImportacaoConfirmacaoRequisicao;
+import com.financeflow.dto.ImportacaoResultadoResposta;
+import com.financeflow.dto.LinhaImportacaoResposta;
 import com.financeflow.dto.TransacaoRequisicao;
 import com.financeflow.dto.TransacaoResposta;
+import com.financeflow.service.ImportacaoExtratoService;
 import com.financeflow.service.TransacaoService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -16,7 +21,10 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
@@ -25,9 +33,11 @@ import java.util.List;
 public class TransacaoController {
 
     private final TransacaoService transacaoService;
+    private final ImportacaoExtratoService importacaoExtratoService;
 
-    public TransacaoController(TransacaoService transacaoService) {
+    public TransacaoController(TransacaoService transacaoService, ImportacaoExtratoService importacaoExtratoService) {
         this.transacaoService = transacaoService;
+        this.importacaoExtratoService = importacaoExtratoService;
     }
 
     @PostMapping
@@ -67,5 +77,18 @@ public class TransacaoController {
     public ResponseEntity<Void> deletar(@PathVariable Long id, Authentication autenticacao) {
         transacaoService.deletar(id, autenticacao.getName());
         return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/importar/preview")
+    public List<LinhaImportacaoResposta> prever(@RequestPart("arquivo") MultipartFile arquivo,
+                                                 @RequestParam("banco") BancoExtrato banco,
+                                                 Authentication autenticacao) {
+        return importacaoExtratoService.prever(arquivo, banco, autenticacao.getName());
+    }
+
+    @PostMapping("/importar/confirmar")
+    public ImportacaoResultadoResposta confirmar(@Valid @RequestBody ImportacaoConfirmacaoRequisicao requisicao,
+                                                  Authentication autenticacao) {
+        return importacaoExtratoService.confirmar(requisicao.linhas(), autenticacao.getName());
     }
 }

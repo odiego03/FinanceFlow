@@ -132,3 +132,30 @@ toda requisição.
 Sem parcelamento, simulação de investimento completa, indicador de
 comprometimento de renda ou sugestões ainda — isso é para sprints
 futuras (ver `backend/CLAUDE.md`).
+
+## Sprint#3 — Telas
+
+- **Importar extrato** (`components/ModalImportarExtrato.jsx`): botão
+  "Importar extrato" em `pages/Transacoes.jsx`, ao lado de "+ Nova
+  Transação". Modal em duas etapas:
+  1. **Upload** — escolhe o banco (Nubank/Itaú) e sobe um `.csv`;
+     chama `transacaoService.importarPreview(banco, arquivo)`
+     (`multipart/form-data` via `FormData` — `api.js` não precisou de
+     nenhuma mudança, o axios detecta `FormData` sozinho).
+  2. **Revisão** — tabela com uma linha por lançamento do preview:
+     checkbox "incluir" (desmarcado por padrão quando a linha já veio
+     `duplicada` do backend), `<select>` de categoria (filtrado por
+     tipo RECEITA/DESPESA, pré-preenchido quando o backend já sugeriu
+     uma categoria aprendida) e um badge de status (Automática /
+     Pendente / Duplicada). Botão "Confirmar importação" fica
+     desabilitado até toda linha incluída ter uma categoria escolhida.
+     Ao confirmar, chama `transacaoService.importarConfirmar(linhas)`
+     — o próprio ato de confirmar "ensina" o sistema pra próxima
+     importação com a mesma descrição (ver `backend/CLAUDE.md` 7.2).
+  - Deliberadamente **não** reaproveita `SeletorCategoria` (grid de
+    cards) na tabela de revisão — card grande não cabe bem numa tabela
+    densa de várias linhas; um `<select>` compacto por linha é o
+    padrão aqui.
+  - O arquivo CSV nunca é mantido no frontend depois do upload — só o
+    array de linhas já parseadas (vindas do preview) fica em estado
+    local até a confirmação.

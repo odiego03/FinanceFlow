@@ -54,6 +54,11 @@ public class TratadorDeExcecoes {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("mensagem", excecao.getMessage()));
     }
 
+    @ExceptionHandler(ArquivoExtratoInvalidoException.class)
+    public ResponseEntity<Map<String, String>> tratarArquivoExtratoInvalido(ArquivoExtratoInvalidoException excecao) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("mensagem", excecao.getMessage()));
+    }
+
     @ExceptionHandler(HttpMessageNotReadableException.class)
     public ResponseEntity<Map<String, String>> tratarCorpoInvalido(HttpMessageNotReadableException excecao) {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("mensagem", "corpo da requisição inválido"));

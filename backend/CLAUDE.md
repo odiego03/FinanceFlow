@@ -120,7 +120,8 @@ investimento é independente.
 O **Indicador de comprometimento de renda** aplica a regra 50/30/20
 (Warren e Tyagi): alerta de **atenção** quando despesas essenciais
 atingem 50% da renda, e de **risco** ao atingir 80% de comprometimento
-total. *(Sprint#3)*
+total. *(sprint a definir — a Sprint#3 acabou sendo focada em
+importação automática de extrato, ver seção 7)*
 
 ---
 
@@ -335,7 +336,98 @@ do rodapé.
 
 ---
 
-## 7. Convenções de código
+## 7. Sprint#3 — Escopo atual
+
+Foco principal: **importação automática de extrato** (CSV do Nubank ou
+Itaú) pra cadastrar Transações em lote, com uma camada de
+"categorização aprendida" que lembra qual categoria o usuário escolheu
+pra cada descrição de lançamento.
+
+Regras importantes dessa feature:
+
+- **Nada é persistido sem revisão do usuário.** O fluxo é em duas
+  fases — `preview` (só lê e devolve o que seria importado, não
+  grava nada) e `confirmar` (só aí cria as Transações de verdade).
+- **O arquivo CSV em si nunca é persistido** — é lido direto do
+  `MultipartFile` (via `InputStream`) e descartado assim que o preview
+  é gerado. Nem disco, nem banco, nem pasta temporária. O único
+  artefato que sobrevive é a própria `Transacao` criada (e a regra de
+  categorização aprendida).
+- **Correspondência de categoria é sempre exata, nunca por
+  similaridade.** Ver `RegraCategorizacao` (7.2) — sem fuzzy matching
+  de propósito, pra não categorizar errado "adivinhando".
+- Bancos suportados: **Nubank** e **Itaú**, cada um com seu parser
+  dedicado (layout nativo, não um formato CSV genérico) — usuário
+  escolhe o banco ao subir o arquivo.
+- Duplicata (mesma `usuario` + `data` + `valor` + `descricao` de uma
+  Transação já existente) é detectada no preview e sinalizada — o
+  frontend desmarca essas linhas por padrão, mas o usuário pode
+  re-incluir manualmente.
+
+### 7.1 Parsers de extrato (`service/extrato/`)
+
+`ExtratoParser` (interface) → `List<LinhaExtratoBruta>` (record
+interno: `data, descricao, valorComSinal` — sinal negativo vira
+DESPESA, positivo vira RECEITA, conversão feita uma camada acima dos
+parsers pra não duplicar essa lógica em cada banco).
+
+- `NubankExtratoParser`: CSV separado por vírgula, colunas
+  `Data`/`Valor`/`Descrição`, data `AAAA-MM-DD`, UTF-8.
+- `ItauExtratoParser`: CSV separado por `;`, pode ter linhas de
+  metadados antes da tabela real (localizadas heuristicamente
+  procurando a primeira linha com "data" e "valor"), colunas
+  `data`/`lançamento`/`valor`, data `DD/MM/AAAA`, decimal com vírgula.
+
+> **Risco conhecido**: os layouts exatos (nomes de coluna, separador,
+> encoding) foram implementados com base no formato mais comum
+> conhecido de cada banco, não a partir de um arquivo real exportado.
+> Se um usuário real tiver erro ao importar, o primeiro passo é
+> comparar o CSV dele com o que os parsers esperam — ver
+> `NubankExtratoParser`/`ItauExtratoParser` (comentário no topo de
+> cada classe documenta o layout assumido).
+
+### 7.2 Categorização aprendida — `RegraCategorizacao`
+
+| Campo | Tipo | Regra |
+|-------|------|-------|
+| id | Long (PK, auto) | — |
+| usuario | Usuario (`@ManyToOne`) | obrigatório |
+| descricaoNormalizada | String | obrigatório |
+| categoria | Categoria (`@ManyToOne`) | obrigatório |
+
+Constraint única em `(usuario_id, descricao_normalizada)`. Normalização
+(`ImportacaoExtratoService.normalizar`) é só `trim` + maiúsculas +
+colapsar espaços — nada de remover números/trechos da descrição, pra
+não misturar lojas diferentes na mesma regra por engano.
+
+A cada confirmação de importação, toda linha confirmada faz
+upsert da regra correspondente (cria se não existe, atualiza a
+categoria se já existia) — é assim que o sistema "aprende": na
+próxima importação com a mesma descrição normalizada, a categoria já
+vem sugerida automaticamente (e só é aplicada se o tipo da categoria
+aprendida bater com o tipo derivado do sinal da linha nova — evita
+sugerir uma categoria de receita pra uma linha que virou despesa).
+
+### 7.3 Endpoints
+
+- `POST /transacoes/importar/preview` (multipart: `arquivo` +
+  `banco` = `NUBANK`/`ITAU`) → `List<LinhaImportacaoResposta>` (data,
+  descricao, valor, tipo, categoriaIdSugerida, categoriaNomeSugerida,
+  duplicada). Não persiste nada.
+- `POST /transacoes/importar/confirmar` (JSON `{"linhas": [...]}` —
+  **tem que vir embrulhado nesse objeto**, não uma lista solta: um
+  `@Valid` direto num `List<T>` como `@RequestBody` não cascade a
+  validação pros elementos da lista, foi um bug real encontrado e
+  corrigido durante a implementação) → cria as Transações e
+  aprende/atualiza as `RegraCategorizacao` correspondentes.
+
+`spring.servlet.multipart.max-file-size`/`max-request-size` subidos
+pra 5MB em `application.properties` (default do Spring Boot é 1MB,
+baixo demais pra um extrato com muitos lançamentos).
+
+---
+
+## 8. Convenções de código
 
 - Nomes de classes, métodos, variáveis, parâmetros e pacotes internos
   em **português**, em todo o código (não só nas entidades) — ex:
@@ -354,7 +446,7 @@ do rodapé.
 
 ---
 
-## 8. Como rodar localmente
+## 9. Como rodar localmente
 
 O banco Postgres é compartilhado (hospedado no Neon) — ninguém precisa
 instalar Postgres localmente.
@@ -381,13 +473,19 @@ manual.
 
 ---
 
-## 9. Próximos passos (na ordem)
+## 10. Próximos passos (na ordem)
 
 Sprint#2 concluída: `MetaFinanceira` com progresso via
 `ContribuicaoMeta` (contribuição por Transação, limitada ao saldo dela
 — RN007), gráficos do Dashboard, `icone` (Bootstrap Icons)/`cor` em
 `Categoria`, categorias pré-definidas com seed silencioso e
 indicadores de mercado (Selic/Dólar/Ibovespa).
+
+Sprint#3 implementada: importação de extrato (Nubank/Itaú) com
+categorização aprendida (ver seção 7). **Pendente de validação com
+arquivo real** de cada banco (risco conhecido documentado em 7.1) —
+primeira coisa a confirmar antes de considerar a sprint
+definitivamente fechada.
 
 Não avance para Parcelamento, Simulação de investimento completa
 (RN005/RN006), Indicador de comprometimento de renda ou Sugestões sem

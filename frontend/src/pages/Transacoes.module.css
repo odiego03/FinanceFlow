@@ -19,6 +19,12 @@
   color: #111827;
 }
 
+.acoesCabecalho {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
 .botaoNova {
   border: none;
   border-radius: 10px;
@@ -32,6 +38,32 @@
 
 .botaoNova:hover {
   background: #1d4ed8;
+}
+
+.botaoImportar {
+  border: 1.5px solid #2563eb;
+  border-radius: 10px;
+  background: #ffffff;
+  color: #2563eb;
+  font-weight: 700;
+  font-size: 0.95rem;
+  padding: 11px 18px;
+  cursor: pointer;
+}
+
+.botaoImportar:hover {
+  background: #eef2ff;
+}
+
+.mensagemSucesso {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  font-size: 0.92rem;
+  font-weight: 500;
+  background: rgba(22, 163, 74, 0.08);
+  color: #15803d;
+  border: 1px solid rgba(22, 163, 74, 0.2);
 }
 
 .filtros {
