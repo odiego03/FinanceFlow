@@ -96,8 +96,7 @@ investimento é independente.
 - **RN004 — Parcelamento**: ao parcelar uma transação, o sistema divide
   o valor igualmente entre as parcelas e gera os lançamentos futuros
   automaticamente. Sugere um limite máximo de parcelas com base na
-  margem financeira disponível do usuário. *(ainda não implementado —
-  sprint a definir)*
+  margem financeira disponível do usuário. *(Sprint#4)*
 - **RN005 — Simulação de investimento**: consulta a API pública do
   Banco Central (taxas Selic, CDB, Poupança) e calcula o rendimento
   projetado para valor e prazo informados. *(Sprint#4)*
@@ -120,8 +119,8 @@ investimento é independente.
 O **Indicador de comprometimento de renda** aplica a regra 50/30/20
 (Warren e Tyagi): alerta de **atenção** quando despesas essenciais
 atingem 50% da renda, e de **risco** ao atingir 80% de comprometimento
-total. *(sprint a definir — a Sprint#3 acabou sendo focada em
-importação automática de extrato, ver seção 7)*
+total. *(Sprint#3, junto com a importação de extrato — detalhamento
+no roadmap do `README.md`)*
 
 ---
 
@@ -487,6 +486,13 @@ arquivo real** de cada banco (risco conhecido documentado em 7.1) —
 primeira coisa a confirmar antes de considerar a sprint
 definitivamente fechada.
 
-Não avance para Parcelamento, Simulação de investimento completa
-(RN005/RN006), Indicador de comprometimento de renda ou Sugestões sem
-alinhar antes — seguem para sprints futuras.
+Restante da Sprint#3 (combinado com o grupo): validação dos parsers
+com CSV real, Indicador de comprometimento de renda (campo
+`essencial` em `Categoria`) e correções da auditoria (`@Transactional`,
+exclusão de categoria em uso, consistência de contribuições ao editar,
+`401` + logout automático, cards do Dashboard por mês).
+
+Sprint#4 (última): Parcelamento (RN004), Simulação de investimento
+(RN005), Sugestões personalizadas (RN006), testes dos Services e
+encerramento. O checklist completo das duas sprints está na seção
+"Roadmap" do `README.md` — ele é a fonte de verdade do planejamento.
