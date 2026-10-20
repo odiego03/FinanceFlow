@@ -8,10 +8,12 @@ import java.time.LocalDate;
 public record LinhaImportacaoResposta(
         LocalDate data,
         String descricao,
+        String chave,
         BigDecimal valor,
         TipoMovimentacao tipo,
         Long categoriaIdSugerida,
         String categoriaNomeSugerida,
+        OrigemSugestaoCategoria origemSugestao,
         boolean duplicada
 ) {
 }

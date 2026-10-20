@@ -1,5 +1,7 @@
 import { useMemo, useState } from 'react'
 import * as transacaoService from '../services/transacaoService'
+import { agruparReceitasPorMeta } from '../utils/agruparReceitasPorMeta'
+import DestinarMetasImportacao from './DestinarMetasImportacao'
 import styles from './ModalImportarExtrato.module.css'
 
 const formatadorMoeda = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' })
@@ -10,8 +12,31 @@ const BANCOS = [
   { valor: 'ITAU', texto: 'Itaú' },
 ]
 
-function ModalImportarExtrato({ categorias, onConcluir, onCancelar }) {
+const BADGES_POR_ORIGEM = {
+  APRENDIDA: { classe: 'badgeAutomatica', texto: 'Aprendida', dica: 'Mesma categoria que você escolheu numa importação anterior' },
+  MESMO_FAVORECIDO: { classe: 'badgeAutomatica', texto: 'Mesmo favorecido', dica: 'Copiada de outra linha deste extrato com o mesmo favorecido' },
+  PALAVRA_CHAVE: { classe: 'badgeSugerida', texto: 'Sugerida', dica: 'Sugerida pela descrição — confira' },
+  MANUAL: { classe: 'badgeManual', texto: 'Manual', dica: 'Escolhida por você' },
+}
+
+function BadgeStatus({ linha }) {
+  if (linha.duplicada && !linha.incluida) {
+    return <span className={styles.badgeDuplicada}>Duplicada</span>
+  }
+  if (!linha.categoriaId) {
+    return <span className={styles.badgePendente}>Pendente</span>
+  }
+  const badge = BADGES_POR_ORIGEM[linha.origem] ?? BADGES_POR_ORIGEM.MANUAL
+  return (
+    <span className={styles[badge.classe]} title={badge.dica}>
+      {badge.texto}
+    </span>
+  )
+}
+
+function ModalImportarExtrato({ categorias, metas, onConcluir, onCancelar }) {
   const [etapa, setEtapa] = useState('upload')
+  const [resultadoImportacao, setResultadoImportacao] = useState(null)
   const [banco, setBanco] = useState('NUBANK')
   const [arquivo, setArquivo] = useState(null)
   const [linhas, setLinhas] = useState([])
@@ -39,6 +64,7 @@ function ModalImportarExtrato({ categorias, onConcluir, onCancelar }) {
         resposta.map((linha) => ({
           ...linha,
           categoriaId: linha.categoriaIdSugerida ? String(linha.categoriaIdSugerida) : '',
+          origem: linha.origemSugestao,
           incluida: !linha.duplicada,
         })),
       )
@@ -54,7 +80,26 @@ function ModalImportarExtrato({ categorias, onConcluir, onCancelar }) {
     setLinhas((atual) => atual.map((linha, i) => (i === indice ? { ...linha, ...campos } : linha)))
   }
 
+  // Escolher a categoria de uma linha preenche as outras linhas pendentes do mesmo favorecido (mesma chave e tipo)
+  const alterarCategoria = (indice, categoriaId) => {
+    setLinhas((atual) => {
+      const alterada = atual[indice]
+      return atual.map((linha, i) => {
+        if (i === indice) {
+          return { ...linha, categoriaId, origem: categoriaId ? 'MANUAL' : null }
+        }
+        const mesmoFavorecido = linha.chave === alterada.chave && linha.tipo === alterada.tipo
+        if (categoriaId && mesmoFavorecido && !linha.categoriaId) {
+          return { ...linha, categoriaId, origem: 'MESMO_FAVORECIDO' }
+        }
+        return linha
+      })
+    })
+  }
+
   const linhasIncluidas = linhas.filter((linha) => linha.incluida)
+  const quantidadePendentes = linhasIncluidas.filter((linha) => !linha.categoriaId).length
+  const quantidadeSugeridas = linhasIncluidas.filter((linha) => linha.origem === 'PALAVRA_CHAVE').length
   const podeConfirmar = linhasIncluidas.length > 0 && linhasIncluidas.every((linha) => linha.categoriaId)
 
   const handleConfirmar = async () => {
@@ -69,22 +114,37 @@ function ModalImportarExtrato({ categorias, onConcluir, onCancelar }) {
         categoriaId: Number(linha.categoriaId),
       }))
       const resultado = await transacaoService.importarConfirmar(payload)
-      onConcluir(resultado.transacoesCriadas)
+      const grupos = agruparReceitasPorMeta(resultado.transacoes, metas)
+      if (grupos.length === 0) {
+        onConcluir(resultado.transacoesCriadas, 0)
+        return
+      }
+      setResultadoImportacao({ quantidade: resultado.transacoesCriadas, grupos })
+      setEtapa('metas')
+      setCarregando(false)
     } catch (erroRequisicao) {
       setErro(erroRequisicao.response?.data?.mensagem || 'Não foi possível confirmar a importação.')
       setCarregando(false)
     }
   }
 
+  // Na etapa de metas as transações já existem: fechar pelo fundo perderia o aviso de sucesso, então não fecha
+  const fecharPeloFundo = etapa === 'metas' ? undefined : onCancelar
+
   return (
-    <div className={styles.backdrop} onClick={onCancelar}>
+    <div className={styles.backdrop} onClick={fecharPeloFundo}>
       <div
-        className={`${styles.modal} ${etapa === 'revisao' ? styles.modalLargo : ''}`}
+        className={`${styles.modal} ${etapa !== 'upload' ? styles.modalLargo : ''}`}
         onClick={(event) => event.stopPropagation()}
       >
-        <h2>Importar extrato</h2>
+        <h2>{etapa === 'metas' ? `${resultadoImportacao.quantidade} transação(ões) importada(s) — destinar às metas?` : 'Importar extrato'}</h2>
 
-        {etapa === 'upload' ? (
+        {etapa === 'metas' ? (
+          <DestinarMetasImportacao
+            grupos={resultadoImportacao.grupos}
+            onConcluir={(totalDestinado) => onConcluir(resultadoImportacao.quantidade, totalDestinado)}
+          />
+        ) : etapa === 'upload' ? (
           <form onSubmit={handleAnalisar}>
             <span className={styles.label}>Banco</span>
             <div className={styles.bancoGroup}>
@@ -131,6 +191,14 @@ function ModalImportarExtrato({ categorias, onConcluir, onCancelar }) {
           </form>
         ) : (
           <>
+            <p className={styles.ajuda}>
+              {quantidadePendentes > 0
+                ? `${quantidadePendentes} lançamento(s) pendente(s) de categoria. `
+                : 'Todos os lançamentos incluídos têm categoria. '}
+              {quantidadeSugeridas > 0
+                ? `${quantidadeSugeridas} com categoria sugerida pela descrição — confira antes de confirmar.`
+                : ''}
+            </p>
             <div className={styles.tabelaWrapper}>
               <table className={styles.tabela}>
                 <thead>
@@ -163,7 +231,7 @@ function ModalImportarExtrato({ categorias, onConcluir, onCancelar }) {
                           className={styles.selectCategoria}
                           value={linha.categoriaId}
                           disabled={!linha.incluida}
-                          onChange={(event) => alterarLinha(indice, { categoriaId: event.target.value })}
+                          onChange={(event) => alterarCategoria(indice, event.target.value)}
                         >
                           <option value="">Selecione</option>
                           {categoriasPorTipo[linha.tipo].map((categoria) => (
@@ -174,13 +242,7 @@ function ModalImportarExtrato({ categorias, onConcluir, onCancelar }) {
                         </select>
                       </td>
                       <td>
-                        {linha.duplicada ? (
-                          <span className={styles.badgeDuplicada}>Duplicada</span>
-                        ) : linha.categoriaIdSugerida ? (
-                          <span className={styles.badgeAutomatica}>Automática</span>
-                        ) : (
-                          <span className={styles.badgePendente}>Pendente</span>
-                        )}
+                        <BadgeStatus linha={linha} />
                       </td>
                     </tr>
                   ))}
