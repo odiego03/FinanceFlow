@@ -21,6 +21,7 @@ import com.financeflow.repository.MetaFinanceiraRepository;
 import com.financeflow.repository.TransacaoRepository;
 import com.financeflow.repository.UsuarioRepository;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -78,6 +79,16 @@ public class MetaFinanceiraService {
         MetaFinanceira meta = buscarEntidadePorId(id, emailUsuario);
         Categoria categoria = buscarCategoriaValida(requisicao.categoriaId(), meta.getUsuario().getId());
 
+        BigDecimal jaContribuido = repositorioContribuicao.somarPorMeta(meta.getId());
+        if (requisicao.valorAlvo().compareTo(jaContribuido) < 0) {
+            throw new ContribuicaoInvalidaException(
+                    "o valor alvo não pode ficar menor que o já contribuído pra essa meta (" + jaContribuido + ")");
+        }
+        if (jaContribuido.signum() > 0 && !categoria.getId().equals(meta.getCategoria().getId())) {
+            throw new ContribuicaoInvalidaException(
+                    "essa meta já recebeu contribuições da categoria atual, então a categoria não pode mudar");
+        }
+
         meta.setNome(requisicao.nome());
         meta.setValorAlvo(requisicao.valorAlvo());
         meta.setCategoria(categoria);
@@ -88,6 +99,7 @@ public class MetaFinanceiraService {
         return montarResposta(meta);
     }
 
+    @Transactional
     public void deletar(Long id, String emailUsuario) {
         MetaFinanceira meta = buscarEntidadePorId(id, emailUsuario);
         repositorioContribuicao.deleteAll(repositorioContribuicao.findByMetaId(meta.getId()));

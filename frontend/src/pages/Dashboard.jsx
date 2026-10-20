@@ -12,6 +12,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
+import * as comprometimentoService from '../services/comprometimentoService'
 import * as transacaoService from '../services/transacaoService'
 import styles from './Dashboard.module.css'
 
@@ -76,6 +77,76 @@ function rotuloFatia({ categoriaNome, percent }) {
   return percent >= 0.05 ? `${categoriaNome} ${(percent * 100).toFixed(0)}%` : null
 }
 
+const formatadorPercentual = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 1 })
+
+// Status sempre com ícone + texto, nunca só cor
+const NIVEIS_COMPROMETIMENTO = {
+  NORMAL: { texto: 'Saudável', icone: 'check-circle-fill', classe: 'nivelNormal' },
+  ATENCAO: { texto: 'Atenção', icone: 'exclamation-triangle-fill', classe: 'nivelAtencao' },
+  RISCO: { texto: 'Risco', icone: 'x-octagon-fill', classe: 'nivelRisco' },
+  SEM_RENDA: { texto: 'Sem renda no mês', icone: 'dash-circle', classe: 'nivelNeutro' },
+}
+
+function CardComprometimento({ mesFiltro, carregando, indicador }) {
+  let conteudo
+  if (!mesFiltro) {
+    conteudo = (
+      <>
+        <strong className={styles.valorIndisponivel}>—</strong>
+        <span className={styles.legendaCard}>Escolha um mês no período</span>
+      </>
+    )
+  } else if (carregando || !indicador) {
+    conteudo = <strong className={styles.valorNeutro}>...</strong>
+  } else {
+    const nivel = NIVEIS_COMPROMETIMENTO[indicador.nivel]
+    const temRenda = indicador.percentualTotal !== null
+    conteudo = (
+      <>
+        <strong className={temRenda ? styles.valorNeutro : styles.valorIndisponivel}>
+          {temRenda ? `${formatadorPercentual.format(indicador.percentualTotal)}%` : '—'}
+        </strong>
+        <span className={`${styles.nivel} ${styles[nivel.classe]}`}>
+          <i className={`bi bi-${nivel.icone}`} aria-hidden="true" /> {nivel.texto}
+        </span>
+        {temRenda ? (
+          <span className={styles.legendaCard}>
+            Essenciais: {formatadorPercentual.format(indicador.percentualEssencial)}% da renda
+          </span>
+        ) : null}
+      </>
+    )
+  }
+
+  return (
+    <div className={styles.card}>
+      <div className={styles.cardTopo}>
+        <span title="Quanto da renda do mês já foi gasto (regra 50/30/20)">Comprometimento</span>
+      </div>
+      {conteudo}
+    </div>
+  )
+}
+
+function AlertaComprometimento({ indicador, rotuloPeriodo }) {
+  if (!indicador || (indicador.nivel !== 'ATENCAO' && indicador.nivel !== 'RISCO')) {
+    return null
+  }
+  const risco = indicador.nivel === 'RISCO'
+  const nivel = NIVEIS_COMPROMETIMENTO[indicador.nivel]
+  return (
+    <div className={`${styles.alerta} ${risco ? styles.alertaRisco : styles.alertaAtencao}`} role="status">
+      <i className={`bi bi-${nivel.icone}`} aria-hidden="true" />
+      <p>
+        <strong>{nivel.texto}:</strong>{' '}
+        {risco
+          ? `suas despesas já comprometem ${formatadorPercentual.format(indicador.percentualTotal)}% da renda de ${rotuloPeriodo}. Acima de 80% sobra pouca margem pra imprevistos e pra poupar.`
+          : `suas despesas essenciais já somam ${formatadorPercentual.format(indicador.percentualEssencial)}% da renda de ${rotuloPeriodo}. Pela regra 50/30/20, o recomendado é até 50%.`}
+      </p>
+    </div>
+  )
+}
+
 function Dashboard() {
   const [transacoes, setTransacoes] = useState([])
   const [carregandoTransacoes, setCarregandoTransacoes] = useState(true)
@@ -87,6 +158,8 @@ function Dashboard() {
 
   const [tipoCategoria, setTipoCategoria] = useState('DESPESA')
   const [respostaCategoria, setRespostaCategoria] = useState({ filtro: null, dados: [] })
+
+  const [respostaComprometimento, setRespostaComprometimento] = useState({ filtro: null, dados: null })
 
   const [erro, setErro] = useState('')
 
@@ -115,6 +188,19 @@ function Dashboard() {
   const filtroCategoria = `${tipoCategoria}|${mesFiltro ?? TODO_PERIODO}`
   const carregandoCategoria = carregandoTransacoes || respostaCategoria.filtro !== filtroCategoria
   const carregandoEvolucao = respostaEvolucao.filtro !== mesesEvolucao
+  const carregandoComprometimento = carregandoTransacoes || respostaComprometimento.filtro !== mesFiltro
+
+  // Indicador é mensal: em "Todo o período" não busca nada (o card pede pra escolher um mês)
+  useEffect(() => {
+    if (carregandoTransacoes || !mesFiltro) return
+    comprometimentoService
+      .buscar(mesFiltro)
+      .then((dados) => setRespostaComprometimento({ filtro: mesFiltro, dados }))
+      .catch(() => {
+        setErro('Não foi possível carregar os dados financeiros.')
+        setRespostaComprometimento({ filtro: mesFiltro, dados: null })
+      })
+  }, [mesFiltro, carregandoTransacoes])
 
   useEffect(() => {
     if (carregandoTransacoes) return
@@ -214,14 +300,16 @@ function Dashboard() {
           <span className={styles.legendaCard}>{rotuloPeriodo}</span>
         </div>
 
-        <div className={styles.card}>
-          <div className={styles.cardTopo}>
-            <span>Comprometimento</span>
-          </div>
-          <strong className={styles.valorIndisponivel}>—</strong>
-          <span className={styles.emBreve}>Em breve</span>
-        </div>
+        <CardComprometimento
+          mesFiltro={mesFiltro}
+          carregando={carregandoComprometimento}
+          indicador={respostaComprometimento.dados}
+        />
       </div>
+
+      {!carregandoComprometimento && mesFiltro ? (
+        <AlertaComprometimento indicador={respostaComprometimento.dados} rotuloPeriodo={rotuloPeriodo} />
+      ) : null}
 
       <div className={styles.graficos}>
         <div className={styles.graficoCard}>

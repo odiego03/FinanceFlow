@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import ModalConfirmacao from '../components/ModalConfirmacao'
 import ModalMeta from '../components/ModalMeta'
+import { mensagemDeErro } from '../services/api'
 import * as categoriaService from '../services/categoriaService'
 import * as metaService from '../services/metaService'
 import styles from './Metas.module.css'
@@ -74,7 +75,7 @@ function Metas() {
       await carregarDados()
       setMetaParaExcluir(null)
     } catch (erroRequisicao) {
-      setErro('Não foi possível excluir a meta.')
+      setErro(mensagemDeErro(erroRequisicao, 'Não foi possível excluir a meta.'))
       setMetaParaExcluir(null)
     }
   }

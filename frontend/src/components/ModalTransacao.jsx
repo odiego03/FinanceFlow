@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import SeletorCategoria from './SeletorCategoria'
+import { mensagemDeErro } from '../services/api'
 import styles from './ModalTransacao.module.css'
 
 function ModalTransacao({ transacaoEmEdicao, categorias, onSalvar, onCancelar }) {
@@ -42,7 +43,7 @@ function ModalTransacao({ transacaoEmEdicao, categorias, onSalvar, onCancelar })
         data,
       })
     } catch (erroRequisicao) {
-      setErro('Não foi possível salvar a transação.')
+      setErro(mensagemDeErro(erroRequisicao, 'Não foi possível salvar a transação.'))
       setSalvando(false)
     }
   }

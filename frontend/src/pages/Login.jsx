@@ -1,11 +1,25 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
+import { CHAVE_SESSAO_EXPIRADA } from '../services/api'
 import * as usuarioService from '../services/usuarioService'
 import styles from './Login.module.css'
 
 const ABA_LOGIN = 'login'
 const ABA_CADASTRO = 'cadastro'
+
+// Aviso deixado pelo interceptor do axios quando o token expira (lido uma vez só)
+function lerAvisoSessaoExpirada() {
+  try {
+    if (sessionStorage.getItem(CHAVE_SESSAO_EXPIRADA)) {
+      sessionStorage.removeItem(CHAVE_SESSAO_EXPIRADA)
+      return 'Sua sessão expirou. Entre de novo.'
+    }
+  } catch {
+    // sem sessionStorage, segue sem o aviso
+  }
+  return ''
+}
 
 function Login() {
   const { entrar } = useAuth()
@@ -14,7 +28,7 @@ function Login() {
   const [nome, setNome] = useState('')
   const [email, setEmail] = useState('')
   const [senha, setSenha] = useState('')
-  const [erro, setErro] = useState('')
+  const [erro, setErro] = useState(lerAvisoSessaoExpirada)
   const [carregando, setCarregando] = useState(false)
 
   const trocarAba = (novaAba) => {

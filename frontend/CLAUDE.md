@@ -56,6 +56,19 @@ toda requisição.
 - Rotas que exigem login usam um componente `RotaProtegida` que
   redireciona para `/login` se não houver usuário autenticado no
   contexto.
+- **Sessão expirada**: o backend responde `401` pra token ausente,
+  inválido ou expirado. O interceptor de resposta em `services/api.js`
+  pega um `401` de uma requisição que **levava** token, apaga o token,
+  marca `financeflow.sessaoExpirada` no `sessionStorage` e recarrega em
+  `/login` (recarregar de propósito zera todo o estado, inclusive o
+  `AuthContext`, sem acoplar o axios ao React). `Login.jsx` lê essa
+  marca uma vez e mostra "Sua sessão expirou. Entre de novo." O `401`
+  do próprio `POST /login` (senha errada) não tem token, então não
+  dispara isso.
+- **Mensagens de erro**: `mensagemDeErro(erro, padrao)` em
+  `services/api.js` devolve o `mensagem` que o backend manda (ex: o
+  motivo do `409` ao excluir categoria em uso) ou o texto padrão da
+  tela — usar isso nos `catch` em vez de texto fixo.
 
 ## Sprint#1 — Telas necessárias (concluída)
 
@@ -205,3 +218,16 @@ futuras (ver `backend/CLAUDE.md`).
   perderia o aviso de sucesso). Sem receita de meta, o modal fecha
   direto como antes. A mensagem de sucesso em Transações inclui o total
   destinado às metas.
+- **Indicador de comprometimento** (card "Comprometimento" de
+  `pages/Dashboard.jsx`, serviço `services/comprometimentoService.js`):
+  segue o filtro de período do Dashboard — em "Todo o período" não
+  busca nada e pede pra escolher um mês, porque o indicador é mensal.
+  Mostra o percentual total da renda comprometido, o nível como chip
+  com **ícone + texto** (Saudável / Atenção / Risco / Sem renda no mês
+  — nunca só cor) e o percentual das essenciais. Em `ATENCAO` ou
+  `RISCO`, um alerta abaixo dos cards explica o motivo em texto.
+- **Categoria essencial**: `ModalCategoria` mostra o checkbox "Despesa
+  essencial" só quando o tipo é DESPESA (receita sempre manda
+  `essencial: false`); a lista de Categorias mostra um selo "Essencial".
+  O valor que vem do backend já é o efetivo (resolve o padrão das
+  pré-definidas pra categorias antigas).

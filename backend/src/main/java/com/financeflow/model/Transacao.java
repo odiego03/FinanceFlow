@@ -46,6 +46,10 @@ public class Transacao {
     @Column(name = "criado_em", nullable = false, updatable = false)
     private LocalDateTime criadoEm;
 
+    // Id do lançamento no extrato do banco (o Nubank manda um UUID por linha); null em lançamento manual
+    @Column(name = "identificador_externo")
+    private String identificadorExterno;
+
     public Long getId() {
         return id;
     }
@@ -108,5 +112,13 @@ public class Transacao {
 
     public void setCriadoEm(LocalDateTime criadoEm) {
         this.criadoEm = criadoEm;
+    }
+
+    public String getIdentificadorExterno() {
+        return identificadorExterno;
+    }
+
+    public void setIdentificadorExterno(String identificadorExterno) {
+        this.identificadorExterno = identificadorExterno;
     }
 }

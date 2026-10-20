@@ -30,11 +30,21 @@ class NubankExtratoParserTest {
 
         assertThat(linhas).containsExactly(
                 new LinhaExtratoBruta(LocalDate.of(2026, 9, 2),
-                        "Transferência recebida pelo Pix - EMPRESA EXEMPLO LTDA", new BigDecimal("399.04")),
+                        "Transferência recebida pelo Pix - EMPRESA EXEMPLO LTDA", new BigDecimal("399.04"),
+                        "6a980631-1e99-45eb-a200-24a15a02c484"),
                 new LinhaExtratoBruta(LocalDate.of(2026, 9, 2),
-                        "Transferência enviada pelo Pix - Fulano de Tal", new BigDecimal("-29")),
+                        "Transferência enviada pelo Pix - Fulano de Tal", new BigDecimal("-29"),
+                        "6a98c935-2d78-4ec9-b150-7d556b5b818a"),
                 new LinhaExtratoBruta(LocalDate.of(2026, 9, 11),
-                        "Compra no débito via NuPay - iFood", new BigDecimal("-15.98")));
+                        "Compra no débito via NuPay - iFood", new BigDecimal("-15.98"),
+                        "6aa42e79-f050-4ef4-ac28-35b6c101b285"));
+    }
+
+    @Test
+    void extratoSemColunaIdentificadorTemIdentificadorNulo() {
+        String csv = "Data,Valor,Descrição\n02/09/2026,10,Teste\n";
+
+        assertThat(parser.parsear(arquivo(csv)).get(0).identificador()).isNull();
     }
 
     @Test

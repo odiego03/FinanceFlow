@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import SeletorCategoria from './SeletorCategoria'
+import { mensagemDeErro } from '../services/api'
 import styles from './ModalMeta.module.css'
 
 function ModalMeta({ metaEmEdicao, categoriasReceita, onSalvar, onCancelar }) {
@@ -38,7 +39,7 @@ function ModalMeta({ metaEmEdicao, categoriasReceita, onSalvar, onCancelar }) {
         dataAlvo: dataAlvo || null,
       })
     } catch (erroRequisicao) {
-      setErro('Não foi possível salvar a meta.')
+      setErro(mensagemDeErro(erroRequisicao, 'Não foi possível salvar a meta.'))
       setSalvando(false)
     }
   }

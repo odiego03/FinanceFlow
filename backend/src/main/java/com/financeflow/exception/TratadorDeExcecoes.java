@@ -30,6 +30,11 @@ public class TratadorDeExcecoes {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("mensagem", excecao.getMessage()));
     }
 
+    @ExceptionHandler(CategoriaEmUsoException.class)
+    public ResponseEntity<Map<String, String>> tratarCategoriaEmUso(CategoriaEmUsoException excecao) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("mensagem", excecao.getMessage()));
+    }
+
     @ExceptionHandler(TransacaoNaoEncontradaException.class)
     public ResponseEntity<Map<String, String>> tratarTransacaoNaoEncontrada(TransacaoNaoEncontradaException excecao) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("mensagem", excecao.getMessage()));

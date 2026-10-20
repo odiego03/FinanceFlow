@@ -12,4 +12,6 @@ public interface RegraCategorizacaoRepository extends JpaRepository<RegraCategor
     List<RegraCategorizacao> findByUsuarioIdAndDescricaoNormalizadaIn(Long usuarioId, Collection<String> descricoesNormalizadas);
 
     Optional<RegraCategorizacao> findByUsuarioIdAndDescricaoNormalizada(Long usuarioId, String descricaoNormalizada);
+
+    void deleteByCategoriaId(Long categoriaId);
 }
