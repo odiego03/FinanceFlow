@@ -119,8 +119,15 @@ investimento é independente.
 O **Indicador de comprometimento de renda** aplica a regra 50/30/20
 (Warren e Tyagi): alerta de **atenção** quando despesas essenciais
 atingem 50% da renda, e de **risco** ao atingir 80% de comprometimento
-total. *(Sprint#3, junto com a importação de extrato — detalhamento
-no roadmap do `README.md`)*
+total (risco prevalece sobre atenção). *(Sprint#3)* Implementado em
+`CalculadoraComprometimento` (regra pura, testada) +
+`IndicadorComprometimentoService` (`GET /indicadores/comprometimento`).
+"Essencial" é o campo `Categoria.essencial` (só despesa); quando é
+`null` (categoria criada antes do campo), vale o padrão do catálogo de
+pré-definidas pelo nome — `CategoriasPredefinidas.ehEssencial`, sem
+migração de dados. Mês sem receita → nível `SEM_RENDA`, percentuais
+`null`. Os limites comparam o percentual com 4 casas; a resposta é
+arredondada pra 1 casa.
 
 ---
 
@@ -249,16 +256,19 @@ Consequências em cascata, tratadas em `TransacaoService`:
 - Editar uma Transação (`PUT /transacoes/{id}`) pra um `valor` menor
   que o total já contribuído a partir dela lança
   `ContribuicaoInvalidaException` (400) — não deixa o saldo negativo.
+- Editar uma Transação que já tem contribuições: `tipo` e `categoria`
+  não podem mudar (400) — a contribuição só vale pra receita da
+  categoria da meta. Pra corrigir, o usuário exclui a transação (as
+  contribuições saem junto) e lança de novo.
 - Excluir uma Transação (`DELETE /transacoes/{id}`) apaga em cascata
-  suas `ContribuicaoMeta` (senão ficariam órfãs).
+  suas `ContribuicaoMeta` (senão ficariam órfãs), em `@Transactional`.
 - Excluir uma `MetaFinanceira` apaga em cascata suas
-  `ContribuicaoMeta`.
+  `ContribuicaoMeta`, em `@Transactional`.
 
-Não há re-validação quando a categoria da meta muda (`PUT /metas/{id}`
-com `categoriaId` diferente) — contribuições já registradas continuam
-contando pro progresso mesmo que a meta passe a apontar pra outra
-categoria depois. Aceitável pelo escopo atual; revisar se isso virar
-um problema real de uso.
+Em `MetaFinanceiraService.atualizar`: `valorAlvo` não pode ficar menor
+que o já contribuído, e a `categoria` não pode mudar se a meta já tem
+contribuições (as duas dão 400) — senão o progresso passaria de 100%
+ou contaria receitas de uma categoria que não é mais a da meta.
 
 ### 6.2 `Categoria` — `icone` e `cor`
 
@@ -367,10 +377,18 @@ Regras importantes dessa feature:
 - Bancos suportados: **Nubank** e **Itaú**, cada um com seu parser
   dedicado (layout nativo, não um formato CSV genérico) — usuário
   escolhe o banco ao subir o arquivo.
-- Duplicata (mesma `usuario` + `data` + `valor` + `descricao` de uma
-  Transação já existente) é detectada no preview e sinalizada — o
-  frontend desmarca essas linhas por padrão, mas o usuário pode
-  re-incluir manualmente.
+- Duplicata é detectada no preview e sinalizada — o frontend desmarca
+  essas linhas por padrão, mas o usuário pode re-incluir manualmente.
+  Linha **com** identificador (Nubank — coluna `Identificador`, UUID
+  por lançamento, salvo em `Transacao.identificadorExterno`): é
+  duplicada se já existe transação com o mesmo identificador, ou uma
+  sem identificador (importada antes da coluna existir) com mesma
+  `data` + `valor` + `descricao`. Linha **sem** identificador (Itaú):
+  só `data` + `valor` + `descricao`. Assim duas compras iguais no mesmo
+  dia, cada uma com seu identificador, não se marcam como duplicadas.
+  O preview carrega as transações do intervalo de datas do arquivo numa
+  consulta só (`TransacaoRepository.buscarResumoParaDuplicata`) e
+  compara em memória — antes era um `exists` por linha.
 
 ### 7.1 Parsers de extrato (`service/extrato/`)
 
@@ -529,18 +547,16 @@ Sprint#2 concluída: `MetaFinanceira` com progresso via
 `Categoria`, categorias pré-definidas com seed silencioso e
 indicadores de mercado (Selic/Dólar/Ibovespa).
 
-Sprint#3 implementada: importação de extrato (Nubank/Itaú) com
-categorização aprendida (ver seção 7). Parser do Nubank validado com
-extrato real; **o do Itaú ainda está pendente de validação com
-arquivo real** (risco conhecido documentado em 7.1).
-
-Restante da Sprint#3 (combinado com o grupo): validação dos parsers
-com CSV real, Indicador de comprometimento de renda (campo
-`essencial` em `Categoria`) e correções da auditoria (`@Transactional`,
-exclusão de categoria em uso, consistência de contribuições ao editar,
-`401` + logout automático, cards do Dashboard por mês).
+Sprint#3 concluída: importação de extrato do Nubank (validada com
+extrato real) com categorização aprendida, sugestão por palavra-chave,
+duplicata por `Identificador` e destinação às metas (seção 7);
+Indicador de comprometimento de renda (seção 4); filtros no Dashboard
+e em Transações; correções da auditoria (`@Transactional`, `409` ao
+excluir categoria em uso, consistência de contribuições ao editar
+transação/meta, `401` + logout automático, fim do N+1).
 
 Sprint#4 (última): Parcelamento (RN004), Simulação de investimento
-(RN005), Sugestões personalizadas (RN006), testes dos Services e
-encerramento. O checklist completo das duas sprints está na seção
+(RN005), Sugestões personalizadas (RN006), **validação do parser do
+Itaú com arquivo real** (movida da Sprint#3 — risco conhecido em 7.1),
+testes dos Services e encerramento. O checklist completo das duas sprints está na seção
 "Roadmap" do `README.md` — ele é a fonte de verdade do planejamento.

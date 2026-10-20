@@ -70,8 +70,8 @@ previstos na proposta, mais as pendências técnicas.
 |---|---|---|
 | Sprint#1 | Usuário + autenticação, Categoria, Transação, Docker | ✅ concluída |
 | Sprint#2 | Metas financeiras, gráficos do Dashboard, categorias pré-definidas, indicadores de mercado | ✅ concluída |
-| Sprint#3 | Importação de extrato, Indicador de comprometimento de renda, correções da auditoria | 🚧 em andamento |
-| Sprint#4 | Parcelamento, Simulação de investimento, Sugestões personalizadas, encerramento | ⏳ planejada |
+| Sprint#3 | Importação de extrato (Nubank), Indicador de comprometimento de renda, correções da auditoria | ✅ concluída (falta mergear os PRs) |
+| Sprint#4 | Parcelamento, Simulação de investimento, Sugestões personalizadas, importação do Itaú, encerramento | ⏳ planejada |
 
 Módulos do sistema e onde cada um entra:
 
@@ -100,11 +100,11 @@ O arquivo nunca é salvo, nem em disco nem no banco.
 - [x] Pré-preenchimento automático: sem regra aprendida, sugere a categoria por palavra-chave da descrição (iFood → Alimentação, Uber/99 → Transporte etc.). Sem palpite, a linha fica pendente
 - [x] Na revisão, cada linha mostra a origem da categoria (Aprendida, Sugerida, Mesmo favorecido, Manual ou Pendente), e escolher a categoria de uma linha preenche as outras pendentes do mesmo favorecido
 - [x] Integração com metas: depois de confirmar, se alguma receita importada for da categoria de uma meta, o sistema oferece destinar parte dela à meta (passo opcional, agrupado por meta, com "Completar a meta"). A importação nunca altera o progresso de uma meta sozinha
-- [x] Detecção de duplicata (mesma data + valor + descrição), com a linha desmarcada por padrão na revisão
+- [x] Detecção de duplicata, com a linha desmarcada por padrão na revisão
 - [x] Tela de revisão linha a linha no frontend
 - [x] Parser do Nubank validado com extrato real: data `DD/MM/AAAA`, coluna `Identificador`, BOM UTF-8 e separador detectado automaticamente (vírgula, `;` ou tab)
-- [ ] Validar o parser do Itaú com um CSV real (provável ajuste pro encoding ISO-8859-1)
-- [ ] Detecção de duplicata pelo `Identificador` do Nubank (único por lançamento) em vez de data + valor + descrição, que marca como duplicadas duas compras iguais no mesmo dia
+- [x] Duplicata pelo `Identificador` do Nubank (único por lançamento): duas compras iguais no mesmo dia não se marcam mais como duplicadas. Transações importadas antes da coluna existir continuam detectadas por data + valor + descrição
+- [x] Preview faz uma consulta só pra checar duplicatas do arquivo inteiro (antes era uma por linha)
 - [x] Data ou valor inválido no CSV devolve `400` com mensagem clara (antes caía no `500`)
 - [x] Confirmação atômica: se uma linha falhar, nenhuma é gravada (`@Transactional`)
 
@@ -114,24 +114,26 @@ Mostra quanto da renda do mês já está comprometido e alerta o usuário
 antes de ele se apertar. Também é a base da margem disponível do
 Parcelamento e das Sugestões da Sprint#4.
 
-- [ ] Novo campo `essencial` (boolean) em `Categoria`, editável na tela de Categorias. Nas pré-definidas, vêm marcadas como essenciais: Moradia, Alimentação, Transporte, Saúde, Educação, Contas e Serviços, Impostos e Taxas
-- [ ] `GET /indicadores/comprometimento?mes=AAAA-MM` (padrão: mês atual) devolve:
+- [x] Novo campo `essencial` em `Categoria`, editável na tela de Categorias (só pra despesa). Nas pré-definidas, vêm marcadas como essenciais: Moradia, Alimentação, Transporte, Saúde, Educação, Contas e Serviços, Impostos e Taxas. Categorias criadas antes do campo seguem esse padrão pelo nome, sem migração
+- [x] `GET /indicadores/comprometimento?mes=AAAA-MM` (padrão: mês atual) devolve:
   - renda do mês (soma das receitas)
   - despesas essenciais e não essenciais
   - percentual essencial (essenciais ÷ renda) e percentual total (despesas ÷ renda)
-  - nível: `NORMAL`, `ATENCAO` (essenciais ≥ 50% da renda) ou `RISCO` (total ≥ 80% da renda)
-- [ ] Mês sem receita: percentuais vêm `null` e o nível vem `SEM_RENDA` (sem divisão por zero)
-- [ ] Card "Comprometimento" do Dashboard deixa de ser "Em breve" e mostra o percentual com cor por nível, além do alerta quando o nível for `ATENCAO` ou `RISCO`
+  - nível: `NORMAL`, `ATENCAO` (essenciais ≥ 50% da renda) ou `RISCO` (total ≥ 80% da renda; prevalece sobre atenção)
+- [x] Mês sem receita: percentuais vêm `null` e o nível vem `SEM_RENDA` (sem divisão por zero)
+- [x] Card "Comprometimento" do Dashboard mostra o percentual do mês escolhido no filtro, com o nível em ícone + texto, e um alerta explicando o motivo quando o nível é `ATENCAO` ou `RISCO`
 
 #### 3.3 Correções da auditoria
 
-- [ ] `@Transactional` nos Services que gravam mais de uma coisa (importação, exclusão de Transação/Meta com contribuições)
-- [ ] Excluir uma Categoria em uso (por transações, metas ou regras) devolve `409` com mensagem explicando o motivo, em vez de `500`
-- [ ] Editar uma Transação com contribuições pra metas: impedir a troca de tipo ou de categoria (`400`)
-- [ ] Editar uma Meta: impedir que o `valorAlvo` fique menor que o já contribuído (`400`)
+- [x] `@Transactional` nos Services que gravam mais de uma coisa (confirmação da importação; exclusão de Categoria, Transação e Meta)
+- [x] Excluir uma Categoria usada por transações ou metas devolve `409` dizendo quantas são, em vez de `500`. Regras de categorização aprendidas não bloqueiam: são apagadas junto
+- [x] Editar uma Transação que já tem contribuições pra metas: tipo e categoria não podem mudar (`400`)
+- [x] Editar uma Meta: o `valorAlvo` não pode ficar menor que o já contribuído, e a categoria não muda se já houver contribuições (`400`)
+- [x] As telas mostram a mensagem de erro do backend (ex: o motivo do `409`) em vez de um texto genérico
 - [x] Filtro de período no Dashboard (mês ou todo o período) pros cards e pro gráfico por categoria; o gráfico por categoria ganhou o seletor Despesas/Receitas e o de evolução, o de 3/6/12 meses
-- [ ] Backend devolve `401` pra token ausente ou expirado, e o frontend desloga automaticamente (interceptor de resposta do axios)
-- [ ] Merge de `develop` → `main` (a `main` ainda está com o revert do fix do Ibovespa) e limpeza das branches já mergeadas
+- [x] Backend devolve `401` pra token ausente, inválido ou expirado (antes era `403`), e o frontend desloga e volta pro login com o aviso "Sua sessão expirou"
+- [x] `GET /transacoes` com 3 consultas em vez de uma por transação (N+1)
+- [ ] Mergear os PRs da Sprint#3 na `develop` e a `develop` na `main` (a `main` ainda está com o revert do fix do Ibovespa), e apagar as branches já mergeadas
 
 ### Sprint#4 (final): parcelamento, simulação, sugestões e encerramento
 
@@ -161,8 +163,17 @@ comprometimento e pela Simulação:
 - [ ] Parcelamento acima da margem livre: alerta
 - [ ] `GET /sugestoes` e painel de sugestões no Dashboard
 
-#### 4.4 Encerramento
+#### 4.4 Importação do Itaú
 
+O parser (`ItauExtratoParser`) já existe, mas foi escrito com base no layout mais comum conhecido, sem um arquivo real.
+
+- [ ] Validar com um CSV real exportado do Itaú e ajustar o parser (provável encoding ISO-8859-1 e nomes de coluna)
+- [ ] Teste automatizado do parser com um arquivo no layout real, com dados fictícios
+- [ ] Conferir se as chaves da categorização aprendida e as palavras-chave funcionam com as descrições do Itaú (ex: "PIX TRANSF FULANO 12/09")
+
+#### 4.5 Encerramento
+
+- [x] Primeiros testes automatizados (parsers, sugestão de categoria, indicador de comprometimento)
 - [ ] Testes automatizados dos Services com as regras de negócio (RN001–RN007, importação, indicador, parcelamento)
 - [ ] Perfil do usuário: editar nome e trocar senha
 - [x] Filtros na lista de Transações: período (presets ou datas personalizadas), categoria, tipo, faixa de valor, busca e ordenação, com resumo dos totais filtrados
@@ -172,7 +183,7 @@ comprometimento e pela Simulação:
 
 ## Rotas da API
 
-Todas as rotas abaixo, exceto `POST /usuarios` e `POST /login`, exigem o header `Authorization: Bearer <token>` (token JWT obtido no login, expira em 8h). Cada usuário só enxerga/edita/exclui os próprios dados — acessar registro de outro usuário retorna `404`.
+Todas as rotas abaixo, exceto `POST /usuarios` e `POST /login`, exigem o header `Authorization: Bearer <token>` (token JWT obtido no login, expira em 8h); sem token, ou com token inválido ou expirado, a resposta é `401`. Cada usuário só enxerga/edita/exclui os próprios dados — acessar registro de outro usuário retorna `404`.
 
 ### Usuário / Autenticação
 
@@ -186,11 +197,11 @@ Todas as rotas abaixo, exceto `POST /usuarios` e `POST /login`, exigem o header 
 
 | Método | Rota | Body | Resposta |
 |---|---|---|---|
-| POST | `/categorias` | `{"nome", "tipo": "RECEITA"\|"DESPESA", "icone"?, "cor"?}` | `201` categoria criada |
+| POST | `/categorias` | `{"nome", "tipo": "RECEITA"\|"DESPESA", "icone"?, "cor"?, "essencial"?}` | `201` categoria criada |
 | GET | `/categorias` | — | `200` lista das categorias do usuário |
 | GET | `/categorias/{id}` | — | `200` · `404` não encontrada |
 | PUT | `/categorias/{id}` | igual ao `POST` | `200` atualizada · `404` não encontrada |
-| DELETE | `/categorias/{id}` | — | `204` · `404` não encontrada |
+| DELETE | `/categorias/{id}` | — | `204` · `404` não encontrada · `409` em uso por transações ou metas |
 | GET | `/categorias/predefinidas` | — | `200` catálogo de categorias pré-definidas |
 | POST | `/categorias/predefinidas` | — | `200` adiciona ao usuário as pré-definidas que ele ainda não tem |
 
@@ -203,12 +214,12 @@ Todas as rotas abaixo, exceto `POST /usuarios` e `POST /login`, exigem o header 
 | POST | `/transacoes` | `{"categoriaId", "tipo": "RECEITA"\|"DESPESA", "valor", "descricao"?, "data": "AAAA-MM-DD"}` | `201` criada · `400` tipo incompatível com a categoria ou valor inválido · `404` categoria não encontrada |
 | GET | `/transacoes` | — | `200` lista das transações do usuário |
 | GET | `/transacoes/{id}` | — | `200` · `404` não encontrada |
-| PUT | `/transacoes/{id}` | igual ao `POST` | `200` atualizada · `400` valor menor que o já contribuído pra metas · `404` não encontrada |
+| PUT | `/transacoes/{id}` | igual ao `POST` | `200` atualizada · `400` valor menor que o já contribuído pra metas, ou troca de tipo/categoria numa transação com contribuições · `404` não encontrada |
 | DELETE | `/transacoes/{id}` | — | `204` (apaga junto as contribuições pra metas) · `404` não encontrada |
 | GET | `/transacoes/evolucao-mensal?meses=6` | — | `200` receitas/despesas dos últimos N meses (padrão 6, máx. 24) |
 | GET | `/transacoes/por-categoria?tipo=DESPESA&mes=AAAA-MM` | — | `200` total por categoria (com cor), do maior pro menor; sem `mes` = todo o período · `400` parâmetro inválido |
 | POST | `/transacoes/importar/preview` | multipart: `arquivo` (CSV) + `banco` = `NUBANK`\|`ITAU` | `200` linhas que seriam importadas, com categoria sugerida e flag de duplicada (não grava nada) · `400` arquivo inválido |
-| POST | `/transacoes/importar/confirmar` | `{"linhas": [{"data", "descricao", "valor", "tipo", "categoriaId"}]}` | `200` `{"transacoesCriadas"}` · `400` validação ou tipo incompatível |
+| POST | `/transacoes/importar/confirmar` | `{"linhas": [{"data", "descricao", "valor", "tipo", "categoriaId", "identificador"?}]}` | `200` `{"transacoesCriadas", "transacoes"}` · `400` validação ou tipo incompatível |
 
 Regra de negócio: o `tipo` da transação precisa ser igual ao `tipo` da categoria vinculada (RN003), e a categoria usada precisa pertencer ao mesmo usuário autenticado.
 
@@ -219,7 +230,7 @@ Regra de negócio: o `tipo` da transação precisa ser igual ao `tipo` da catego
 | POST | `/metas` | `{"nome", "valorAlvo", "categoriaId", "dataAlvo"?}` | `201` criada · `400` categoria não é de RECEITA |
 | GET | `/metas` | — | `200` lista das metas, com o progresso calculado |
 | GET | `/metas/{id}` | — | `200` · `404` não encontrada |
-| PUT | `/metas/{id}` | igual ao `POST` | `200` atualizada · `404` não encontrada |
+| PUT | `/metas/{id}` | igual ao `POST` | `200` atualizada · `400` `valorAlvo` menor que o já contribuído, ou troca de categoria com contribuições · `404` não encontrada |
 | DELETE | `/metas/{id}` | — | `204` (apaga junto as contribuições) · `404` não encontrada |
 | POST | `/metas/{id}/contribuicoes` | `{"transacaoId", "valor"}` | `201` contribuição registrada · `400` passa do saldo da transação ou do que falta pra meta |
 
@@ -230,6 +241,7 @@ Regra de negócio (RN007): o progresso da meta é a soma das contribuições, e 
 | Método | Rota | Body | Resposta |
 |---|---|---|---|
 | GET | `/indicadores/mercado` | — | `200` `{"selic", "dolar", "ibovespa", "atualizadoEm"}`; um campo vem `null` se a API externa dele falhar |
+| GET | `/indicadores/comprometimento?mes=AAAA-MM` | — | `200` renda, despesas essenciais/não essenciais, percentuais e `nivel` (`NORMAL`, `ATENCAO`, `RISCO` ou `SEM_RENDA`) do mês (padrão: mês atual) |
 
 ## Protótipo
 
