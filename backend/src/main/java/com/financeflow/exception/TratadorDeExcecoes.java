@@ -7,6 +7,7 @@ import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -62,6 +63,12 @@ public class TratadorDeExcecoes {
     @ExceptionHandler(HttpMessageNotReadableException.class)
     public ResponseEntity<Map<String, String>> tratarCorpoInvalido(HttpMessageNotReadableException excecao) {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("mensagem", "corpo da requisição inválido"));
+    }
+
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<Map<String, String>> tratarParametroInvalido(MethodArgumentTypeMismatchException excecao) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(Map.of("mensagem", "parâmetro inválido: " + excecao.getName()));
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)

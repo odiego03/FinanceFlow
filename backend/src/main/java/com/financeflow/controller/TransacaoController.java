@@ -1,16 +1,18 @@
 package com.financeflow.controller;
 
 import com.financeflow.dto.BancoExtrato;
-import com.financeflow.dto.DespesaPorCategoriaResposta;
 import com.financeflow.dto.EvolucaoMensalResposta;
 import com.financeflow.dto.ImportacaoConfirmacaoRequisicao;
 import com.financeflow.dto.ImportacaoResultadoResposta;
 import com.financeflow.dto.LinhaImportacaoResposta;
+import com.financeflow.dto.TotalPorCategoriaResposta;
 import com.financeflow.dto.TransacaoRequisicao;
 import com.financeflow.dto.TransacaoResposta;
+import com.financeflow.model.TipoMovimentacao;
 import com.financeflow.service.ImportacaoExtratoService;
 import com.financeflow.service.TransacaoService;
 import jakarta.validation.Valid;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -26,6 +28,7 @@ import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.time.YearMonth;
 import java.util.List;
 
 @RestController
@@ -53,13 +56,17 @@ public class TransacaoController {
     }
 
     @GetMapping("/evolucao-mensal")
-    public List<EvolucaoMensalResposta> evolucaoMensal(Authentication autenticacao) {
-        return transacaoService.evolucaoMensal(autenticacao.getName());
+    public List<EvolucaoMensalResposta> evolucaoMensal(@RequestParam(defaultValue = "6") int meses,
+                                                        Authentication autenticacao) {
+        return transacaoService.evolucaoMensal(autenticacao.getName(), meses);
     }
 
-    @GetMapping("/despesas-por-categoria")
-    public List<DespesaPorCategoriaResposta> despesasPorCategoria(Authentication autenticacao) {
-        return transacaoService.despesasPorCategoria(autenticacao.getName());
+    @GetMapping("/por-categoria")
+    public List<TotalPorCategoriaResposta> totaisPorCategoria(
+            @RequestParam(defaultValue = "DESPESA") TipoMovimentacao tipo,
+            @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM") YearMonth mes,
+            Authentication autenticacao) {
+        return transacaoService.totaisPorCategoria(autenticacao.getName(), tipo, mes);
     }
 
     @GetMapping("/{id}")

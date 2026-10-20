@@ -1,7 +1,7 @@
 package com.financeflow.service;
 
-import com.financeflow.dto.DespesaPorCategoriaResposta;
 import com.financeflow.dto.EvolucaoMensalResposta;
+import com.financeflow.dto.TotalPorCategoriaResposta;
 import com.financeflow.dto.TransacaoRequisicao;
 import com.financeflow.dto.TransacaoResposta;
 import com.financeflow.exception.CategoriaNaoEncontradaException;
@@ -22,12 +22,16 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.YearMonth;
 import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
 public class TransacaoService {
+
+    private static final int MAXIMO_MESES_EVOLUCAO = 24;
 
     private final TransacaoRepository repositorioTransacao;
     private final CategoriaRepository repositorioCategoria;
@@ -63,8 +67,15 @@ public class TransacaoService {
 
     public List<TransacaoResposta> listar(String emailUsuario) {
         Long usuarioId = buscarUsuarioPorEmail(emailUsuario).getId();
+
+        Map<Long, BigDecimal> contribuidoPorTransacao = new HashMap<>();
+        for (Object[] linha : repositorioContribuicao.somarPorTransacaoDoUsuario(usuarioId)) {
+            contribuidoPorTransacao.put((Long) linha[0], (BigDecimal) linha[1]);
+        }
+
         return repositorioTransacao.findByUsuarioId(usuarioId).stream()
-                .map(this::montarResposta)
+                .map(transacao -> TransacaoResposta.de(transacao,
+                        contribuidoPorTransacao.getOrDefault(transacao.getId(), BigDecimal.ZERO)))
                 .toList();
     }
 
@@ -100,14 +111,15 @@ public class TransacaoService {
         repositorioTransacao.delete(transacao);
     }
 
-    public List<EvolucaoMensalResposta> evolucaoMensal(String emailUsuario) {
+    public List<EvolucaoMensalResposta> evolucaoMensal(String emailUsuario, int quantidadeMeses) {
         Long usuarioId = buscarUsuarioPorEmail(emailUsuario).getId();
         List<Transacao> transacoes = repositorioTransacao.findByUsuarioId(usuarioId);
+        int meses = Math.max(1, Math.min(MAXIMO_MESES_EVOLUCAO, quantidadeMeses));
 
         List<EvolucaoMensalResposta> resultado = new ArrayList<>();
         YearMonth mesAtual = YearMonth.now();
 
-        for (int i = 5; i >= 0; i--) {
+        for (int i = meses - 1; i >= 0; i--) {
             YearMonth mes = mesAtual.minusMonths(i);
             BigDecimal totalReceitas = somarPorTipoEMes(transacoes, TipoMovimentacao.RECEITA, mes);
             BigDecimal totalDespesas = somarPorTipoEMes(transacoes, TipoMovimentacao.DESPESA, mes);
@@ -117,19 +129,28 @@ public class TransacaoService {
         return resultado;
     }
 
-    public List<DespesaPorCategoriaResposta> despesasPorCategoria(String emailUsuario) {
+    // mes == null significa todo o período
+    public List<TotalPorCategoriaResposta> totaisPorCategoria(String emailUsuario, TipoMovimentacao tipo, YearMonth mes) {
         Long usuarioId = buscarUsuarioPorEmail(emailUsuario).getId();
-        YearMonth mesAtual = YearMonth.now();
 
-        Map<String, BigDecimal> totaisPorCategoria = repositorioTransacao.findByUsuarioId(usuarioId).stream()
-                .filter(t -> t.getTipo() == TipoMovimentacao.DESPESA && YearMonth.from(t.getData()).equals(mesAtual))
+        List<Transacao> filtradas = repositorioTransacao.findByUsuarioId(usuarioId).stream()
+                .filter(t -> t.getTipo() == tipo && (mes == null || YearMonth.from(t.getData()).equals(mes)))
+                .toList();
+        Map<Long, Categoria> categoriasPorId = filtradas.stream()
+                .collect(Collectors.toMap(t -> t.getCategoria().getId(), Transacao::getCategoria, (a, b) -> a));
+        Map<Long, BigDecimal> totaisPorCategoriaId = filtradas.stream()
                 .collect(Collectors.groupingBy(
-                        t -> t.getCategoria().getNome(),
+                        t -> t.getCategoria().getId(),
                         Collectors.reducing(BigDecimal.ZERO, Transacao::getValor, BigDecimal::add)
                 ));
 
-        return totaisPorCategoria.entrySet().stream()
-                .map(entrada -> new DespesaPorCategoriaResposta(entrada.getKey(), entrada.getValue()))
+        return totaisPorCategoriaId.entrySet().stream()
+                .map(entrada -> {
+                    Categoria categoria = categoriasPorId.get(entrada.getKey());
+                    return new TotalPorCategoriaResposta(categoria.getId(), categoria.getNome(), categoria.getCor(),
+                            entrada.getValue());
+                })
+                .sorted(Comparator.comparing(TotalPorCategoriaResposta::total).reversed())
                 .toList();
     }
 

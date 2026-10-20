@@ -19,13 +19,14 @@ export async function excluir(id) {
   await api.delete(`/transacoes/${id}`)
 }
 
-export async function evolucaoMensal() {
-  const { data } = await api.get('/transacoes/evolucao-mensal')
+export async function evolucaoMensal(meses) {
+  const { data } = await api.get('/transacoes/evolucao-mensal', { params: { meses } })
   return data
 }
 
-export async function despesasPorCategoria() {
-  const { data } = await api.get('/transacoes/despesas-por-categoria')
+// mes no formato AAAA-MM; sem mes = todo o período
+export async function totaisPorCategoria(tipo, mes) {
+  const { data } = await api.get('/transacoes/por-categoria', { params: { tipo, mes: mes || undefined } })
   return data
 }
 
