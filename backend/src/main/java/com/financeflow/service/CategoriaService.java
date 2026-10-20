@@ -3,13 +3,19 @@ package com.financeflow.service;
 import com.financeflow.dto.CategoriaPredefinidaResposta;
 import com.financeflow.dto.CategoriaRequisicao;
 import com.financeflow.dto.CategoriaResposta;
+import com.financeflow.exception.CategoriaEmUsoException;
 import com.financeflow.exception.CategoriaNaoEncontradaException;
 import com.financeflow.model.Categoria;
+import com.financeflow.model.TipoMovimentacao;
 import com.financeflow.model.Usuario;
 import com.financeflow.repository.CategoriaRepository;
+import com.financeflow.repository.MetaFinanceiraRepository;
+import com.financeflow.repository.RegraCategorizacaoRepository;
+import com.financeflow.repository.TransacaoRepository;
 import com.financeflow.repository.UsuarioRepository;
 import com.financeflow.service.CategoriasPredefinidas.CategoriaPredefinidaModelo;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Set;
@@ -20,10 +26,18 @@ public class CategoriaService {
 
     private final CategoriaRepository repositorioCategoria;
     private final UsuarioRepository repositorioUsuario;
+    private final TransacaoRepository repositorioTransacao;
+    private final MetaFinanceiraRepository repositorioMeta;
+    private final RegraCategorizacaoRepository repositorioRegra;
 
-    public CategoriaService(CategoriaRepository repositorioCategoria, UsuarioRepository repositorioUsuario) {
+    public CategoriaService(CategoriaRepository repositorioCategoria, UsuarioRepository repositorioUsuario,
+                            TransacaoRepository repositorioTransacao, MetaFinanceiraRepository repositorioMeta,
+                            RegraCategorizacaoRepository repositorioRegra) {
         this.repositorioCategoria = repositorioCategoria;
         this.repositorioUsuario = repositorioUsuario;
+        this.repositorioTransacao = repositorioTransacao;
+        this.repositorioMeta = repositorioMeta;
+        this.repositorioRegra = repositorioRegra;
     }
 
     public CategoriaResposta cadastrar(CategoriaRequisicao requisicao, String emailUsuario) {
@@ -32,6 +46,7 @@ public class CategoriaService {
         categoria.setTipo(requisicao.tipo());
         categoria.setIcone(requisicao.icone());
         categoria.setCor(requisicao.cor());
+        categoria.setEssencial(essencialDaRequisicao(requisicao, categoria));
         categoria.setUsuario(buscarUsuarioPorEmail(emailUsuario));
 
         repositorioCategoria.save(categoria);
@@ -74,6 +89,7 @@ public class CategoriaService {
         categoria.setTipo(modelo.tipo());
         categoria.setIcone(modelo.icone());
         categoria.setCor(modelo.cor());
+        categoria.setEssencial(modelo.essencial());
         categoria.setUsuario(usuario);
         return categoria;
     }
@@ -95,15 +111,32 @@ public class CategoriaService {
         categoria.setTipo(requisicao.tipo());
         categoria.setIcone(requisicao.icone());
         categoria.setCor(requisicao.cor());
+        categoria.setEssencial(essencialDaRequisicao(requisicao, categoria));
 
         repositorioCategoria.save(categoria);
 
         return CategoriaResposta.de(categoria);
     }
 
+    // Regras de categorização aprendidas não bloqueiam a exclusão — são só memória da importação, vão junto
+    @Transactional
     public void deletar(Long id, String emailUsuario) {
         Categoria categoria = buscarEntidadePorId(id, emailUsuario);
+        long quantidadeTransacoes = repositorioTransacao.countByCategoriaId(categoria.getId());
+        long quantidadeMetas = repositorioMeta.countByCategoriaId(categoria.getId());
+        if (quantidadeTransacoes > 0 || quantidadeMetas > 0) {
+            throw new CategoriaEmUsoException(quantidadeTransacoes, quantidadeMetas);
+        }
+        repositorioRegra.deleteByCategoriaId(categoria.getId());
         repositorioCategoria.delete(categoria);
+    }
+
+    // Receita nunca é essencial; sem valor na requisição, mantém o que já tinha (null = padrão do catálogo)
+    private Boolean essencialDaRequisicao(CategoriaRequisicao requisicao, Categoria categoria) {
+        if (requisicao.tipo() == TipoMovimentacao.RECEITA) {
+            return false;
+        }
+        return requisicao.essencial() != null ? requisicao.essencial() : categoria.getEssencial();
     }
 
     private Categoria buscarEntidadePorId(Long id, String emailUsuario) {

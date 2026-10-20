@@ -87,6 +87,38 @@
   color: #ffffff;
 }
 
+.essencial {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-top: 16px;
+  padding: 10px 12px;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.essencial input {
+  margin-top: 3px;
+  width: 16px;
+  height: 16px;
+  accent-color: #2563eb;
+  flex-shrink: 0;
+}
+
+.essencial span {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 0.9rem;
+  color: #1f2937;
+}
+
+.essencial small {
+  font-size: 0.78rem;
+  color: #6b7280;
+}
+
 .iconeGroup {
   display: grid;
   grid-template-columns: repeat(6, minmax(0, 1fr));

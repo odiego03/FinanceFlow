@@ -11,4 +11,6 @@ public interface MetaFinanceiraRepository extends JpaRepository<MetaFinanceira, 
     List<MetaFinanceira> findByUsuarioId(Long usuarioId);
 
     Optional<MetaFinanceira> findByIdAndUsuarioId(Long id, Long usuarioId);
+
+    long countByCategoriaId(Long categoriaId);
 }

@@ -17,6 +17,7 @@ import com.financeflow.repository.ContribuicaoMetaRepository;
 import com.financeflow.repository.TransacaoRepository;
 import com.financeflow.repository.UsuarioRepository;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -93,6 +94,14 @@ public class TransacaoService {
             throw new ContribuicaoInvalidaException(
                     "o valor da transação não pode ficar menor que o total já contribuído para metas (" + jaContribuido + ")");
         }
+        // Contribuição só vale pra receita da categoria da meta (RN007); mudar isso deixaria a contribuição inconsistente
+        boolean mudouTipoOuCategoria = requisicao.tipo() != transacao.getTipo()
+                || !categoria.getId().equals(transacao.getCategoria().getId());
+        if (jaContribuido.signum() > 0 && mudouTipoOuCategoria) {
+            throw new ContribuicaoInvalidaException(
+                    "essa transação já foi destinada a metas, então o tipo e a categoria não podem mudar — "
+                            + "pra corrigir, exclua a transação (as contribuições saem junto) e lance de novo");
+        }
 
         transacao.setCategoria(categoria);
         transacao.setTipo(requisicao.tipo());
@@ -105,6 +114,7 @@ public class TransacaoService {
         return montarResposta(transacao);
     }
 
+    @Transactional
     public void deletar(Long id, String emailUsuario) {
         Transacao transacao = buscarEntidadePorId(id, emailUsuario);
         repositorioContribuicao.deleteAll(repositorioContribuicao.findByTransacaoId(transacao.getId()));

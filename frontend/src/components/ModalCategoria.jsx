@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { mensagemDeErro } from '../services/api'
 import styles from './ModalCategoria.module.css'
 
 const ICONES_DISPONIVEIS = [
@@ -63,6 +64,7 @@ function ModalCategoria({ categoriaEmEdicao, onSalvar, onCancelar }) {
   const [tipo, setTipo] = useState(categoriaEmEdicao?.tipo ?? 'RECEITA')
   const [icone, setIcone] = useState(categoriaEmEdicao?.icone ?? ICONES_DISPONIVEIS[0])
   const [cor, setCor] = useState(categoriaEmEdicao?.cor ?? CORES_DISPONIVEIS[0])
+  const [essencial, setEssencial] = useState(categoriaEmEdicao?.essencial ?? false)
   const [erro, setErro] = useState('')
   const [salvando, setSalvando] = useState(false)
 
@@ -77,9 +79,9 @@ function ModalCategoria({ categoriaEmEdicao, onSalvar, onCancelar }) {
 
     setSalvando(true)
     try {
-      await onSalvar({ nome: nomeLimpo, tipo, icone, cor })
+      await onSalvar({ nome: nomeLimpo, tipo, icone, cor, essencial: tipo === 'DESPESA' && essencial })
     } catch (erroRequisicao) {
-      setErro('Não foi possível salvar a categoria.')
+      setErro(mensagemDeErro(erroRequisicao, 'Não foi possível salvar a categoria.'))
       setSalvando(false)
     }
   }
@@ -121,6 +123,19 @@ function ModalCategoria({ categoriaEmEdicao, onSalvar, onCancelar }) {
               Despesa
             </button>
           </div>
+
+          {tipo === 'DESPESA' ? (
+            <label className={styles.essencial}>
+              <input type="checkbox" checked={essencial} onChange={(event) => setEssencial(event.target.checked)} />
+              <span>
+                <strong>Despesa essencial</strong>
+                <small>
+                  Necessidade básica (moradia, alimentação, saúde, transporte...). Entra no limite de 50% da renda
+                  do indicador de comprometimento.
+                </small>
+              </span>
+            </label>
+          ) : null}
 
           <span className={styles.label}>Ícone</span>
           <div className={styles.iconeGroup}>

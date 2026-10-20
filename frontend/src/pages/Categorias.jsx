@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import IconeCategoria from '../components/IconeCategoria'
 import ModalCategoria from '../components/ModalCategoria'
 import ModalConfirmacao from '../components/ModalConfirmacao'
+import { mensagemDeErro } from '../services/api'
 import * as categoriaService from '../services/categoriaService'
 import styles from './Categorias.module.css'
 
@@ -19,6 +20,11 @@ function ColunaCategorias({ titulo, tipo, categorias, onEditar, onExcluir }) {
           <div key={categoria.id} className={styles.itemCategoria}>
             <IconeCategoria icone={categoria.icone} cor={categoria.cor} size={28} />
             <span className={styles.nomeCategoria}>{categoria.nome}</span>
+            {categoria.essencial ? (
+              <span className={styles.badgeEssencial} title="Conta no limite de 50% do indicador de comprometimento">
+                Essencial
+              </span>
+            ) : null}
             <div className={styles.acoesItem}>
               <button type="button" onClick={() => onEditar(categoria)} aria-label={`Editar ${categoria.nome}`}>
                 ✎
@@ -100,7 +106,7 @@ function Categorias() {
       await carregarCategorias()
       setCategoriaParaExcluir(null)
     } catch (erroRequisicao) {
-      setErro('Não foi possível excluir a categoria.')
+      setErro(mensagemDeErro(erroRequisicao, 'Não foi possível excluir a categoria.'))
       setCategoriaParaExcluir(null)
     }
   }
