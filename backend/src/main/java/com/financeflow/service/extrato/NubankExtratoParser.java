@@ -59,12 +59,21 @@ public class NubankExtratoParser implements ExtratoParser {
         String valorTexto = campo(registro, "Valor");
         try {
             return new LinhaExtratoBruta(converterData(dataTexto), campo(registro, "Descrição", "Descricao"),
-                    new BigDecimal(valorTexto));
+                    new BigDecimal(valorTexto), identificador(registro));
         } catch (DateTimeException | NumberFormatException excecao) {
             throw new ArquivoExtratoInvalidoException("linha " + (registro.getRecordNumber() + 1)
                     + " do extrato do Nubank tem data ou valor inválido (data: \"" + dataTexto
                     + "\", valor: \"" + valorTexto + "\")");
         }
+    }
+
+    // Coluna opcional: extrato sem ela continua funcionando, só cai na detecção de duplicata por data+valor+descrição
+    private String identificador(CSVRecord registro) {
+        if (!registro.isMapped("Identificador")) {
+            return null;
+        }
+        String valor = registro.get("Identificador");
+        return valor == null || valor.isBlank() ? null : valor;
     }
 
     private LocalDate converterData(String dataTexto) {

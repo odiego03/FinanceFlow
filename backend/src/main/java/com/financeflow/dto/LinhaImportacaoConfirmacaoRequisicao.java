@@ -13,6 +13,7 @@ public record LinhaImportacaoConfirmacaoRequisicao(
         @NotBlank(message = "descricao é obrigatória") String descricao,
         @NotNull(message = "valor é obrigatório") @Positive(message = "valor deve ser maior que zero") BigDecimal valor,
         @NotNull(message = "tipo é obrigatório") TipoMovimentacao tipo,
-        @NotNull(message = "categoriaId é obrigatório") Long categoriaId
+        @NotNull(message = "categoriaId é obrigatório") Long categoriaId,
+        String identificador
 ) {
 }

@@ -29,11 +29,14 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 @Service
 public class ImportacaoExtratoService {
@@ -88,6 +91,8 @@ public class ImportacaoExtratoService {
             categoriasPorNomeETipo.putIfAbsent(chaveCategoria(categoria.getNome(), categoria.getTipo()), categoria);
         }
 
+        DetectorDuplicata detector = carregarDetectorDuplicata(usuario.getId(), linhasBrutas);
+
         return linhasBrutas.stream().map(linhaBruta -> {
             TipoMovimentacao tipo = linhaBruta.valorComSinal().signum() < 0 ? TipoMovimentacao.DESPESA : TipoMovimentacao.RECEITA;
             BigDecimal valorAbsoluto = linhaBruta.valorComSinal().abs();
@@ -106,10 +111,11 @@ public class ImportacaoExtratoService {
                 origem = sugerida != null ? OrigemSugestaoCategoria.PALAVRA_CHAVE : null;
             }
 
-            boolean duplicada = repositorioTransacao.existsByUsuarioIdAndDataAndValorAndDescricao(
-                    usuario.getId(), linhaBruta.data(), valorAbsoluto, linhaBruta.descricao());
+            boolean duplicada = detector.duplicada(linhaBruta.identificador(), linhaBruta.data(), valorAbsoluto,
+                    linhaBruta.descricao());
 
-            return new LinhaImportacaoResposta(linhaBruta.data(), linhaBruta.descricao(), chave, valorAbsoluto, tipo,
+            return new LinhaImportacaoResposta(linhaBruta.data(), linhaBruta.descricao(), linhaBruta.identificador(),
+                    chave, valorAbsoluto, tipo,
                     sugerida != null ? sugerida.getId() : null, sugerida != null ? sugerida.getNome() : null,
                     origem, duplicada);
         }).toList();
@@ -134,6 +140,7 @@ public class ImportacaoExtratoService {
             transacao.setValor(linha.valor());
             transacao.setDescricao(linha.descricao());
             transacao.setData(linha.data());
+            transacao.setIdentificadorExterno(linha.identificador());
             transacao.setCriadoEm(LocalDateTime.now());
             repositorioTransacao.save(transacao);
             criadas.add(TransacaoResposta.de(transacao, BigDecimal.ZERO));
@@ -142,6 +149,50 @@ public class ImportacaoExtratoService {
         }
 
         return new ImportacaoResultadoResposta(criadas.size(), criadas);
+    }
+
+    /*
+     * Com identificador (Nubank): duplicada se já existe transação com o mesmo identificador, ou uma
+     * importada antes da coluna existir (identificador null) com mesma data+valor+descrição. Assim duas
+     * compras iguais no mesmo dia, cada uma com seu identificador, não se marcam como duplicadas.
+     * Sem identificador (Itaú): só data+valor+descrição, como antes.
+     */
+    private record DetectorDuplicata(Set<String> identificadores, Set<String> chavesSemIdentificador,
+                                     Set<String> todasChaves) {
+
+        boolean duplicada(String identificador, LocalDate data, BigDecimal valor, String descricao) {
+            String chave = chaveDuplicata(data, valor, descricao);
+            if (identificador != null) {
+                return identificadores.contains(identificador) || chavesSemIdentificador.contains(chave);
+            }
+            return todasChaves.contains(chave);
+        }
+    }
+
+    // Uma consulta só pro arquivo inteiro (antes era uma por linha, cada uma pagando a latência do banco)
+    private DetectorDuplicata carregarDetectorDuplicata(Long usuarioId, List<LinhaExtratoBruta> linhas) {
+        LocalDate inicio = linhas.stream().map(LinhaExtratoBruta::data).min(LocalDate::compareTo).orElseThrow();
+        LocalDate fim = linhas.stream().map(LinhaExtratoBruta::data).max(LocalDate::compareTo).orElseThrow();
+
+        Set<String> identificadores = new HashSet<>();
+        Set<String> chavesSemIdentificador = new HashSet<>();
+        Set<String> todasChaves = new HashSet<>();
+        for (Object[] existente : repositorioTransacao.buscarResumoParaDuplicata(usuarioId, inicio, fim)) {
+            String chave = chaveDuplicata((LocalDate) existente[0], (BigDecimal) existente[1], (String) existente[2]);
+            String identificador = (String) existente[3];
+            todasChaves.add(chave);
+            if (identificador == null) {
+                chavesSemIdentificador.add(chave);
+            } else {
+                identificadores.add(identificador);
+            }
+        }
+        return new DetectorDuplicata(identificadores, chavesSemIdentificador, todasChaves);
+    }
+
+    // stripTrailingZeros: o banco devolve 29.00 e o CSV traz 29 — tem que dar a mesma chave
+    private static String chaveDuplicata(LocalDate data, BigDecimal valor, String descricao) {
+        return data + "|" + valor.stripTrailingZeros().toPlainString() + "|" + descricao;
     }
 
     private void aprenderRegra(Usuario usuario, String descricao, Categoria categoria) {

@@ -8,6 +8,7 @@ import java.time.LocalDate;
 public record LinhaImportacaoResposta(
         LocalDate data,
         String descricao,
+        String identificador,
         String chave,
         BigDecimal valor,
         TipoMovimentacao tipo,

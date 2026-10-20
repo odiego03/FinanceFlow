@@ -50,7 +50,7 @@ public class ItauExtratoParser implements ExtratoParser {
                 String descricao = campo(registro, "lançamento", "lancamento", "descrição", "descricao", "histórico", "historico");
                 LocalDate data = LocalDate.parse(campo(registro, "data"), FORMATO_DATA);
                 BigDecimal valor = converterValor(campo(registro, "valor", "valor (r$)"));
-                linhas.add(new LinhaExtratoBruta(data, descricao, valor));
+                linhas.add(new LinhaExtratoBruta(data, descricao, valor, null));
             }
             return linhas;
         } catch (IOException | IllegalArgumentException | DateTimeException excecao) {

@@ -112,6 +112,7 @@ function ModalImportarExtrato({ categorias, metas, onConcluir, onCancelar }) {
         valor: linha.valor,
         tipo: linha.tipo,
         categoriaId: Number(linha.categoriaId),
+        identificador: linha.identificador,
       }))
       const resultado = await transacaoService.importarConfirmar(payload)
       const grupos = agruparReceitasPorMeta(resultado.transacoes, metas)
