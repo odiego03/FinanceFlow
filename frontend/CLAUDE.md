@@ -97,10 +97,22 @@ toda requisição.
     substituído por esse fluxo.
 - **Gráficos no Dashboard**: os dois cards hoje com "Em breve"
   (`Dashboard.jsx`) ganham gráficos de verdade com **Recharts**:
-  - "Evolução nos Últimos 6 Meses" — consome
-    `GET /transacoes/evolucao-mensal`.
-  - "Despesas por Categoria" — consome
-    `GET /transacoes/despesas-por-categoria`.
+  - "Evolução nos Últimos N Meses" — consome
+    `GET /transacoes/evolucao-mensal?meses=N`, com seletor 3m/6m/12m
+    no topo do card.
+  - "Despesas/Receitas por Categoria" — consome
+    `GET /transacoes/por-categoria?tipo=&mes=`, com seletor
+    Despesas/Receitas no topo do card. Cor de cada fatia = `cor` da
+    própria categoria (a cor segue a categoria, nunca a posição no
+    ranking — trocar filtro não repinta); acima de 8 categorias as
+    menores viram uma fatia "Outras" cinza; rótulo de % só em fatia
+    ≥ 5%.
+  - **Filtro de período** no cabeçalho (meses com lançamento + mês
+    atual + "Todo o período") vale pros cards Receitas/Despesas/Saldo
+    e pro gráfico por categoria. Sem escolha do usuário, abre no mês
+    mais recente que tem lançamento (não no mês atual, que pode estar
+    vazio). Os cards são calculados no frontend a partir de
+    `GET /transacoes` filtrado pelo período.
 - **Categorias pré-definidas**: sem botão — `pages/Categorias.jsx`
   chama `categoriaService.adicionarPredefinidas()` silenciosamente
   toda vez que a tela carrega (erro dessa chamada é ignorado, só não
@@ -132,3 +144,64 @@ toda requisição.
 Sem parcelamento, simulação de investimento completa, indicador de
 comprometimento de renda ou sugestões ainda — isso é para sprints
 futuras (ver `backend/CLAUDE.md`).
+
+## Sprint#3 — Telas
+
+- **Importar extrato** (`components/ModalImportarExtrato.jsx`): botão
+  "Importar extrato" em `pages/Transacoes.jsx`, ao lado de "+ Nova
+  Transação". Modal em duas etapas:
+  1. **Upload** — escolhe o banco (Nubank/Itaú) e sobe um `.csv`;
+     chama `transacaoService.importarPreview(banco, arquivo)`
+     (`multipart/form-data` via `FormData` — `api.js` não precisou de
+     nenhuma mudança, o axios detecta `FormData` sozinho).
+  2. **Revisão** — tabela com uma linha por lançamento do preview:
+     checkbox "incluir" (desmarcado por padrão quando a linha já veio
+     `duplicada` do backend), `<select>` de categoria (filtrado por
+     tipo RECEITA/DESPESA, pré-preenchido com a sugestão do backend) e
+     um badge de status pela origem da categoria atual: Aprendida /
+     Mesmo favorecido (verde), Sugerida (azul — palpite por
+     palavra-chave, "confira"), Manual (cinza), Pendente (amarelo),
+     Duplicada. Escolher a categoria de uma linha preenche também as
+     outras linhas **pendentes** do mesmo favorecido (mesma `chave` e
+     tipo) nesse extrato — nunca sobrescreve uma linha que já tem
+     categoria. Um resumo acima da tabela mostra quantas linhas estão
+     pendentes e quantas foram sugeridas. Botão "Confirmar importação" fica
+     desabilitado até toda linha incluída ter uma categoria escolhida.
+     Ao confirmar, chama `transacaoService.importarConfirmar(linhas)`
+     — o próprio ato de confirmar "ensina" o sistema pra próxima
+     importação com a mesma descrição (ver `backend/CLAUDE.md` 7.2).
+  - Deliberadamente **não** reaproveita `SeletorCategoria` (grid de
+    cards) na tabela de revisão — card grande não cabe bem numa tabela
+    densa de várias linhas; um `<select>` compacto por linha é o
+    padrão aqui.
+  - O arquivo CSV nunca é mantido no frontend depois do upload — só o
+    array de linhas já parseadas (vindas do preview) fica em estado
+    local até a confirmação.
+- **Filtros de Transações** (`pages/Transacoes.jsx`): tudo no
+  frontend, sobre a lista já carregada por `GET /transacoes` (sem
+  endpoint novo — volume de um usuário cabe na memória; se um dia
+  precisar de paginação, os filtros migram pra query params do
+  backend). Estado único `filtros` (busca, tipo, período, datas
+  personalizadas, categoria, valor mín./máx., ordenação) com
+  `FILTROS_INICIAIS` como referência pro "Limpar filtros". Datas
+  comparadas como string ISO `AAAA-MM-DD`. Trocar o tipo limpa a
+  categoria escolhida se ela for do outro tipo. Ordenação padrão: mais
+  recentes primeiro. Um resumo mostra "N de M transações" e os totais
+  de receita/despesa do conjunto filtrado.
+- **Destinar às metas depois de importar**
+  (`components/DestinarMetasImportacao.jsx`, etapa `metas` de
+  `ModalImportarExtrato`): depois do `confirmar`, se alguma receita
+  importada cair na categoria de uma meta ainda não concluída
+  (`utils/agruparReceitasPorMeta.js`), o modal não fecha — mostra as
+  receitas **agrupadas por meta**, com um campo de valor por
+  receita e o botão "Completar a meta" (preenche em ordem até bater o
+  que falta, sem passar do que já foi destinado da mesma receita a
+  outra meta). Valida no front (soma por meta ≤ restante, soma por
+  receita ≤ valor dela) e registra as contribuições uma a uma com
+  `metaService.contribuir`. Se uma falhar no meio, mostra quantas já
+  foram registradas, trava os campos e o "Destinar" de novo retoma só
+  as que faltam. "Pular" conclui sem contribuição. Nessa etapa clicar
+  no fundo **não** fecha o modal (as transações já existem; fechar
+  perderia o aviso de sucesso). Sem receita de meta, o modal fecha
+  direto como antes. A mensagem de sucesso em Transações inclui o total
+  destinado às metas.

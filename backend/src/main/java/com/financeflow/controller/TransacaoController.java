@@ -1,11 +1,18 @@
 package com.financeflow.controller;
 
-import com.financeflow.dto.DespesaPorCategoriaResposta;
+import com.financeflow.dto.BancoExtrato;
 import com.financeflow.dto.EvolucaoMensalResposta;
+import com.financeflow.dto.ImportacaoConfirmacaoRequisicao;
+import com.financeflow.dto.ImportacaoResultadoResposta;
+import com.financeflow.dto.LinhaImportacaoResposta;
+import com.financeflow.dto.TotalPorCategoriaResposta;
 import com.financeflow.dto.TransacaoRequisicao;
 import com.financeflow.dto.TransacaoResposta;
+import com.financeflow.model.TipoMovimentacao;
+import com.financeflow.service.ImportacaoExtratoService;
 import com.financeflow.service.TransacaoService;
 import jakarta.validation.Valid;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -16,8 +23,12 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.time.YearMonth;
 import java.util.List;
 
 @RestController
@@ -25,9 +36,11 @@ import java.util.List;
 public class TransacaoController {
 
     private final TransacaoService transacaoService;
+    private final ImportacaoExtratoService importacaoExtratoService;
 
-    public TransacaoController(TransacaoService transacaoService) {
+    public TransacaoController(TransacaoService transacaoService, ImportacaoExtratoService importacaoExtratoService) {
         this.transacaoService = transacaoService;
+        this.importacaoExtratoService = importacaoExtratoService;
     }
 
     @PostMapping
@@ -43,13 +56,17 @@ public class TransacaoController {
     }
 
     @GetMapping("/evolucao-mensal")
-    public List<EvolucaoMensalResposta> evolucaoMensal(Authentication autenticacao) {
-        return transacaoService.evolucaoMensal(autenticacao.getName());
+    public List<EvolucaoMensalResposta> evolucaoMensal(@RequestParam(defaultValue = "6") int meses,
+                                                        Authentication autenticacao) {
+        return transacaoService.evolucaoMensal(autenticacao.getName(), meses);
     }
 
-    @GetMapping("/despesas-por-categoria")
-    public List<DespesaPorCategoriaResposta> despesasPorCategoria(Authentication autenticacao) {
-        return transacaoService.despesasPorCategoria(autenticacao.getName());
+    @GetMapping("/por-categoria")
+    public List<TotalPorCategoriaResposta> totaisPorCategoria(
+            @RequestParam(defaultValue = "DESPESA") TipoMovimentacao tipo,
+            @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM") YearMonth mes,
+            Authentication autenticacao) {
+        return transacaoService.totaisPorCategoria(autenticacao.getName(), tipo, mes);
     }
 
     @GetMapping("/{id}")
@@ -67,5 +84,18 @@ public class TransacaoController {
     public ResponseEntity<Void> deletar(@PathVariable Long id, Authentication autenticacao) {
         transacaoService.deletar(id, autenticacao.getName());
         return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/importar/preview")
+    public List<LinhaImportacaoResposta> prever(@RequestPart("arquivo") MultipartFile arquivo,
+                                                 @RequestParam("banco") BancoExtrato banco,
+                                                 Authentication autenticacao) {
+        return importacaoExtratoService.prever(arquivo, banco, autenticacao.getName());
+    }
+
+    @PostMapping("/importar/confirmar")
+    public ImportacaoResultadoResposta confirmar(@Valid @RequestBody ImportacaoConfirmacaoRequisicao requisicao,
+                                                  Authentication autenticacao) {
+        return importacaoExtratoService.confirmar(requisicao.linhas(), autenticacao.getName());
     }
 }
