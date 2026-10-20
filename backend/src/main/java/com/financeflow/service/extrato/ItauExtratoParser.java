@@ -13,6 +13,7 @@ import java.io.InputStreamReader;
 import java.io.StringReader;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
+import java.time.DateTimeException;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -52,7 +53,7 @@ public class ItauExtratoParser implements ExtratoParser {
                 linhas.add(new LinhaExtratoBruta(data, descricao, valor));
             }
             return linhas;
-        } catch (IOException | IllegalArgumentException excecao) {
+        } catch (IOException | IllegalArgumentException | DateTimeException excecao) {
             throw new ArquivoExtratoInvalidoException(
                     "não foi possível ler o arquivo como extrato do Itaú: " + excecao.getMessage());
         }
