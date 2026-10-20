@@ -321,13 +321,18 @@ do rodapé.
 - CRUD completo em `/metas` (`POST`, `GET`, `GET /{id}`, `PUT /{id}`,
   `DELETE /{id}`) e `POST /metas/{id}/contribuicoes` (ver 6.1.1,
   RN007).
-- `GET /transacoes/evolucao-mensal` — totais de receita/despesa dos
-  últimos 6 meses (sempre 6 posições, meses sem lançamento entram
-  com total 0), pra alimentar o gráfico "Evolução nos Últimos 6
-  Meses" do Dashboard.
-- `GET /transacoes/despesas-por-categoria` — total de despesas
-  agrupado por categoria no mês atual, pra alimentar o gráfico
-  "Despesas por Categoria" do Dashboard.
+- `GET /transacoes/evolucao-mensal?meses=N` (padrão 6, limitado a
+  1–24) — totais de receita/despesa dos últimos N meses até o mês
+  atual (sempre N posições, meses sem lançamento entram com total 0),
+  pro gráfico de evolução do Dashboard.
+- `GET /transacoes/por-categoria?tipo=DESPESA|RECEITA&mes=AAAA-MM`
+  (tipo padrão DESPESA; sem `mes` = todo o período) — total agrupado
+  por categoria (agrupa por id, não por nome), ordenado do maior pro
+  menor, com `categoriaId`, `categoriaNome`, `cor` e `total`, pro
+  gráfico por categoria do Dashboard. Substituiu
+  `/transacoes/despesas-por-categoria` (que era fixo em despesas do mês
+  atual). Parâmetro com formato inválido devolve `400`
+  (`MethodArgumentTypeMismatchException` em `TratadorDeExcecoes`).
 - `GET /categorias/predefinidas` e `POST /categorias/predefinidas` —
   catálogo de categorias pré-definidas e adoção das que faltam (ver
   seção 6.3).
@@ -352,9 +357,13 @@ Regras importantes dessa feature:
   é gerado. Nem disco, nem banco, nem pasta temporária. O único
   artefato que sobrevive é a própria `Transacao` criada (e a regra de
   categorização aprendida).
-- **Correspondência de categoria é sempre exata, nunca por
-  similaridade.** Ver `RegraCategorizacao` (7.2) — sem fuzzy matching
-  de propósito, pra não categorizar errado "adivinhando".
+- **O sistema pré-preenche a categoria com o melhor palpite e o
+  usuário só revisa.** Ordem: regra aprendida (7.2) → palavra-chave
+  (7.2.1) → pendente. Toda sugestão vem com a origem
+  (`origemSugestao`) pro frontend mostrar o quanto confiar nela; nada é
+  gravado sem o usuário confirmar. Sem fuzzy matching (distância de
+  texto etc.) — os palpites são só por chave exata ou palavra inteira
+  do dicionário, pra serem previsíveis.
 - Bancos suportados: **Nubank** e **Itaú**, cada um com seu parser
   dedicado (layout nativo, não um formato CSV genérico) — usuário
   escolhe o banco ao subir o arquivo.
@@ -370,16 +379,22 @@ interno: `data, descricao, valorComSinal` — sinal negativo vira
 DESPESA, positivo vira RECEITA, conversão feita uma camada acima dos
 parsers pra não duplicar essa lógica em cada banco).
 
-- `NubankExtratoParser`: CSV separado por vírgula, colunas
-  `Data`/`Valor`/`Descrição`, data `AAAA-MM-DD`, UTF-8.
+- `NubankExtratoParser` (**validado com extrato real**): colunas
+  `Data`/`Valor`/`Identificador`/`Descrição`, data `DD/MM/AAAA` (ISO
+  também aceita), valor decimal com ponto, UTF-8 com ou sem BOM.
+  Separador detectado pela linha de cabeçalho (vírgula, `;` ou tab),
+  porque abrir e salvar o arquivo numa planilha pode trocar o
+  separador. `Identificador` é um UUID único por lançamento, ainda não
+  usado (candidato a substituir a detecção de duplicata por
+  data+valor+descrição). Testes em `NubankExtratoParserTest`.
 - `ItauExtratoParser`: CSV separado por `;`, pode ter linhas de
   metadados antes da tabela real (localizadas heuristicamente
   procurando a primeira linha com "data" e "valor"), colunas
   `data`/`lançamento`/`valor`, data `DD/MM/AAAA`, decimal com vírgula.
 
-> **Risco conhecido**: os layouts exatos (nomes de coluna, separador,
-> encoding) foram implementados com base no formato mais comum
-> conhecido de cada banco, não a partir de um arquivo real exportado.
+> **Risco conhecido (só Itaú)**: o layout do Itaú (nomes de coluna,
+> separador, encoding) foi implementado com base no formato mais comum
+> conhecido, não a partir de um arquivo real exportado.
 > Se um usuário real tiver erro ao importar, o primeiro passo é
 > comparar o CSV dele com o que os parsers esperam — ver
 > `NubankExtratoParser`/`ItauExtratoParser` (comentário no topo de
@@ -394,25 +409,59 @@ parsers pra não duplicar essa lógica em cada banco).
 | descricaoNormalizada | String | obrigatório |
 | categoria | Categoria (`@ManyToOne`) | obrigatório |
 
-Constraint única em `(usuario_id, descricao_normalizada)`. Normalização
-(`ImportacaoExtratoService.normalizar`) é só `trim` + maiúsculas +
-colapsar espaços — nada de remover números/trechos da descrição, pra
-não misturar lojas diferentes na mesma regra por engano.
+Constraint única em `(usuario_id, descricao_normalizada)`. Apesar do
+nome da coluna, o valor guardado é a **chave** da descrição
+(`SugestorCategoria.chaveDe`): sem acento, maiúsculas, espaços
+colapsados, e cortada no primeiro segmento `" - "` que for dado de
+documento/banco (CPF mascarado `•••`, CNPJ, `Agência:`, código de
+banco `(0260)`), além de uma data no fim (`12/09`). Ex: `Transferência
+enviada pelo Pix - João - •••.123.456-•• - NU PAGAMENTOS ...` →
+`TRANSFERENCIA ENVIADA PELO PIX - JOAO`. Assim o mesmo favorecido cai
+na mesma regra mesmo com agência/conta diferentes. A operação
+("enviada"/"recebida") fica na chave de propósito, pra separar Pix
+enviado de Pix recebido pro mesmo favorecido. (Regras gravadas antes
+dessa mudança, com a descrição inteira, simplesmente deixam de casar —
+sem migração, a feature ainda não tinha ido pra `main`.)
 
 A cada confirmação de importação, toda linha confirmada faz
 upsert da regra correspondente (cria se não existe, atualiza a
 categoria se já existia) — é assim que o sistema "aprende": na
-próxima importação com a mesma descrição normalizada, a categoria já
-vem sugerida automaticamente (e só é aplicada se o tipo da categoria
-aprendida bater com o tipo derivado do sinal da linha nova — evita
-sugerir uma categoria de receita pra uma linha que virou despesa).
+próxima importação com a mesma chave, a categoria já vem sugerida
+(`origemSugestao = APRENDIDA`), e só é aplicada se o tipo da categoria
+aprendida bater com o tipo derivado do sinal da linha nova.
+
+#### 7.2.1 Sugestão por palavra-chave
+
+Sem regra aprendida, `SugestorCategoria.sugerirNomeCategoria` procura
+na chave (não na descrição inteira — senão o banco do favorecido, ex:
+"MERCADO PAGO", viraria Alimentação) uma palavra inteira de um
+dicionário fixo que aponta pra uma das categorias pré-definidas (ex:
+IFOOD/MERCADO/PADARIA → Alimentação, UBER/99/AUTOPASS → Transporte,
+FARMACIA → Saúde, ESTORNO → Reembolsos). O dicionário filtra pelo
+tipo da linha, e a categoria é procurada nas categorias do próprio
+usuário por nome + tipo — se ele apagou ou renomeou a pré-definida,
+não há sugestão (`origemSugestao = PALAVRA_CHAVE` quando acha). Termos
+mais específicos ficam antes dos genéricos no dicionário ("MERCADO
+LIVRE" → Compras antes de "MERCADO" → Alimentação). Testes em
+`SugestorCategoriaTest`.
 
 ### 7.3 Endpoints
 
 - `POST /transacoes/importar/preview` (multipart: `arquivo` +
   `banco` = `NUBANK`/`ITAU`) → `List<LinhaImportacaoResposta>` (data,
-  descricao, valor, tipo, categoriaIdSugerida, categoriaNomeSugerida,
-  duplicada). Não persiste nada.
+  descricao, chave, valor, tipo, categoriaIdSugerida,
+  categoriaNomeSugerida, origemSugestao = `APRENDIDA`/`PALAVRA_CHAVE`/
+  `null`, duplicada). Não persiste nada.
+- `confirmar` devolve `{transacoesCriadas, transacoes}` — a lista das
+  Transações criadas (com `valorContribuidoMetas = 0`). A importação
+  **nunca** cria `ContribuicaoMeta` sozinha (RN007: progresso de meta
+  só por contribuição explícita); o frontend usa essa lista pra
+  oferecer, num passo opcional depois da confirmação, destinar as
+  receitas importadas às metas — via o mesmo
+  `POST /metas/{id}/contribuicoes` do lançamento manual, com as mesmas
+  validações.
+- `confirmar` roda em `@Transactional`: se uma linha falhar, nenhuma
+  Transação nem regra é gravada.
 - `POST /transacoes/importar/confirmar` (JSON `{"linhas": [...]}` —
   **tem que vir embrulhado nesse objeto**, não uma lista solta: um
   `@Valid` direto num `List<T>` como `@RequestBody` não cascade a
@@ -481,10 +530,9 @@ Sprint#2 concluída: `MetaFinanceira` com progresso via
 indicadores de mercado (Selic/Dólar/Ibovespa).
 
 Sprint#3 implementada: importação de extrato (Nubank/Itaú) com
-categorização aprendida (ver seção 7). **Pendente de validação com
-arquivo real** de cada banco (risco conhecido documentado em 7.1) —
-primeira coisa a confirmar antes de considerar a sprint
-definitivamente fechada.
+categorização aprendida (ver seção 7). Parser do Nubank validado com
+extrato real; **o do Itaú ainda está pendente de validação com
+arquivo real** (risco conhecido documentado em 7.1).
 
 Restante da Sprint#3 (combinado com o grupo): validação dos parsers
 com CSV real, Indicador de comprometimento de renda (campo

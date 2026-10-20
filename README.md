@@ -96,15 +96,17 @@ importado, sem gravar nada) e **confirmar** (só aí cria as Transações).
 O arquivo nunca é salvo, nem em disco nem no banco.
 
 - [x] Parsers dedicados por banco (`NubankExtratoParser`, `ItauExtratoParser`)
-- [x] Categorização aprendida (`RegraCategorizacao`): o sistema lembra a categoria escolhida pra cada descrição e sugere na próxima importação (match exato, sem "adivinhar")
+- [x] Categorização aprendida (`RegraCategorizacao`): o sistema lembra a categoria escolhida pra cada favorecido e sugere na próxima importação
+- [x] Pré-preenchimento automático: sem regra aprendida, sugere a categoria por palavra-chave da descrição (iFood → Alimentação, Uber/99 → Transporte etc.). Sem palpite, a linha fica pendente
+- [x] Na revisão, cada linha mostra a origem da categoria (Aprendida, Sugerida, Mesmo favorecido, Manual ou Pendente), e escolher a categoria de uma linha preenche as outras pendentes do mesmo favorecido
+- [x] Integração com metas: depois de confirmar, se alguma receita importada for da categoria de uma meta, o sistema oferece destinar parte dela à meta (passo opcional, agrupado por meta, com "Completar a meta"). A importação nunca altera o progresso de uma meta sozinha
 - [x] Detecção de duplicata (mesma data + valor + descrição), com a linha desmarcada por padrão na revisão
 - [x] Tela de revisão linha a linha no frontend
-- [ ] **Validar com um CSV real de cada banco** e ajustar os parsers:
-  - aceitar data `DD/MM/AAAA` no Nubank e a coluna `Identificador`
-  - ignorar o BOM UTF-8 no início do arquivo
-  - aceitar o encoding ISO-8859-1 no Itaú
-- [ ] Data ou valor inválido no CSV devolve `400` com mensagem clara (hoje `DateTimeParseException` cai no `500`)
-- [ ] Confirmação atômica: se uma linha falhar, nenhuma é gravada (`@Transactional`)
+- [x] Parser do Nubank validado com extrato real: data `DD/MM/AAAA`, coluna `Identificador`, BOM UTF-8 e separador detectado automaticamente (vírgula, `;` ou tab)
+- [ ] Validar o parser do Itaú com um CSV real (provável ajuste pro encoding ISO-8859-1)
+- [ ] Detecção de duplicata pelo `Identificador` do Nubank (único por lançamento) em vez de data + valor + descrição, que marca como duplicadas duas compras iguais no mesmo dia
+- [x] Data ou valor inválido no CSV devolve `400` com mensagem clara (antes caía no `500`)
+- [x] Confirmação atômica: se uma linha falhar, nenhuma é gravada (`@Transactional`)
 
 #### 3.2 Indicador de comprometimento de renda (regra 50/30/20)
 
@@ -127,7 +129,7 @@ Parcelamento e das Sugestões da Sprint#4.
 - [ ] Excluir uma Categoria em uso (por transações, metas ou regras) devolve `409` com mensagem explicando o motivo, em vez de `500`
 - [ ] Editar uma Transação com contribuições pra metas: impedir a troca de tipo ou de categoria (`400`)
 - [ ] Editar uma Meta: impedir que o `valorAlvo` fique menor que o já contribuído (`400`)
-- [ ] Cards de Receitas/Despesas/Saldo do Dashboard passam a considerar **só o mês atual** (o cabeçalho já mostra o mês)
+- [x] Filtro de período no Dashboard (mês ou todo o período) pros cards e pro gráfico por categoria; o gráfico por categoria ganhou o seletor Despesas/Receitas e o de evolução, o de 3/6/12 meses
 - [ ] Backend devolve `401` pra token ausente ou expirado, e o frontend desloga automaticamente (interceptor de resposta do axios)
 - [ ] Merge de `develop` → `main` (a `main` ainda está com o revert do fix do Ibovespa) e limpeza das branches já mergeadas
 
@@ -163,7 +165,8 @@ comprometimento e pela Simulação:
 
 - [ ] Testes automatizados dos Services com as regras de negócio (RN001–RN007, importação, indicador, parcelamento)
 - [ ] Perfil do usuário: editar nome e trocar senha
-- [ ] Filtro por período e paginação na lista de Transações
+- [x] Filtros na lista de Transações: período (presets ou datas personalizadas), categoria, tipo, faixa de valor, busca e ordenação, com resumo dos totais filtrados
+- [ ] Paginação na lista de Transações
 - [ ] README final: rotas completas, link do Figma, integrantes da equipe
 - [ ] Versão final mergeada na `main` e marcada com a tag `v1.0`
 
@@ -202,8 +205,8 @@ Todas as rotas abaixo, exceto `POST /usuarios` e `POST /login`, exigem o header 
 | GET | `/transacoes/{id}` | — | `200` · `404` não encontrada |
 | PUT | `/transacoes/{id}` | igual ao `POST` | `200` atualizada · `400` valor menor que o já contribuído pra metas · `404` não encontrada |
 | DELETE | `/transacoes/{id}` | — | `204` (apaga junto as contribuições pra metas) · `404` não encontrada |
-| GET | `/transacoes/evolucao-mensal` | — | `200` receitas/despesas dos últimos 6 meses |
-| GET | `/transacoes/despesas-por-categoria` | — | `200` despesas do mês atual agrupadas por categoria |
+| GET | `/transacoes/evolucao-mensal?meses=6` | — | `200` receitas/despesas dos últimos N meses (padrão 6, máx. 24) |
+| GET | `/transacoes/por-categoria?tipo=DESPESA&mes=AAAA-MM` | — | `200` total por categoria (com cor), do maior pro menor; sem `mes` = todo o período · `400` parâmetro inválido |
 | POST | `/transacoes/importar/preview` | multipart: `arquivo` (CSV) + `banco` = `NUBANK`\|`ITAU` | `200` linhas que seriam importadas, com categoria sugerida e flag de duplicada (não grava nada) · `400` arquivo inválido |
 | POST | `/transacoes/importar/confirmar` | `{"linhas": [{"data", "descricao", "valor", "tipo", "categoriaId"}]}` | `200` `{"transacoesCriadas"}` · `400` validação ou tipo incompatível |
 
