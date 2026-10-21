@@ -38,13 +38,27 @@ ordem — cada camada depende da anterior:
 - Endpoints REST, sem lógica de negócio — só recebe, delega ao
   Service e devolve a resposta.
 - Seguir o padrão de rotas já usado (`/usuarios`, `/categorias`,
-  `/transacoes`).
+  `/transacoes`, `/metas`, `/indicadores`). Sub-recursos ficam sob o
+  recurso pai (ex: `/metas/{id}/contribuicoes`,
+  `/transacoes/importar/preview`).
+- Erros de negócio viram status HTTP no `TratadorDeExcecoes`
+  (`400`, `404`, `409`, `401`), com o campo `mensagem` que o frontend
+  exibe — cadastrar a nova exceção lá.
+
+## Casos especiais
+
+- Lógica que não é CRUD e é reaproveitável (parsers, cálculos) vai em
+  classe própria no pacote do Service, sem estado de banco — ver
+  `service/extrato/` (um parser por banco) e `CalculadoraComprometimento`
+  como referência. Cobrir com teste unitário em `src/test`.
+- Respostas e requisições da API usam DTOs em `com.financeflow.dto`
+  (records); não expor a entidade JPA direto.
 
 ## Antes de implementar
 
 Confirme com o usuário:
 1. A entidade faz parte da Sprint atual? (ver `backend/CLAUDE.md`,
-   seção de módulos e roadmap)
+   seção de módulos e a seção da sprint atual — hoje a 7, Sprint#3)
 2. Alguma regra de negócio (RN) nova precisa ser documentada no
    `CLAUDE.md` antes de implementar, ou já está lá?
 

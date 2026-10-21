@@ -41,7 +41,10 @@ services/
 ├── api.js              # instância base do Axios (baseURL, interceptor de token)
 ├── usuarioService.js
 ├── categoriaService.js
-└── transacaoService.js
+├── transacaoService.js          # inclui evolução, por categoria e importação de extrato
+├── metaService.js               # metas e contribuições
+├── indicadorMercadoService.js   # Selic, dólar, Ibovespa
+└── comprometimentoService.js    # indicador de comprometimento de renda
 ```
 
 `api.js` centraliza a URL base da API e o interceptor que injeta o
@@ -78,7 +81,7 @@ toda requisição.
 - CRUD de Transação (registrar, listar, editar, excluir)
 - Dashboard com cards de Receitas/Despesas/Saldo (sem gráficos ainda)
 
-## Sprint#2 — Telas necessárias
+## Sprint#2 — Telas necessárias (concluída)
 
 - **Metas Financeiras** (caso de uso principal): listar metas com
   progresso (barra ou %), criar/editar meta (nome, valor alvo,
