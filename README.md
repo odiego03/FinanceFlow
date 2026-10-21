@@ -101,7 +101,7 @@ O arquivo nunca é salvo, nem em disco nem no banco.
 - [x] Na revisão, cada linha mostra a origem da categoria (Aprendida, Sugerida, Mesmo favorecido, Manual ou Pendente), e escolher a categoria de uma linha preenche as outras pendentes do mesmo favorecido
 - [x] Integração com metas: depois de confirmar, se alguma receita importada for da categoria de uma meta, o sistema oferece destinar parte dela à meta (passo opcional, agrupado por meta, com "Completar a meta"). A importação nunca altera o progresso de uma meta sozinha
 - [x] Detecção de duplicata, com a linha desmarcada por padrão na revisão
-- [x] Tela de revisão linha a linha no frontend
+- [x] Tela de revisão linha a linha no frontend, responsiva (sem rolagem lateral), com filtros rápidos (pendentes, preenchidas, duplicadas), "Marcar todas" e o botão "Importar só as categorizadas"
 - [x] Parser do Nubank validado com extrato real: data `DD/MM/AAAA`, coluna `Identificador`, BOM UTF-8 e separador detectado automaticamente (vírgula, `;` ou tab)
 - [x] Duplicata pelo `Identificador` do Nubank (único por lançamento): duas compras iguais no mesmo dia não se marcam mais como duplicadas. Transações importadas antes da coluna existir continuam detectadas por data + valor + descrição
 - [x] Preview faz uma consulta só pra checar duplicatas do arquivo inteiro (antes era uma por linha)

@@ -170,7 +170,18 @@ futuras (ver `backend/CLAUDE.md`).
      chama `transacaoService.importarPreview(banco, arquivo)`
      (`multipart/form-data` via `FormData` — `api.js` não precisou de
      nenhuma mudança, o axios detecta `FormData` sozinho).
-  2. **Revisão** — tabela com uma linha por lançamento do preview:
+  2. **Revisão** — lista responsiva (CSS grid, não `<table>`: a
+     descrição de Pix passa de 200 caracteres e forçava rolagem
+     lateral; agora ela quebra em até 2 linhas com o texto inteiro no
+     `title`, e abaixo de 720px cada lançamento vira um cartão). Acima
+     da lista: filtros rápidos Todas / Pendentes / Preenchidas /
+     Duplicadas com contagem, e "Marcar todas" (age só nas linhas
+     visíveis no filtro). Dois botões de confirmar: "Importar todas"
+     (exige categoria em todas as incluídas) e "Importar só as
+     categorizadas" (aparece quando há pendentes; importa só as que
+     têm categoria e deixa as pendentes de fora — reimportar o mesmo
+     arquivo depois traz as já importadas como duplicadas e as
+     pendentes de novo). Cada lançamento tem:
      checkbox "incluir" (desmarcado por padrão quando a linha já veio
      `duplicada` do backend), `<select>` de categoria (filtrado por
      tipo RECEITA/DESPESA, pré-preenchido com a sugestão do backend) e
@@ -187,7 +198,7 @@ futuras (ver `backend/CLAUDE.md`).
      — o próprio ato de confirmar "ensina" o sistema pra próxima
      importação com a mesma descrição (ver `backend/CLAUDE.md` 7.2).
   - Deliberadamente **não** reaproveita `SeletorCategoria` (grid de
-    cards) na tabela de revisão — card grande não cabe bem numa tabela
+    cards) na lista de revisão — card grande não cabe bem numa lista
     densa de várias linhas; um `<select>` compacto por linha é o
     padrão aqui.
   - O arquivo CSV nunca é mantido no frontend depois do upload — só o
