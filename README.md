@@ -70,7 +70,7 @@ previstos na proposta, mais as pendências técnicas.
 |---|---|---|
 | Sprint#1 | Usuário + autenticação, Categoria, Transação, Docker | ✅ concluída |
 | Sprint#2 | Metas financeiras, gráficos do Dashboard, categorias pré-definidas, indicadores de mercado | ✅ concluída |
-| Sprint#3 | Importação de extrato (Nubank), Indicador de comprometimento de renda, correções da auditoria | ✅ concluída (falta mergear os PRs) |
+| Sprint#3 | Importação de extrato (Nubank), Indicador de comprometimento de renda, correções da auditoria | ✅ concluída |
 | Sprint#4 | Parcelamento, Simulação de investimento, Sugestões personalizadas, importação do Itaú, encerramento | ⏳ planejada |
 
 Módulos do sistema e onde cada um entra:
@@ -133,7 +133,8 @@ Parcelamento e das Sugestões da Sprint#4.
 - [x] Filtro de período no Dashboard (mês ou todo o período) pros cards e pro gráfico por categoria; o gráfico por categoria ganhou o seletor Despesas/Receitas e o de evolução, o de 3/6/12 meses
 - [x] Backend devolve `401` pra token ausente, inválido ou expirado (antes era `403`), e o frontend desloga e volta pro login com o aviso "Sua sessão expirou"
 - [x] `GET /transacoes` com 3 consultas em vez de uma por transação (N+1)
-- [ ] Mergear os PRs da Sprint#3 na `develop` e a `develop` na `main` (a `main` ainda está com o revert do fix do Ibovespa), e apagar as branches já mergeadas
+- [x] PRs da Sprint#3 mergeados na `develop`
+- [ ] Mergear a `develop` na `main` (a `main` ainda está com o revert do fix do Ibovespa) e apagar as branches já mergeadas
 
 ### Sprint#4 (final): parcelamento, simulação, sugestões e encerramento
 
