@@ -93,10 +93,11 @@ investimento é independente.
 - **RN003 — Classificação obrigatória**: toda Transação precisa de um
   `tipo` (RECEITA ou DESPESA) e uma Categoria — e o tipo da Transação
   deve ser compatível com o tipo da Categoria vinculada.
-- **RN004 — Parcelamento**: ao parcelar uma transação, o sistema divide
-  o valor igualmente entre as parcelas e gera os lançamentos futuros
-  automaticamente. Sugere um limite máximo de parcelas com base na
-  margem financeira disponível do usuário. *(Sprint#4)*
+- **RN004 — Parcelamento**: ao parcelar uma despesa, o sistema divide
+  o valor igualmente entre as parcelas (centavos que sobram na última)
+  e gera os lançamentos futuros automaticamente. Com base na margem
+  financeira disponível do usuário, sugere a menor quantidade de
+  parcelas cuja parcela cabe no orçamento. *(Sprint#4, ver 8.1)*
 - **RN005 — Simulação de investimento**: consulta a API pública do
   Banco Central (taxas Selic, CDB, Poupança) e calcula o rendimento
   projetado para valor e prazo informados. *(Sprint#4)*
@@ -493,7 +494,68 @@ baixo demais pra um extrato com muitos lançamentos).
 
 ---
 
-## 8. Convenções de código
+## 8. Sprint#4 — Escopo atual
+
+Última sprint: Parcelamento (RN004), Simulação de investimento (RN005),
+Sugestões personalizadas (RN006), importação do Itaú com arquivo real
+e encerramento. Tudo numa branch só (`feature/sprint4`), com um PR
+único pra `main`.
+
+### 8.1 `Parcelamento` (RN004)
+
+| Campo | Tipo | Regra |
+|-------|------|-------|
+| id | Long (PK, auto) | — |
+| usuario | Usuario (`@ManyToOne`) | obrigatório |
+| categoria | Categoria (`@ManyToOne`) | obrigatória — deve ser do tipo DESPESA |
+| descricao | String | obrigatória, até 190 caracteres (sobra espaço pro sufixo " (n/N)") |
+| valorTotal | BigDecimal(10,2) | obrigatório, > 0 |
+| quantidadeParcelas | Integer | 2 a 60 |
+| dataPrimeiraParcela | LocalDate | obrigatória |
+| criadoEm | LocalDateTime | preenchido automaticamente na criação |
+
+`Transacao` ganhou `parcelamento` (`@ManyToOne`, nullable) e
+`numeroParcela` (nullable): só as parcelas geradas têm esses campos.
+
+- **Criar** (`POST /parcelamentos`, `@Transactional`) gera uma
+  Transação DESPESA por mês, a partir de `dataPrimeiraParcela`
+  (`plusMonths`, então dia 31 vira o último dia dos meses mais curtos),
+  com descrição `"<descrição> (n/N)"`. Divisão em
+  `CalculadoraParcelamento.dividir`: cada parcela arredondada pra baixo
+  em centavos e o que sobra vai na última. A soma sempre bate com o
+  total.
+- **Parcela não é editada nem excluída sozinha**: `PUT` e `DELETE` em
+  `/transacoes/{id}` de uma parcela dão `400`
+  (`ParcelamentoInvalidoException`), senão a soma deixaria de bater com
+  o total. Pra corrigir, exclui o parcelamento e lança de novo.
+- **Excluir** (`DELETE /parcelamentos/{id}`, `@Transactional`): apaga
+  as parcelas com data depois de hoje. As já vencidas ficam como
+  transações comuns (perdem o vínculo e o `numeroParcela`, mas mantêm
+  o "(n/N)" na descrição).
+- **Sugestão de parcelas** (`GET /parcelamentos/sugestao?valorTotal=&dataPrimeiraParcela=`):
+  - margem livre = renda média − despesas médias − parcelas já agendadas
+  - as médias são dos **3 meses completos anteriores ao mês atual**
+    (o mês atual ainda está pela metade), sempre divididas por 3
+  - as despesas médias **não** contam parcelas. O que ainda vai ser
+    pago entra como "parcelas já agendadas": a soma das parcelas
+    existentes no mês mais carregado a partir do mês da primeira parcela
+    nova. Assim parcelamento já encerrado não pesa, e o que está em
+    andamento não conta duas vezes.
+  - Sem receita nos 3 meses: `margemLivre` e `quantidadeMinimaParcelas`
+    vêm `null`.
+  - **Decisão sobre o texto da RN004**: a margem limita o *valor* da
+    parcela, não a quantidade (mais parcelas = parcela menor). Então o
+    "limite" sugerido é a **menor quantidade de parcelas cuja parcela
+    cabe na margem** (`CalculadoraParcelamento.quantidadeMinimaQueCabe`,
+    comparando a última parcela, que é a maior). Se nem em 60x cabe,
+    vem `null`. A sugestão é só informativa: o usuário pode parcelar
+    acima da margem.
+
+Testes em `CalculadoraParcelamentoTest`.
+
+---
+
+## 9. Convenções de código
 
 - Nomes de classes, métodos, variáveis, parâmetros e pacotes internos
   em **português**, em todo o código (não só nas entidades) — ex:
@@ -512,7 +574,7 @@ baixo demais pra um extrato com muitos lançamentos).
 
 ---
 
-## 9. Como rodar localmente
+## 10. Como rodar localmente
 
 O banco Postgres é compartilhado (hospedado no Neon) — ninguém precisa
 instalar Postgres localmente.
@@ -539,7 +601,7 @@ manual.
 
 ---
 
-## 10. Próximos passos (na ordem)
+## 11. Próximos passos (na ordem)
 
 Sprint#2 concluída: `MetaFinanceira` com progresso via
 `ContribuicaoMeta` (contribuição por Transação, limitada ao saldo dela

@@ -71,7 +71,7 @@ previstos na proposta, mais as pendências técnicas.
 | Sprint#1 | Usuário + autenticação, Categoria, Transação, Docker | ✅ concluída |
 | Sprint#2 | Metas financeiras, gráficos do Dashboard, categorias pré-definidas, indicadores de mercado | ✅ concluída |
 | Sprint#3 | Importação de extrato (Nubank), Indicador de comprometimento de renda, correções da auditoria | ✅ concluída |
-| Sprint#4 | Parcelamento, Simulação de investimento, Sugestões personalizadas, importação do Itaú, encerramento | ⏳ planejada |
+| Sprint#4 | Parcelamento, Simulação de investimento, Sugestões personalizadas, importação do Itaú, encerramento | 🚧 em andamento |
 
 Módulos do sistema e onde cada um entra:
 
@@ -140,11 +140,11 @@ Parcelamento e das Sugestões da Sprint#4.
 
 #### 4.1 Parcelamento (RN004)
 
-- [ ] Entidade `Parcelamento`: usuário, categoria, descrição, valor total, quantidade de parcelas, data da primeira parcela
-- [ ] Ao criar, gera automaticamente uma Transação DESPESA por mês, com descrição `"<descrição> (n/N)"`. O valor é dividido igualmente e os centavos que sobram vão na última parcela (a soma sempre bate com o total)
-- [ ] Sugestão de parcelas: calcula a margem livre mensal (renda média − despesas médias dos últimos 3 meses, usando o Indicador da Sprint#3) e informa a quantidade máxima de parcelas recomendada antes do usuário confirmar
-- [ ] Excluir o parcelamento apaga as parcelas futuras (as já vencidas ficam como histórico)
-- [ ] As parcelas aparecem na tela de Transações identificadas como parcela
+- [x] Entidade `Parcelamento`: usuário, categoria (de despesa), descrição, valor total, quantidade de parcelas (2 a 60), data da primeira parcela
+- [x] Ao criar, gera automaticamente uma Transação DESPESA por mês, com descrição `"<descrição> (n/N)"`. O valor é dividido igualmente e os centavos que sobram vão na última parcela (a soma sempre bate com o total)
+- [x] Sugestão de parcelas: calcula a margem livre mensal (renda média − despesas médias dos 3 meses completos anteriores − parcelas já agendadas) e informa, antes do usuário confirmar, a menor quantidade de parcelas cuja parcela cabe nessa margem (mais parcelas = parcela menor)
+- [x] Excluir o parcelamento apaga as parcelas futuras (as já vencidas ficam como histórico)
+- [x] As parcelas aparecem na tela de Transações com o selo `n/N`. Uma parcela não pode ser editada nem excluída sozinha: a lixeira dela exclui o parcelamento
 
 #### 4.2 Simulação de investimento (RN005)
 
@@ -215,8 +215,8 @@ Todas as rotas abaixo, exceto `POST /usuarios` e `POST /login`, exigem o header 
 | POST | `/transacoes` | `{"categoriaId", "tipo": "RECEITA"\|"DESPESA", "valor", "descricao"?, "data": "AAAA-MM-DD"}` | `201` criada · `400` tipo incompatível com a categoria ou valor inválido · `404` categoria não encontrada |
 | GET | `/transacoes` | — | `200` lista das transações do usuário |
 | GET | `/transacoes/{id}` | — | `200` · `404` não encontrada |
-| PUT | `/transacoes/{id}` | igual ao `POST` | `200` atualizada · `400` valor menor que o já contribuído pra metas, ou troca de tipo/categoria numa transação com contribuições · `404` não encontrada |
-| DELETE | `/transacoes/{id}` | — | `204` (apaga junto as contribuições pra metas) · `404` não encontrada |
+| PUT | `/transacoes/{id}` | igual ao `POST` | `200` atualizada · `400` valor menor que o já contribuído pra metas, troca de tipo/categoria numa transação com contribuições, ou a transação é uma parcela · `404` não encontrada |
+| DELETE | `/transacoes/{id}` | — | `204` (apaga junto as contribuições pra metas) · `400` a transação é uma parcela (exclua o parcelamento) · `404` não encontrada |
 | GET | `/transacoes/evolucao-mensal?meses=6` | — | `200` receitas/despesas dos últimos N meses (padrão 6, máx. 24) |
 | GET | `/transacoes/por-categoria?tipo=DESPESA&mes=AAAA-MM` | — | `200` total por categoria (com cor), do maior pro menor; sem `mes` = todo o período · `400` parâmetro inválido |
 | POST | `/transacoes/importar/preview` | multipart: `arquivo` (CSV) + `banco` = `NUBANK`\|`ITAU` | `200` linhas que seriam importadas, com categoria sugerida e flag de duplicada (não grava nada) · `400` arquivo inválido |
@@ -236,6 +236,18 @@ Regra de negócio: o `tipo` da transação precisa ser igual ao `tipo` da catego
 | POST | `/metas/{id}/contribuicoes` | `{"transacaoId", "valor"}` | `201` contribuição registrada · `400` passa do saldo da transação ou do que falta pra meta |
 
 Regra de negócio (RN007): o progresso da meta é a soma das contribuições, e cada contribuição vem de uma receita da mesma categoria da meta, limitada ao saldo ainda não destinado daquela transação.
+
+### Parcelamento
+
+| Método | Rota | Body | Resposta |
+|---|---|---|---|
+| POST | `/parcelamentos` | `{"categoriaId", "descricao", "valorTotal", "quantidadeParcelas", "dataPrimeiraParcela": "AAAA-MM-DD"}` | `201` parcelamento criado (as parcelas viram Transações) · `400` categoria não é de despesa ou validação · `404` categoria não encontrada |
+| GET | `/parcelamentos` | — | `200` lista dos parcelamentos, com valor da parcela e quantas já venceram |
+| GET | `/parcelamentos/{id}` | — | `200` · `404` não encontrado |
+| DELETE | `/parcelamentos/{id}` | — | `204` apaga as parcelas futuras; as vencidas ficam como transações comuns · `404` não encontrado |
+| GET | `/parcelamentos/sugestao?valorTotal=&dataPrimeiraParcela=` | — | `200` `{"rendaMedia", "despesasMedia", "parcelasComprometidas", "margemLivre", "quantidadeMinimaParcelas"}`; os dois últimos vêm `null` sem receita nos últimos 3 meses |
+
+Regra de negócio (RN004): o valor é dividido igualmente entre as parcelas (centavos que sobram na última), e a sugestão é a menor quantidade de parcelas cuja parcela cabe na margem livre mensal do usuário.
 
 ### Indicadores
 

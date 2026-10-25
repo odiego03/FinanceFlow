@@ -43,6 +43,7 @@ services/
 ├── categoriaService.js
 ├── transacaoService.js          # inclui evolução, por categoria e importação de extrato
 ├── metaService.js               # metas e contribuições
+├── parcelamentoService.js       # parcelamentos e sugestão de parcelas
 ├── indicadorMercadoService.js   # Selic, dólar, Ibovespa
 └── comprometimentoService.js    # indicador de comprometimento de renda
 ```
@@ -245,3 +246,31 @@ futuras (ver `backend/CLAUDE.md`).
   `essencial: false`); a lista de Categorias mostra um selo "Essencial".
   O valor que vem do backend já é o efetivo (resolve o padrão das
   pré-definidas pra categorias antigas).
+
+## Sprint#4 — Telas
+
+- **Parcelamento** (`components/ModalTransacao.jsx`, serviço
+  `services/parcelamentoService.js`): sem tela própria. Em "+ Nova
+  Transação" do tipo Despesa aparece o checkbox "Parcelar esta compra".
+  Marcado, o valor vira "Valor total", aparece "Quantidade de parcelas"
+  (2 a 60), a descrição fica obrigatória (até 190 caracteres) e a data
+  vira "Data da 1ª parcela". Abaixo da quantidade:
+  - a prévia `Nx de R$ ...`, calculada no front com a mesma divisão do
+    backend (centavos na última), com o selo "Cabe no orçamento" ou
+    "Acima da margem livre";
+  - a caixa de sugestão, que consulta `GET /parcelamentos/sugestao`
+    400ms depois que o usuário para de digitar. Ela mostra a margem
+    livre, a menor quantidade que cabe com o botão "Usar Nx", e a conta
+    (renda média − despesas médias − parcelas já agendadas). Margem
+    zerada ou negativa vira alerta amarelo; sem receita nos 3 meses,
+    explica que não dá pra calcular.
+  A sugestão não bloqueia: dá pra parcelar acima da margem. Salvar
+  chama `onSalvarParcelamento` (`POST /parcelamentos`), não `onSalvar`.
+- **Parcelas em Transações** (`pages/Transacoes.jsx`): cada parcela tem
+  o selo `n/N` (ícone de cartão) ao lado do badge Despesa, e não tem
+  botão de editar. A lixeira de uma parcela abre "Excluir
+  parcelamento", que diz quantas parcelas futuras serão apagadas e
+  chama `DELETE /parcelamentos/{id}`; as vencidas ficam no histórico.
+  O aviso verde de sucesso (`mensagemSucesso`, antes
+  `mensagemImportacao`) é compartilhado entre a importação e o
+  parcelamento.

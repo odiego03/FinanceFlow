@@ -60,6 +60,16 @@ public class TratadorDeExcecoes {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("mensagem", excecao.getMessage()));
     }
 
+    @ExceptionHandler(ParcelamentoNaoEncontradoException.class)
+    public ResponseEntity<Map<String, String>> tratarParcelamentoNaoEncontrado(ParcelamentoNaoEncontradoException excecao) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("mensagem", excecao.getMessage()));
+    }
+
+    @ExceptionHandler(ParcelamentoInvalidoException.class)
+    public ResponseEntity<Map<String, String>> tratarParcelamentoInvalido(ParcelamentoInvalidoException excecao) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("mensagem", excecao.getMessage()));
+    }
+
     @ExceptionHandler(ArquivoExtratoInvalidoException.class)
     public ResponseEntity<Map<String, String>> tratarArquivoExtratoInvalido(ArquivoExtratoInvalidoException excecao) {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("mensagem", excecao.getMessage()));

@@ -3,8 +3,10 @@ import ModalConfirmacao from '../components/ModalConfirmacao'
 import ModalContribuicaoMeta from '../components/ModalContribuicaoMeta'
 import ModalImportarExtrato from '../components/ModalImportarExtrato'
 import ModalTransacao from '../components/ModalTransacao'
+import { mensagemDeErro } from '../services/api'
 import * as categoriaService from '../services/categoriaService'
 import * as metaService from '../services/metaService'
+import * as parcelamentoService from '../services/parcelamentoService'
 import * as transacaoService from '../services/transacaoService'
 import styles from './Transacoes.module.css'
 
@@ -100,7 +102,7 @@ function Transacoes() {
   const [transacaoParaExcluir, setTransacaoParaExcluir] = useState(null)
   const [contribuicaoPendente, setContribuicaoPendente] = useState(null)
   const [modalImportarAberto, setModalImportarAberto] = useState(false)
-  const [mensagemImportacao, setMensagemImportacao] = useState('')
+  const [mensagemSucesso, setMensagemSucesso] = useState('')
 
   const carregarDados = async () => {
     try {
@@ -200,6 +202,16 @@ function Transacoes() {
     }
   }
 
+  const handleSalvarParcelamento = async (dto) => {
+    const parcelamento = await parcelamentoService.criar(dto)
+    fecharModal()
+    setErro('')
+    setMensagemSucesso(
+      `Parcelamento criado: ${parcelamento.quantidadeParcelas}x de ${formatadorMoeda.format(parcelamento.valorParcela)}.`,
+    )
+    await carregarDados()
+  }
+
   const metasPorCategoria = (categoriaId) => metas.filter((meta) => meta.categoriaId === categoriaId)
 
   const abrirContribuicaoMeta = (transacao) => {
@@ -216,22 +228,40 @@ function Transacoes() {
 
   const handleConcluirImportacao = async (quantidadeCriada, totalDestinadoMetas) => {
     setModalImportarAberto(false)
-    setMensagemImportacao(
+    setMensagemSucesso(
       `${quantidadeCriada} transação(ões) importada(s) com sucesso.` +
         (totalDestinadoMetas > 0 ? ` ${formatadorMoeda.format(totalDestinadoMetas)} destinado(s) às metas.` : ''),
     )
     await carregarDados()
   }
 
+  // Parcela não se exclui sozinha: a exclusão vai pro parcelamento inteiro (RN004)
   const confirmarExclusao = async () => {
     try {
-      await transacaoService.excluir(transacaoParaExcluir.id)
+      if (transacaoParaExcluir.parcelamentoId) {
+        await parcelamentoService.excluir(transacaoParaExcluir.parcelamentoId)
+      } else {
+        await transacaoService.excluir(transacaoParaExcluir.id)
+      }
       await carregarDados()
       setTransacaoParaExcluir(null)
     } catch (erroRequisicao) {
-      setErro('Não foi possível excluir a transação.')
+      setErro(mensagemDeErro(erroRequisicao, 'Não foi possível excluir a transação.'))
       setTransacaoParaExcluir(null)
     }
+  }
+
+  const mensagemExclusao = (transacao) => {
+    if (!transacao.parcelamentoId) {
+      return `Tem certeza que deseja excluir "${transacao.descricao || transacao.categoriaNome}"? Essa ação não pode ser desfeita.`
+    }
+    const hoje = dataIso(new Date())
+    const futuras = transacoes.filter((t) => t.parcelamentoId === transacao.parcelamentoId && t.data > hoje).length
+    return (
+      `"${transacao.descricao}" é a parcela ${transacao.numeroParcela} de ${transacao.quantidadeParcelas} de um parcelamento. ` +
+      `Excluir o parcelamento apaga ${futuras} parcela(s) futura(s); as que já venceram ficam no histórico. ` +
+      'Essa ação não pode ser desfeita.'
+    )
   }
 
   return (
@@ -377,9 +407,9 @@ function Transacoes() {
         </p>
       ) : null}
 
-      {mensagemImportacao ? (
+      {mensagemSucesso ? (
         <p className={styles.mensagemSucesso} aria-live="polite">
-          {mensagemImportacao}
+          {mensagemSucesso}
         </p>
       ) : null}
 
@@ -411,9 +441,17 @@ function Transacoes() {
                 <tr key={transacao.id}>
                   <td>{formatadorData.format(new Date(`${transacao.data}T00:00:00`))}</td>
                   <td>
-                    <span className={transacao.tipo === 'RECEITA' ? styles.badgeReceita : styles.badgeDespesa}>
-                      {transacao.tipo === 'RECEITA' ? 'Receita' : 'Despesa'}
-                    </span>
+                    <div className={styles.badgesTipo}>
+                      <span className={transacao.tipo === 'RECEITA' ? styles.badgeReceita : styles.badgeDespesa}>
+                        {transacao.tipo === 'RECEITA' ? 'Receita' : 'Despesa'}
+                      </span>
+                      {transacao.parcelamentoId ? (
+                        <span className={styles.badgeParcela} title="Parcela de um parcelamento">
+                          <i className="bi bi-credit-card" aria-hidden="true" /> {transacao.numeroParcela}/
+                          {transacao.quantidadeParcelas}
+                        </span>
+                      ) : null}
+                    </div>
                   </td>
                   <td>{transacao.categoriaNome}</td>
                   <td>{transacao.descricao || '-'}</td>
@@ -433,13 +471,16 @@ function Transacoes() {
                           🎯
                         </button>
                       ) : null}
-                      <button type="button" onClick={() => abrirEdicao(transacao)} aria-label="Editar transação">
-                        ✎
-                      </button>
+                      {!transacao.parcelamentoId ? (
+                        <button type="button" onClick={() => abrirEdicao(transacao)} aria-label="Editar transação">
+                          ✎
+                        </button>
+                      ) : null}
                       <button
                         type="button"
                         onClick={() => setTransacaoParaExcluir(transacao)}
-                        aria-label="Excluir transação"
+                        aria-label={transacao.parcelamentoId ? 'Excluir parcelamento' : 'Excluir transação'}
+                        title={transacao.parcelamentoId ? 'Excluir parcelamento' : undefined}
                       >
                         🗑
                       </button>
@@ -457,14 +498,15 @@ function Transacoes() {
           transacaoEmEdicao={transacaoEmEdicao}
           categorias={categorias}
           onSalvar={handleSalvar}
+          onSalvarParcelamento={handleSalvarParcelamento}
           onCancelar={fecharModal}
         />
       ) : null}
 
       {transacaoParaExcluir ? (
         <ModalConfirmacao
-          titulo="Excluir transação"
-          mensagem={`Tem certeza que deseja excluir "${transacaoParaExcluir.descricao || transacaoParaExcluir.categoriaNome}"? Essa ação não pode ser desfeita.`}
+          titulo={transacaoParaExcluir.parcelamentoId ? 'Excluir parcelamento' : 'Excluir transação'}
+          mensagem={mensagemExclusao(transacaoParaExcluir)}
           onConfirmar={confirmarExclusao}
           onCancelar={() => setTransacaoParaExcluir(null)}
         />

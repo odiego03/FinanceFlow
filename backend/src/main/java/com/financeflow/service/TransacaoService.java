@@ -6,6 +6,7 @@ import com.financeflow.dto.TransacaoRequisicao;
 import com.financeflow.dto.TransacaoResposta;
 import com.financeflow.exception.CategoriaNaoEncontradaException;
 import com.financeflow.exception.ContribuicaoInvalidaException;
+import com.financeflow.exception.ParcelamentoInvalidoException;
 import com.financeflow.exception.TipoIncompativelException;
 import com.financeflow.exception.TransacaoNaoEncontradaException;
 import com.financeflow.model.Categoria;
@@ -86,6 +87,12 @@ public class TransacaoService {
 
     public TransacaoResposta atualizar(Long id, TransacaoRequisicao requisicao, String emailUsuario) {
         Transacao transacao = buscarEntidadePorId(id, emailUsuario);
+        // Editar uma parcela sozinha quebraria a soma das parcelas = valor total (RN004)
+        if (transacao.getParcelamento() != null) {
+            throw new ParcelamentoInvalidoException(
+                    "essa transação é uma parcela e não pode ser editada sozinha — "
+                            + "pra corrigir, exclua o parcelamento e lance de novo");
+        }
         Categoria categoria = buscarCategoriaDoUsuario(requisicao.categoriaId(), transacao.getUsuario().getId());
         validarTipoCompativel(requisicao.tipo(), categoria);
 
@@ -117,6 +124,10 @@ public class TransacaoService {
     @Transactional
     public void deletar(Long id, String emailUsuario) {
         Transacao transacao = buscarEntidadePorId(id, emailUsuario);
+        if (transacao.getParcelamento() != null) {
+            throw new ParcelamentoInvalidoException(
+                    "essa transação é uma parcela — exclua o parcelamento (as parcelas futuras saem junto)");
+        }
         repositorioContribuicao.deleteAll(repositorioContribuicao.findByTransacaoId(transacao.getId()));
         repositorioTransacao.delete(transacao);
     }

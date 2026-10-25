@@ -13,8 +13,10 @@ import java.util.Optional;
 public interface TransacaoRepository extends JpaRepository<Transacao, Long> {
 
     // Sem o EntityGraph o Hibernate faria um SELECT extra por categoria — cada um paga a latência do Neon
-    @EntityGraph(attributePaths = {"usuario", "categoria", "categoria.usuario"})
+    @EntityGraph(attributePaths = {"usuario", "categoria", "categoria.usuario", "parcelamento"})
     List<Transacao> findByUsuarioId(Long usuarioId);
+
+    List<Transacao> findByParcelamentoId(Long parcelamentoId);
 
     Optional<Transacao> findByIdAndUsuarioId(Long id, Long usuarioId);
 

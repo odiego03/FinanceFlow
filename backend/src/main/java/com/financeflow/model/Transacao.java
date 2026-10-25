@@ -50,6 +50,14 @@ public class Transacao {
     @Column(name = "identificador_externo")
     private String identificadorExterno;
 
+    // Preenchidos só nas parcelas geradas por um Parcelamento (RN004)
+    @ManyToOne
+    @JoinColumn(name = "parcelamento_id")
+    private Parcelamento parcelamento;
+
+    @Column(name = "numero_parcela")
+    private Integer numeroParcela;
+
     public Long getId() {
         return id;
     }
@@ -120,5 +128,21 @@ public class Transacao {
 
     public void setIdentificadorExterno(String identificadorExterno) {
         this.identificadorExterno = identificadorExterno;
+    }
+
+    public Parcelamento getParcelamento() {
+        return parcelamento;
+    }
+
+    public void setParcelamento(Parcelamento parcelamento) {
+        this.parcelamento = parcelamento;
+    }
+
+    public Integer getNumeroParcela() {
+        return numeroParcela;
+    }
+
+    public void setNumeroParcela(Integer numeroParcela) {
+        this.numeroParcela = numeroParcela;
     }
 }
