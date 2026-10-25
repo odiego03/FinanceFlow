@@ -4,16 +4,13 @@ import ModalMeta from '../components/ModalMeta'
 import { mensagemDeErro } from '../services/api'
 import * as categoriaService from '../services/categoriaService'
 import * as metaService from '../services/metaService'
+import { usePreferencias } from '../contexts/PreferenciasContext'
 import styles from './Metas.module.css'
-
-const formatadorMoeda = new Intl.NumberFormat('pt-BR', {
-  style: 'currency',
-  currency: 'BRL',
-})
 
 const formatadorData = new Intl.DateTimeFormat('pt-BR')
 
 function Metas() {
+  const { formatarMoeda } = usePreferencias()
   const [metas, setMetas] = useState([])
   const [categorias, setCategorias] = useState([])
   const [carregando, setCarregando] = useState(true)
@@ -129,8 +126,8 @@ function Metas() {
                 </div>
 
                 <div className={styles.valores}>
-                  <strong>{formatadorMoeda.format(meta.valorAtual)}</strong>
-                  <span> de {formatadorMoeda.format(meta.valorAlvo)} ({percentual.toFixed(0)}%)</span>
+                  <strong>{formatarMoeda(meta.valorAtual)}</strong>
+                  <span> de {formatarMoeda(meta.valorAlvo)} ({percentual.toFixed(0)}%)</span>
                 </div>
               </div>
             )

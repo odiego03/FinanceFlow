@@ -44,17 +44,18 @@ public final class RegrasSugestao {
     private RegrasSugestao() {
     }
 
-    // Total ≥ 80% da renda: quanto cortar pra ficar abaixo, apontando as não essenciais que mais pesaram
+    // Total ≥ limite de risco (padrão 80%): quanto cortar pra ficar abaixo, apontando as não essenciais que mais pesaram
     public static Optional<SugestaoResposta> reduzirGastos(IndicadorComprometimentoResposta indicador,
                                                            List<TotalPorCategoriaResposta> naoEssenciais) {
         if (indicador.nivel() != NivelComprometimento.RISCO) {
             return Optional.empty();
         }
-        BigDecimal limite = fracao(indicador.renda(), CalculadoraComprometimento.LIMITE_TOTAL);
+        BigDecimal limite = fracao(indicador.renda(), indicador.limiteTotal());
         BigDecimal reduzir = indicador.despesasTotais().subtract(limite).add(UM_CENTAVO).setScale(2, RoundingMode.UP);
 
         String mensagem = "As despesas de " + mes(indicador) + " chegaram a " + percentual(indicador.percentualTotal())
-                + " da renda. Para voltar abaixo de 80%, reduza pelo menos " + moeda(reduzir) + ".";
+                + " da renda. Para voltar abaixo de " + limite(indicador.limiteTotal()) + ", reduza pelo menos "
+                + moeda(reduzir) + ".";
         mensagem += naoEssenciais.isEmpty()
                 ? " Todas as despesas do mês são essenciais, então o corte precisa vir delas ou de mais renda."
                 : " As despesas não essenciais que mais pesaram:";
@@ -63,26 +64,29 @@ public final class RegrasSugestao {
                 "Seus gastos estão em nível de risco", mensagem, reduzir, itens(naoEssenciais)));
     }
 
-    // Essenciais ≥ 50% da renda: cortar não essencial não resolve, então mostra o corte nas essenciais ou a renda que falta
+    // Essenciais ≥ limite de atenção (padrão 50%): cortar não essencial não resolve, então mostra o corte nas
+    // essenciais ou a renda que falta
     public static Optional<SugestaoResposta> reduzirEssenciais(IndicadorComprometimentoResposta indicador,
                                                                List<TotalPorCategoriaResposta> essenciais) {
         if (indicador.percentualEssencial() == null
-                || indicador.percentualEssencial().compareTo(CalculadoraComprometimento.LIMITE_ESSENCIAL) < 0) {
+                || indicador.percentualEssencial().compareTo(indicador.limiteEssencial()) < 0) {
             return Optional.empty();
         }
-        BigDecimal limite = fracao(indicador.renda(), CalculadoraComprometimento.LIMITE_ESSENCIAL);
+        BigDecimal limite = fracao(indicador.renda(), indicador.limiteEssencial());
         BigDecimal reduzir = indicador.despesasEssenciais().subtract(limite).add(UM_CENTAVO).setScale(2, RoundingMode.UP);
-        // renda em que as essenciais ficariam abaixo de 50%: essenciais × 2
-        BigDecimal rendaQueFalta = indicador.despesasEssenciais().multiply(BigDecimal.valueOf(2))
-                .subtract(indicador.renda()).add(UM_CENTAVO).setScale(2, RoundingMode.UP);
+        // renda em que as essenciais ficariam no limite: essenciais × 100 / limite (com 50%, essenciais × 2)
+        BigDecimal rendaQueFalta = indicador.despesasEssenciais().multiply(CEM)
+                .divide(indicador.limiteEssencial(), 2, RoundingMode.UP)
+                .subtract(indicador.renda()).add(UM_CENTAVO);
 
         String mensagem = "As despesas essenciais de " + mes(indicador) + " ocupam "
-                + percentual(indicador.percentualEssencial()) + " da renda, acima dos 50% da regra 50/30/20. "
+                + percentual(indicador.percentualEssencial()) + " da renda, acima do limite de "
+                + limite(indicador.limiteEssencial()) + ". "
                 + "Para voltar ao limite, seria preciso reduzir " + moeda(reduzir) + " nelas ou ter "
                 + moeda(rendaQueFalta) + " a mais de renda. As essenciais que mais pesaram:";
 
         return Optional.of(new SugestaoResposta(TipoSugestao.REDUZIR_ESSENCIAIS, SeveridadeSugestao.ATENCAO,
-                "Despesas essenciais acima de 50% da renda", mensagem, reduzir, itens(essenciais)));
+                "Despesas essenciais acima do limite", mensagem, reduzir, itens(essenciais)));
     }
 
     public static Optional<SugestaoResposta> semRenda(IndicadorComprometimentoResposta indicador) {
@@ -208,6 +212,11 @@ public final class RegrasSugestao {
     private static String moeda(BigDecimal valor) {
         // NBSP do NumberFormat vira espaço comum, pra o texto quebrar linha normalmente no frontend
         return NumberFormat.getCurrencyInstance(PT_BR).format(valor).replace(' ', ' ');
+    }
+
+    // Limites vêm inteiros na maioria das vezes: "80%", não "80,0%"
+    private static String limite(BigDecimal valor) {
+        return valor.stripTrailingZeros().toPlainString().replace('.', ',') + "%";
     }
 
     private static String percentual(BigDecimal valor) {

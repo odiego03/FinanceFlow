@@ -1,11 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
+import { usePreferencias } from '../contexts/PreferenciasContext'
 import styles from './PainelSugestoes.module.css'
-
-const formatadorMoeda = new Intl.NumberFormat('pt-BR', {
-  style: 'currency',
-  currency: 'BRL',
-})
 
 const QUANTIDADE_INICIAL = 4
 
@@ -29,6 +25,7 @@ const ACOES = {
 
 function PainelSugestoes({ sugestoes, carregando, erro, rotuloMes }) {
   const [mostrarTodas, setMostrarTodas] = useState(false)
+  const { formatarMoeda, ocultarValoresNoTexto } = usePreferencias()
 
   let conteudo
   if (carregando) {
@@ -56,13 +53,13 @@ function PainelSugestoes({ sugestoes, carregando, erro, rotuloMes }) {
                   <i className={`bi bi-${severidade.icone}`} aria-hidden="true" /> {severidade.texto}
                 </span>
                 <h3>{sugestao.titulo}</h3>
-                <p>{sugestao.mensagem}</p>
+                <p>{ocultarValoresNoTexto(sugestao.mensagem)}</p>
                 {sugestao.itens.length > 0 ? (
                   <ul className={styles.itens}>
                     {sugestao.itens.map((item) => (
                       <li key={item.nome}>
                         <span>{item.nome}</span>
-                        <strong>{formatadorMoeda.format(item.valor)}</strong>
+                        <strong>{formatarMoeda(item.valor)}</strong>
                       </li>
                     ))}
                   </ul>

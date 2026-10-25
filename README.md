@@ -177,7 +177,9 @@ O parser (`ItauExtratoParser`) já existe, mas foi escrito com base no layout ma
 
 - [x] Primeiros testes automatizados (parsers, sugestão de categoria, indicador de comprometimento)
 - [ ] Testes automatizados dos Services com as regras de negócio (RN001–RN007, importação, indicador, parcelamento)
-- [ ] Perfil do usuário: editar nome e trocar senha
+- [x] Perfil do usuário (tela "Meu Perfil"): editar nome e trocar senha
+- [x] Preferências salvas na conta: ocultar valores em R$ (também pelo olho da barra superior), limites próprios do alerta de comprometimento (o Indicador e as Sugestões passam a usá-los) e padrões do Simulador
+- [x] Excluir transações por período, na "Zona de perigo" do Perfil: prévia do que sai (quantidade, totais, contribuições a metas) e confirmação digitando EXCLUIR. Parcelas ficam de fora
 - [x] Filtros na lista de Transações: período (presets ou datas personalizadas), categoria, tipo, faixa de valor, busca e ordenação, com resumo dos totais filtrados
 - [ ] Paginação na lista de Transações
 - [ ] README final: rotas completas, link do Figma, integrantes da equipe
@@ -194,6 +196,10 @@ Todas as rotas abaixo, exceto `POST /usuarios` e `POST /login`, exigem o header 
 | POST | `/usuarios` | `{"nome", "email", "senha"}` | `201` dados do usuário (sem senha) · `409` email já cadastrado · `400` validação |
 | POST | `/login` | `{"email", "senha"}` | `200` `{"token": "..."}` · `401` credenciais inválidas |
 | GET | `/usuarios/me` | — | `200` dados do usuário autenticado |
+| PUT | `/usuarios/me` | `{"nome"}` | `200` usuário atualizado (o e-mail não muda) · `400` validação |
+| PUT | `/usuarios/me/senha` | `{"senhaAtual", "novaSenha"}` | `204` · `400` senha atual incorreta ou nova com menos de 6 caracteres |
+| GET | `/usuarios/me/preferencias` | — | `200` `{"ocultarValores", "limiteEssencial", "limiteTotal", "simuladorPercentualCdi", "simuladorPrazoMeses"}` (padrões se nunca salvou) |
+| PUT | `/usuarios/me/preferencias` | igual à resposta do `GET` | `200` preferências salvas · `400` fora das faixas ou limite essencial ≥ limite total |
 
 ### Categoria
 
@@ -220,6 +226,8 @@ Todas as rotas abaixo, exceto `POST /usuarios` e `POST /login`, exigem o header 
 | DELETE | `/transacoes/{id}` | — | `204` (apaga junto as contribuições pra metas) · `400` a transação é uma parcela (exclua o parcelamento) · `404` não encontrada |
 | GET | `/transacoes/evolucao-mensal?meses=6` | — | `200` receitas/despesas dos últimos N meses (padrão 6, máx. 24) |
 | GET | `/transacoes/por-categoria?tipo=DESPESA&mes=AAAA-MM` | — | `200` total por categoria (com cor), do maior pro menor; sem `mes` = todo o período · `400` parâmetro inválido |
+| GET | `/transacoes/exclusao-em-massa/previa?dataInicio=&dataFim=` | — | `200` `{"quantidade", "totalReceitas", "totalDespesas", "contribuicoesMetas", "valorContribuidoMetas", "parcelasMantidas"}` do que seria apagado · `400` início depois do fim |
+| DELETE | `/transacoes/exclusao-em-massa?dataInicio=&dataFim=` | — | `200` mesmo formato, com o que foi apagado (datas vazias = sem limite; parcelas nunca entram) |
 | POST | `/transacoes/importar/preview` | multipart: `arquivo` (CSV) + `banco` = `NUBANK`\|`ITAU` | `200` linhas que seriam importadas, com categoria sugerida e flag de duplicada (não grava nada) · `400` arquivo inválido |
 | POST | `/transacoes/importar/confirmar` | `{"linhas": [{"data", "descricao", "valor", "tipo", "categoriaId", "identificador"?}]}` | `200` `{"transacoesCriadas", "transacoes"}` · `400` validação ou tipo incompatível |
 
@@ -272,7 +280,7 @@ Regra de negócio (RN006): sugestões por regras fixas (sem IA), acionadas pelo 
 | Método | Rota | Body | Resposta |
 |---|---|---|---|
 | GET | `/indicadores/mercado` | — | `200` `{"selic", "dolar", "ibovespa", "atualizadoEm"}`; um campo vem `null` se a API externa dele falhar |
-| GET | `/indicadores/comprometimento?mes=AAAA-MM` | — | `200` renda, despesas essenciais/não essenciais, percentuais e `nivel` (`NORMAL`, `ATENCAO`, `RISCO` ou `SEM_RENDA`) do mês (padrão: mês atual) |
+| GET | `/indicadores/comprometimento?mes=AAAA-MM` | — | `200` renda, despesas essenciais/não essenciais, percentuais, `nivel` (`NORMAL`, `ATENCAO`, `RISCO` ou `SEM_RENDA`) e os limites usados (`limiteEssencial`, `limiteTotal`, das preferências do usuário) do mês (padrão: mês atual) |
 
 ## Protótipo
 

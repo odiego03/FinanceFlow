@@ -627,6 +627,56 @@ Detalhes que não são óbvios:
 
 Testes em `RegrasSugestaoTest`.
 
+### 8.4 Perfil, preferências e exclusão em massa
+
+**Perfil**:
+- `PUT /usuarios/me` muda só o `nome`. O e-mail é o login e o
+  `subject` do JWT, então não muda.
+- `PUT /usuarios/me/senha` confere a `senhaAtual` com o BCrypt e exige
+  pelo menos 6 caracteres na nova. Senha atual errada dá **400**
+  (`SenhaAtualIncorretaException`), **não 401**: o frontend trata
+  qualquer `401` de rota autenticada como sessão expirada e desloga.
+
+**`PreferenciasUsuario`** (`preferencias_usuarios`, 1:1 com `Usuario`):
+
+| Campo | Faixa | Padrão |
+|-------|-------|--------|
+| ocultarValores | — | false |
+| limiteEssencial | 20–90 (%) | 50 |
+| limiteTotal | 30–100 (%), maior que o essencial | 80 |
+| simuladorPercentualCdi | 50–200 | 100 |
+| simuladorPrazoMeses | 1–360 | 12 |
+
+- O registro só é criado no primeiro `PUT`. Até lá, o
+  `GET /usuarios/me/preferencias` devolve os padrões
+  (`PreferenciasService.buscarPorUsuarioId`), sem migração pra usuários
+  antigos.
+- Os limites personalizados entram em
+  `CalculadoraComprometimento.calcular(..., limiteEssencial, limiteTotal)`
+  (a versão de 4 argumentos usa 50/80). O Indicador e as Sugestões leem
+  as preferências do usuário.
+- `IndicadorComprometimentoResposta` devolve os limites usados, pro
+  frontend explicar o alerta com o número certo.
+- Os textos das Sugestões também usam esses limites ("abaixo de 70%").
+- Ocultar valores e os padrões do simulador são só de exibição: o
+  backend guarda, quem aplica é o frontend.
+
+**Exclusão em massa** (`TransacaoService.previaExclusaoPorPeriodo` /
+`excluirPorPeriodo`):
+- `GET /transacoes/exclusao-em-massa/previa` e
+  `DELETE /transacoes/exclusao-em-massa`, os dois com
+  `dataInicio`/`dataFim` opcionais. Vazio = sem limite daquele lado; os
+  dois vazios = todo o histórico. Início depois do fim dá 400.
+- **Parcelas nunca entram** (RN004: parcela só sai excluindo o
+  parcelamento). Vêm contadas em `parcelasMantidas`.
+- As `ContribuicaoMeta` das transações apagadas saem junto, como no
+  delete unitário.
+- `@Transactional` e `deleteAllInBatch`: uma consulta por tabela, em
+  vez de uma por linha, porque cada ida ao Neon paga latência.
+- As `RegraCategorizacao` aprendidas ficam.
+- A prévia e a exclusão usam a mesma seleção (`selecionarParaExclusao`)
+  e devolvem o mesmo formato.
+
 ---
 
 ## 9. Convenções de código

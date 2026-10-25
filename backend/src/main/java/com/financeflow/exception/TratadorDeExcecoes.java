@@ -75,6 +75,21 @@ public class TratadorDeExcecoes {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("mensagem", excecao.getMessage()));
     }
 
+    @ExceptionHandler(PreferenciasInvalidasException.class)
+    public ResponseEntity<Map<String, String>> tratarPreferenciasInvalidas(PreferenciasInvalidasException excecao) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("mensagem", excecao.getMessage()));
+    }
+
+    @ExceptionHandler(SenhaAtualIncorretaException.class)
+    public ResponseEntity<Map<String, String>> tratarSenhaAtualIncorreta(SenhaAtualIncorretaException excecao) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("mensagem", excecao.getMessage()));
+    }
+
+    @ExceptionHandler(PeriodoInvalidoException.class)
+    public ResponseEntity<Map<String, String>> tratarPeriodoInvalido(PeriodoInvalidoException excecao) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("mensagem", excecao.getMessage()));
+    }
+
     @ExceptionHandler(ArquivoExtratoInvalidoException.class)
     public ResponseEntity<Map<String, String>> tratarArquivoExtratoInvalido(ArquivoExtratoInvalidoException excecao) {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("mensagem", excecao.getMessage()));

@@ -1,6 +1,7 @@
 package com.financeflow.service;
 
 import com.financeflow.dto.IndicadorComprometimentoResposta;
+import com.financeflow.dto.PreferenciasResposta;
 import com.financeflow.model.TipoMovimentacao;
 import com.financeflow.model.Transacao;
 import com.financeflow.model.Usuario;
@@ -17,10 +18,13 @@ public class IndicadorComprometimentoService {
 
     private final TransacaoRepository repositorioTransacao;
     private final UsuarioRepository repositorioUsuario;
+    private final PreferenciasService preferenciasService;
 
-    public IndicadorComprometimentoService(TransacaoRepository repositorioTransacao, UsuarioRepository repositorioUsuario) {
+    public IndicadorComprometimentoService(TransacaoRepository repositorioTransacao, UsuarioRepository repositorioUsuario,
+                                           PreferenciasService preferenciasService) {
         this.repositorioTransacao = repositorioTransacao;
         this.repositorioUsuario = repositorioUsuario;
+        this.preferenciasService = preferenciasService;
     }
 
     public IndicadorComprometimentoResposta calcular(String emailUsuario, YearMonth mes) {
@@ -44,6 +48,8 @@ public class IndicadorComprometimentoService {
             }
         }
 
-        return CalculadoraComprometimento.calcular(mes, renda, essenciais, naoEssenciais);
+        PreferenciasResposta preferencias = preferenciasService.buscarPorUsuarioId(usuario.getId());
+        return CalculadoraComprometimento.calcular(mes, renda, essenciais, naoEssenciais,
+                preferencias.limiteEssencial(), preferencias.limiteTotal());
     }
 }

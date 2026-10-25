@@ -1,6 +1,7 @@
 import { useState } from 'react'
-import { NavLink, Outlet } from 'react-router-dom'
+import { Link, NavLink, Outlet } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
+import { usePreferencias } from '../contexts/PreferenciasContext'
 import RodapeMercado from './RodapeMercado'
 import styles from './Layout.module.css'
 
@@ -10,12 +11,14 @@ const itensAtivos = [
   { rota: '/categorias', rotulo: 'Categorias' },
   { rota: '/metas', rotulo: 'Metas Financeiras' },
   { rota: '/simulacao', rotulo: 'Simulador de Investimentos' },
+  { rota: '/perfil', rotulo: 'Meu Perfil' },
 ]
 
 const itensEmBreve = ['Relatórios']
 
 function Layout() {
   const { usuario, sair } = useAuth()
+  const { ocultarValores, alternarOcultarValores } = usePreferencias()
   const [sidebarAberta, setSidebarAberta] = useState(true)
 
   const alternarSidebar = () => setSidebarAberta((atual) => !atual)
@@ -43,7 +46,19 @@ function Layout() {
         </div>
 
         <div className={styles.navbarGrupo}>
-          <span className={styles.saudacao}>Olá, {usuario?.nome?.split(' ')[0] ?? '...'}</span>
+          <button
+            type="button"
+            className={styles.iconButton}
+            aria-pressed={ocultarValores}
+            aria-label={ocultarValores ? 'Mostrar valores' : 'Ocultar valores'}
+            title={ocultarValores ? 'Mostrar valores' : 'Ocultar valores'}
+            onClick={alternarOcultarValores}
+          >
+            <i className={`bi bi-${ocultarValores ? 'eye-slash' : 'eye'}`} aria-hidden="true" />
+          </button>
+          <Link to="/perfil" className={styles.saudacao} title="Meu perfil">
+            Olá, {usuario?.nome?.split(' ')[0] ?? '...'}
+          </Link>
           <button type="button" className={styles.iconButton} aria-label="Sair" title="Sair" onClick={sair}>
             ⇥
           </button>

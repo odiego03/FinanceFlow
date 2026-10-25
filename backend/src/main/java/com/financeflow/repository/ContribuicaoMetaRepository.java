@@ -14,6 +14,8 @@ public interface ContribuicaoMetaRepository extends JpaRepository<ContribuicaoMe
 
     List<ContribuicaoMeta> findByTransacaoId(Long transacaoId);
 
+    List<ContribuicaoMeta> findByTransacaoIdIn(List<Long> transacaoIds);
+
     @Query("SELECT COALESCE(SUM(c.valor), 0) FROM ContribuicaoMeta c WHERE c.meta.id = :metaId")
     BigDecimal somarPorMeta(@Param("metaId") Long metaId);
 

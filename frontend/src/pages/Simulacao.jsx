@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
+import { usePreferencias } from '../contexts/PreferenciasContext'
 import { mensagemDeErro } from '../services/api'
 import * as simulacaoService from '../services/simulacaoService'
 import styles from './Simulacao.module.css'
@@ -50,14 +51,22 @@ function textoAliquotaIr(meses) {
 }
 
 function Simulacao() {
+  const { preferencias } = usePreferencias()
   const [valorInicial, setValorInicial] = useState('1000')
   const [aporteMensal, setAporteMensal] = useState('')
-  const [prazoMeses, setPrazoMeses] = useState('12')
-  const [percentualCdi, setPercentualCdi] = useState('100')
+  const [prazoMeses, setPrazoMeses] = useState(String(preferencias.simuladorPrazoMeses))
+  const [percentualCdi, setPercentualCdi] = useState(String(preferencias.simuladorPercentualCdi))
   const [taxas, setTaxas] = useState(null)
   const [resultado, setResultado] = useState(null)
   const [erro, setErro] = useState('')
   const [simulando, setSimulando] = useState(false)
+
+  // As preferências podem chegar depois da página abrir (reload direto em /simulacao); só aplica antes da 1ª simulação
+  useEffect(() => {
+    if (resultado) return
+    setPrazoMeses(String(preferencias.simuladorPrazoMeses))
+    setPercentualCdi(String(preferencias.simuladorPercentualCdi))
+  }, [preferencias.simuladorPrazoMeses, preferencias.simuladorPercentualCdi])
 
   useEffect(() => {
     simulacaoService

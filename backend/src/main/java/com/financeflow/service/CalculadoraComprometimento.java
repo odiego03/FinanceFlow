@@ -23,25 +23,35 @@ public final class CalculadoraComprometimento {
     public static IndicadorComprometimentoResposta calcular(YearMonth mes, BigDecimal renda,
                                                             BigDecimal despesasEssenciais,
                                                             BigDecimal despesasNaoEssenciais) {
+        return calcular(mes, renda, despesasEssenciais, despesasNaoEssenciais, LIMITE_ESSENCIAL, LIMITE_TOTAL);
+    }
+
+    // Limites personalizados pelo usuário nas preferências (padrão: 50 e 80)
+    public static IndicadorComprometimentoResposta calcular(YearMonth mes, BigDecimal renda,
+                                                            BigDecimal despesasEssenciais,
+                                                            BigDecimal despesasNaoEssenciais,
+                                                            BigDecimal limiteEssencial, BigDecimal limiteTotal) {
         BigDecimal despesasTotais = despesasEssenciais.add(despesasNaoEssenciais);
 
         if (renda.signum() <= 0) {
             return new IndicadorComprometimentoResposta(mes.toString(), renda, despesasEssenciais,
-                    despesasNaoEssenciais, despesasTotais, null, null, NivelComprometimento.SEM_RENDA);
+                    despesasNaoEssenciais, despesasTotais, null, null, NivelComprometimento.SEM_RENDA,
+                    limiteEssencial, limiteTotal);
         }
 
         BigDecimal percentualEssencial = percentual(despesasEssenciais, renda);
         BigDecimal percentualTotal = percentual(despesasTotais, renda);
 
         NivelComprometimento nivel = NivelComprometimento.NORMAL;
-        if (percentualTotal.compareTo(LIMITE_TOTAL) >= 0) {
+        if (percentualTotal.compareTo(limiteTotal) >= 0) {
             nivel = NivelComprometimento.RISCO;
-        } else if (percentualEssencial.compareTo(LIMITE_ESSENCIAL) >= 0) {
+        } else if (percentualEssencial.compareTo(limiteEssencial) >= 0) {
             nivel = NivelComprometimento.ATENCAO;
         }
 
         return new IndicadorComprometimentoResposta(mes.toString(), renda, despesasEssenciais, despesasNaoEssenciais,
-                despesasTotais, paraExibicao(percentualEssencial), paraExibicao(percentualTotal), nivel);
+                despesasTotais, paraExibicao(percentualEssencial), paraExibicao(percentualTotal), nivel,
+                limiteEssencial, limiteTotal);
     }
 
     // Os limites comparam com 4 casas; só a resposta é arredondada, pra 49,96% não virar "50,0%" e disparar alerta

@@ -3,6 +3,7 @@ package com.financeflow.service;
 import com.financeflow.dto.CenarioSimulacaoResposta;
 import com.financeflow.dto.IndicadorComprometimentoResposta;
 import com.financeflow.dto.ParcelamentoResposta;
+import com.financeflow.dto.PreferenciasResposta;
 import com.financeflow.dto.SimulacaoRequisicao;
 import com.financeflow.dto.SimulacaoResposta;
 import com.financeflow.dto.SugestaoResposta;
@@ -32,15 +33,17 @@ public class SugestaoService {
     private final MetaFinanceiraService metaFinanceiraService;
     private final ParcelamentoService parcelamentoService;
     private final SimulacaoService simulacaoService;
+    private final PreferenciasService preferenciasService;
 
     public SugestaoService(TransacaoRepository repositorioTransacao, UsuarioRepository repositorioUsuario,
                            MetaFinanceiraService metaFinanceiraService, ParcelamentoService parcelamentoService,
-                           SimulacaoService simulacaoService) {
+                           SimulacaoService simulacaoService, PreferenciasService preferenciasService) {
         this.repositorioTransacao = repositorioTransacao;
         this.repositorioUsuario = repositorioUsuario;
         this.metaFinanceiraService = metaFinanceiraService;
         this.parcelamentoService = parcelamentoService;
         this.simulacaoService = simulacaoService;
+        this.preferenciasService = preferenciasService;
     }
 
     // As regras do mês (comprometimento e sobra) usam `mes`; metas e parcelas olham pra frente a partir de hoje
@@ -57,8 +60,10 @@ public class SugestaoService {
         List<TotalPorCategoriaResposta> naoEssenciais = totaisPorCategoria(despesas, false);
 
         BigDecimal renda = somar(doMes.stream().filter(t -> t.getTipo() == TipoMovimentacao.RECEITA).toList());
+        PreferenciasResposta preferencias = preferenciasService.buscarPorUsuarioId(usuario.getId());
         IndicadorComprometimentoResposta indicador = CalculadoraComprometimento.calcular(mes, renda,
-                somarTotais(essenciais), somarTotais(naoEssenciais));
+                somarTotais(essenciais), somarTotais(naoEssenciais), preferencias.limiteEssencial(),
+                preferencias.limiteTotal());
 
         List<SugestaoResposta> sugestoes = new ArrayList<>();
         RegrasSugestao.reduzirGastos(indicador, naoEssenciais).ifPresent(sugestoes::add);

@@ -11,6 +11,9 @@ public record IndicadorComprometimentoResposta(
         BigDecimal despesasTotais,
         BigDecimal percentualEssencial,
         BigDecimal percentualTotal,
-        NivelComprometimento nivel
+        NivelComprometimento nivel,
+        // Limites usados no cálculo (os das preferências do usuário), pro frontend explicar o alerta
+        BigDecimal limiteEssencial,
+        BigDecimal limiteTotal
 ) {
 }

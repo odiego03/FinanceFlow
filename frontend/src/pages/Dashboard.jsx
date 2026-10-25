@@ -16,12 +16,8 @@ import PainelSugestoes from '../components/PainelSugestoes'
 import * as comprometimentoService from '../services/comprometimentoService'
 import * as sugestaoService from '../services/sugestaoService'
 import * as transacaoService from '../services/transacaoService'
+import { usePreferencias } from '../contexts/PreferenciasContext'
 import styles from './Dashboard.module.css'
-
-const formatadorMoeda = new Intl.NumberFormat('pt-BR', {
-  style: 'currency',
-  currency: 'BRL',
-})
 
 const nomesMeses = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
 const nomesMesesCompletos = [
@@ -130,6 +126,13 @@ function CardComprometimento({ mesFiltro, carregando, indicador }) {
   )
 }
 
+// 50% é o da regra 50/30/20; outro valor é o limite que o usuário escolheu no Perfil
+function textoLimiteEssencial(limite) {
+  return limite === 50
+    ? 'Pela regra 50/30/20, o recomendado é até 50%.'
+    : `O seu limite, definido no Perfil, é de ${formatadorPercentual.format(limite)}%.`
+}
+
 function AlertaComprometimento({ indicador, rotuloPeriodo }) {
   if (!indicador || (indicador.nivel !== 'ATENCAO' && indicador.nivel !== 'RISCO')) {
     return null
@@ -142,14 +145,15 @@ function AlertaComprometimento({ indicador, rotuloPeriodo }) {
       <p>
         <strong>{nivel.texto}:</strong>{' '}
         {risco
-          ? `suas despesas já comprometem ${formatadorPercentual.format(indicador.percentualTotal)}% da renda de ${rotuloPeriodo}. Acima de 80% sobra pouca margem pra imprevistos e pra poupar.`
-          : `suas despesas essenciais já somam ${formatadorPercentual.format(indicador.percentualEssencial)}% da renda de ${rotuloPeriodo}. Pela regra 50/30/20, o recomendado é até 50%.`}
+          ? `suas despesas já comprometem ${formatadorPercentual.format(indicador.percentualTotal)}% da renda de ${rotuloPeriodo}. Acima de ${formatadorPercentual.format(indicador.limiteTotal)}% sobra pouca margem pra imprevistos e pra poupar.`
+          : `suas despesas essenciais já somam ${formatadorPercentual.format(indicador.percentualEssencial)}% da renda de ${rotuloPeriodo}. ${textoLimiteEssencial(indicador.limiteEssencial)}`}
       </p>
     </div>
   )
 }
 
 function Dashboard() {
+  const { formatarMoeda, ocultarValores } = usePreferencias()
   const [transacoes, setTransacoes] = useState([])
   const [carregandoTransacoes, setCarregandoTransacoes] = useState(true)
   const [periodoEscolhido, setPeriodoEscolhido] = useState(null)
@@ -291,7 +295,7 @@ function Dashboard() {
             <span className={styles.iconeReceita}>↗</span>
           </div>
           <strong className={styles.valorPositivo}>
-            {carregandoTransacoes ? '...' : formatadorMoeda.format(totalReceitas)}
+            {carregandoTransacoes ? '...' : formatarMoeda(totalReceitas)}
           </strong>
           <span className={styles.legendaCard}>{rotuloPeriodo}</span>
         </div>
@@ -302,7 +306,7 @@ function Dashboard() {
             <span className={styles.iconeDespesa}>↘</span>
           </div>
           <strong className={styles.valorNegativo}>
-            {carregandoTransacoes ? '...' : formatadorMoeda.format(totalDespesas)}
+            {carregandoTransacoes ? '...' : formatarMoeda(totalDespesas)}
           </strong>
           <span className={styles.legendaCard}>{rotuloPeriodo}</span>
         </div>
@@ -313,7 +317,7 @@ function Dashboard() {
             <span>💼</span>
           </div>
           <strong className={saldo >= 0 ? styles.valorPositivo : styles.valorNegativo}>
-            {carregandoTransacoes ? '...' : formatadorMoeda.format(saldo)}
+            {carregandoTransacoes ? '...' : formatarMoeda(saldo)}
           </strong>
           <span className={styles.legendaCard}>{rotuloPeriodo}</span>
         </div>
@@ -365,10 +369,10 @@ function Dashboard() {
                   tick={{ fontSize: 12, fill: '#6b7280' }}
                   axisLine={false}
                   tickLine={false}
-                  tickFormatter={(valor) => `R$${valor}`}
+                  tickFormatter={(valor) => (ocultarValores ? '•••' : `R$${valor}`)}
                   width={56}
                 />
-                <Tooltip formatter={(valor) => formatadorMoeda.format(valor)} />
+                <Tooltip formatter={(valor) => formatarMoeda(valor)} />
                 <Legend wrapperStyle={{ fontSize: 13 }} formatter={textoLegenda} />
                 <Line type="monotone" dataKey="totalReceitas" name="Receitas" stroke="#16a34a" strokeWidth={2} dot={{ r: 3 }} />
                 <Line type="monotone" dataKey="totalDespesas" name="Despesas" stroke="#dc2626" strokeWidth={2} dot={{ r: 3 }} />
@@ -418,7 +422,7 @@ function Dashboard() {
                     <Cell key={fatia.categoriaId} fill={fatia.cor} />
                   ))}
                 </Pie>
-                <Tooltip formatter={(valor) => formatadorMoeda.format(valor)} />
+                <Tooltip formatter={(valor) => formatarMoeda(valor)} />
                 <Legend wrapperStyle={{ fontSize: 13 }} formatter={textoLegenda} />
               </PieChart>
             </ResponsiveContainer>

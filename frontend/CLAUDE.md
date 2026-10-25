@@ -46,6 +46,7 @@ services/
 ├── parcelamentoService.js       # parcelamentos e sugestão de parcelas
 ├── simulacaoService.js          # simulação de investimento e taxas do BCB
 ├── sugestaoService.js           # sugestões personalizadas do Dashboard
+├── exclusaoService.js           # prévia e exclusão de transações por período
 ├── indicadorMercadoService.js   # Selic, dólar, Ibovespa
 └── comprometimentoService.js    # indicador de comprometimento de renda
 ```
@@ -306,6 +307,41 @@ futuras (ver `backend/CLAUDE.md`).
     ação (Ver despesas, Abrir o simulador, Ver metas...).
   - **Lista**: mostra 4 e abre o resto com "Ver todas (N)". Sem
     sugestões, diz que as finanças do mês estão em dia.
+- **Meu Perfil** (`pages/Perfil.jsx`, rota `/perfil`): item no menu
+  lateral, e o "Olá, Fulano" da barra superior também leva pra lá.
+  Quatro seções:
+  - **Dados da conta**: edita o nome; o e-mail aparece desabilitado. O
+    `AuthContext` ganhou `atualizarUsuario` pra saudação mudar na hora.
+  - **Trocar senha**: senha atual, nova e confirmação, validadas no
+    front e no back.
+  - **Preferências** (ver abaixo).
+  - **Zona de perigo — excluir transações por período**:
+    1. períodos Este mês, Mês passado, Este ano, Ano passado,
+       Personalizado ou Todo o histórico;
+    2. "Ver o que será excluído" chama a prévia e mostra a quantidade,
+       os totais, as contribuições a metas que saem junto e as parcelas
+       mantidas;
+    3. o botão vermelho só libera depois de digitar `EXCLUIR`;
+    4. trocar o período descarta a prévia, então a confirmação sempre
+       vale pro que está na tela.
+    Os valores aqui aparecem mesmo com "ocultar valores" ligado, porque
+    quem vai apagar precisa ver o que apaga.
+- **Preferências** (`contexts/PreferenciasContext.jsx`, provider em
+  `main.jsx`, dentro do `AuthProvider`):
+  - **Carregamento**: busca `GET /usuarios/me/preferencias` quando há
+    token. Expõe `preferencias`, `salvar`, `ocultarValores`,
+    `alternarOcultarValores`, `formatarMoeda(n)` (vira `R$ •••••` com
+    ocultar ligado) e `ocultarValoresNoTexto(texto)` (mascara os `R$`
+    dentro das mensagens das Sugestões).
+  - **Onde os valores são ocultados**: Dashboard (cards, tooltips e
+    eixo do gráfico), Transações, Metas e Sugestões usam `formatarMoeda`
+    em vez de um `Intl.NumberFormat` local. A Simulação e o rodapé de
+    mercado não ocultam, porque não são dados da pessoa.
+  - **Olho na barra superior** (`Layout.jsx`): alterna e salva na hora
+    (otimista; volta atrás se o backend recusar).
+  - **Simulação**: abre com o prazo e o % do CDI das preferências.
+  - **Alerta de comprometimento**: o texto do Dashboard usa os limites
+    que vêm no indicador.
 - **Mês inicial do Dashboard**: o "mês mais recente com lançamento"
   agora ignora datas futuras. Sem isso, as parcelas já agendadas faziam
   o Dashboard abrir no mês da última parcela.

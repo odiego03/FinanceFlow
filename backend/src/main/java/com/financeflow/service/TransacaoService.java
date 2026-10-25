@@ -1,15 +1,18 @@
 package com.financeflow.service;
 
 import com.financeflow.dto.EvolucaoMensalResposta;
+import com.financeflow.dto.ExclusaoEmMassaResposta;
 import com.financeflow.dto.TotalPorCategoriaResposta;
 import com.financeflow.dto.TransacaoRequisicao;
 import com.financeflow.dto.TransacaoResposta;
 import com.financeflow.exception.CategoriaNaoEncontradaException;
 import com.financeflow.exception.ContribuicaoInvalidaException;
 import com.financeflow.exception.ParcelamentoInvalidoException;
+import com.financeflow.exception.PeriodoInvalidoException;
 import com.financeflow.exception.TipoIncompativelException;
 import com.financeflow.exception.TransacaoNaoEncontradaException;
 import com.financeflow.model.Categoria;
+import com.financeflow.model.ContribuicaoMeta;
 import com.financeflow.model.TipoMovimentacao;
 import com.financeflow.model.Transacao;
 import com.financeflow.model.Usuario;
@@ -21,6 +24,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.YearMonth;
 import java.util.ArrayList;
@@ -130,6 +134,61 @@ public class TransacaoService {
         }
         repositorioContribuicao.deleteAll(repositorioContribuicao.findByTransacaoId(transacao.getId()));
         repositorioTransacao.delete(transacao);
+    }
+
+    public ExclusaoEmMassaResposta previaExclusaoPorPeriodo(String emailUsuario, LocalDate inicio, LocalDate fim) {
+        SelecaoExclusao selecao = selecionarParaExclusao(emailUsuario, inicio, fim);
+        return selecao.resumo();
+    }
+
+    /**
+     * Apaga as transações do período (sem limite = todo o histórico), junto com as contribuições delas pra metas.
+     * Parcelas ficam de fora: parcela só sai excluindo o parcelamento (RN004). Em lote, numa consulta por tabela,
+     * porque o delete um a um pagaria a latência do Neon por linha.
+     */
+    @Transactional
+    public ExclusaoEmMassaResposta excluirPorPeriodo(String emailUsuario, LocalDate inicio, LocalDate fim) {
+        SelecaoExclusao selecao = selecionarParaExclusao(emailUsuario, inicio, fim);
+        repositorioContribuicao.deleteAllInBatch(selecao.contribuicoes());
+        repositorioTransacao.deleteAllInBatch(selecao.transacoes());
+        return selecao.resumo();
+    }
+
+    private SelecaoExclusao selecionarParaExclusao(String emailUsuario, LocalDate inicio, LocalDate fim) {
+        if (inicio != null && fim != null && inicio.isAfter(fim)) {
+            throw new PeriodoInvalidoException("a data inicial não pode ser depois da data final");
+        }
+        Long usuarioId = buscarUsuarioPorEmail(emailUsuario).getId();
+
+        List<Transacao> doPeriodo = repositorioTransacao.findByUsuarioId(usuarioId).stream()
+                .filter(t -> (inicio == null || !t.getData().isBefore(inicio)) && (fim == null || !t.getData().isAfter(fim)))
+                .toList();
+        List<Transacao> transacoes = doPeriodo.stream().filter(t -> t.getParcelamento() == null).toList();
+        int parcelasMantidas = doPeriodo.size() - transacoes.size();
+
+        List<ContribuicaoMeta> contribuicoes = transacoes.isEmpty() ? List.of()
+                : repositorioContribuicao.findByTransacaoIdIn(transacoes.stream().map(Transacao::getId).toList());
+
+        ExclusaoEmMassaResposta resumo = new ExclusaoEmMassaResposta(
+                transacoes.size(),
+                somarPorTipo(transacoes, TipoMovimentacao.RECEITA),
+                somarPorTipo(transacoes, TipoMovimentacao.DESPESA),
+                contribuicoes.size(),
+                contribuicoes.stream().map(ContribuicaoMeta::getValor).reduce(BigDecimal.ZERO, BigDecimal::add),
+                parcelasMantidas
+        );
+        return new SelecaoExclusao(transacoes, contribuicoes, resumo);
+    }
+
+    private record SelecaoExclusao(List<Transacao> transacoes, List<ContribuicaoMeta> contribuicoes,
+                                   ExclusaoEmMassaResposta resumo) {
+    }
+
+    private BigDecimal somarPorTipo(List<Transacao> transacoes, TipoMovimentacao tipo) {
+        return transacoes.stream()
+                .filter(t -> t.getTipo() == tipo)
+                .map(Transacao::getValor)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
     public List<EvolucaoMensalResposta> evolucaoMensal(String emailUsuario, int quantidadeMeses) {

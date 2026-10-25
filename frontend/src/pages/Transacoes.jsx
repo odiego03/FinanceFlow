@@ -8,12 +8,8 @@ import * as categoriaService from '../services/categoriaService'
 import * as metaService from '../services/metaService'
 import * as parcelamentoService from '../services/parcelamentoService'
 import * as transacaoService from '../services/transacaoService'
+import { usePreferencias } from '../contexts/PreferenciasContext'
 import styles from './Transacoes.module.css'
-
-const formatadorMoeda = new Intl.NumberFormat('pt-BR', {
-  style: 'currency',
-  currency: 'BRL',
-})
 
 const formatadorData = new Intl.DateTimeFormat('pt-BR')
 
@@ -91,6 +87,7 @@ function compararTransacoes(ordenacao) {
 }
 
 function Transacoes() {
+  const { formatarMoeda } = usePreferencias()
   const [transacoes, setTransacoes] = useState([])
   const [categorias, setCategorias] = useState([])
   const [metas, setMetas] = useState([])
@@ -207,7 +204,7 @@ function Transacoes() {
     fecharModal()
     setErro('')
     setMensagemSucesso(
-      `Parcelamento criado: ${parcelamento.quantidadeParcelas}x de ${formatadorMoeda.format(parcelamento.valorParcela)}.`,
+      `Parcelamento criado: ${parcelamento.quantidadeParcelas}x de ${formatarMoeda(parcelamento.valorParcela)}.`,
     )
     await carregarDados()
   }
@@ -230,7 +227,7 @@ function Transacoes() {
     setModalImportarAberto(false)
     setMensagemSucesso(
       `${quantidadeCriada} transação(ões) importada(s) com sucesso.` +
-        (totalDestinadoMetas > 0 ? ` ${formatadorMoeda.format(totalDestinadoMetas)} destinado(s) às metas.` : ''),
+        (totalDestinadoMetas > 0 ? ` ${formatarMoeda(totalDestinadoMetas)} destinado(s) às metas.` : ''),
     )
     await carregarDados()
   }
@@ -401,9 +398,9 @@ function Transacoes() {
         <p className={styles.resumoFiltro} aria-live="polite">
           {transacoesFiltradas.length} de {transacoes.length} transação(ões)
           {' · '}
-          <span className={styles.valorPositivo}>+ {formatadorMoeda.format(totalReceitasFiltradas)}</span>
+          <span className={styles.valorPositivo}>+ {formatarMoeda(totalReceitasFiltradas)}</span>
           {' · '}
-          <span className={styles.valorNegativo}>- {formatadorMoeda.format(totalDespesasFiltradas)}</span>
+          <span className={styles.valorNegativo}>- {formatarMoeda(totalDespesasFiltradas)}</span>
         </p>
       ) : null}
 
@@ -457,7 +454,7 @@ function Transacoes() {
                   <td>{transacao.descricao || '-'}</td>
                   <td className={transacao.tipo === 'RECEITA' ? styles.valorPositivo : styles.valorNegativo}>
                     {transacao.tipo === 'RECEITA' ? '+ ' : '- '}
-                    {formatadorMoeda.format(transacao.valor)}
+                    {formatarMoeda(transacao.valor)}
                   </td>
                   <td>
                     <div className={styles.acoesLinha}>

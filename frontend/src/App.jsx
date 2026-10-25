@@ -6,6 +6,7 @@ import Categorias from './pages/Categorias'
 import Dashboard from './pages/Dashboard'
 import Login from './pages/Login'
 import Metas from './pages/Metas'
+import Perfil from './pages/Perfil'
 import Simulacao from './pages/Simulacao'
 import Transacoes from './pages/Transacoes'
 
@@ -23,6 +24,7 @@ function App() {
           <Route path="/transacoes" element={<Transacoes />} />
           <Route path="/metas" element={<Metas />} />
           <Route path="/simulacao" element={<Simulacao />} />
+          <Route path="/perfil" element={<Perfil />} />
         </Route>
       </Route>
 

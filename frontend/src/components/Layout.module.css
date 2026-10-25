@@ -33,6 +33,11 @@
   font-size: 0.92rem;
   font-weight: 600;
   color: #2563eb;
+  text-decoration: none;
+}
+
+.saudacao:hover {
+  text-decoration: underline;
 }
 
 .iconButton {
