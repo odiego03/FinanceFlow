@@ -553,6 +553,43 @@ e encerramento. Tudo numa branch só (`feature/sprint4`), com um PR
 
 Testes em `CalculadoraParcelamentoTest`.
 
+### 8.2 Simulação de investimento (RN005)
+
+Sem entidade: `POST /simulacoes` só calcula e devolve, nada é gravado
+(por isso responde `200`, não `201`).
+
+- **Taxas**: `IndicadorMercadoService.obterTaxasInvestimento()` busca na
+  API SGS do BCB a Selic meta (432, % a.a.), o CDI anualizado base 252
+  (4389, % a.a.) e a rentabilidade mensal da poupança nova (195, % a.m.,
+  já com a TR). Cache de 1 hora, separado do rodapé. Se uma série falhar,
+  mantém o último valor obtido dela; com alguma taxa faltando, o cache
+  não vale e a próxima chamada tenta de novo. Sem valor nenhum, o
+  cenário volta `disponivel: false`, com os valores `null`.
+  `GET /simulacoes/taxas` expõe as taxas pro cabeçalho da tela.
+- **Cenários**:
+  - Poupança: taxa mensal do BCB direto, isenta de IR.
+  - CDB: CDI × `percentualCdi` (50 a 200, padrão 100).
+  - Tesouro Selic: Selic meta, **sem** a taxa de custódia da B3 (0,20%
+    a.a.). Fica documentado como simplificação.
+  - Taxa anual → mensal por equivalência: `(1 + a)^(1/12) − 1`.
+- **Cálculo** (`CalculadoraInvestimento`, pura):
+  - juros compostos mês a mês; o valor inicial entra no mês 0 e o
+    aporte no **fim** de cada mês (o último aporte não rende);
+  - IR regressivo calculado **por depósito**, pelo tempo que cada um
+    ficou aplicado: até 6 meses 22,5%, até 12 meses 20%, até 24 meses
+    17,5%, acima disso 15%. É como a Receita cobra: o aporte do mês 11
+    de uma aplicação de 12 meses paga 22,5%, não 20%;
+  - IOF ignorado (prazo mínimo de 1 mês ≈ 30 dias, quando ele já é
+    zero).
+- **Resposta**: total investido, os 3 cenários (taxa anual efetiva,
+  bruto, IR, líquido, rendimentos), `melhorCenario` (maior valor
+  líquido entre os disponíveis) e `evolucao`, com o saldo **bruto** de
+  cada cenário e o valor investido mês a mês, pro gráfico.
+- Valor inicial e aporte zerados ao mesmo tempo → `400`
+  (`SimulacaoInvalidaException`).
+
+Testes em `CalculadoraInvestimentoTest`.
+
 ---
 
 ## 9. Convenções de código

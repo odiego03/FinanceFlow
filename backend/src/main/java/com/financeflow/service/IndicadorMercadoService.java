@@ -1,7 +1,9 @@
 package com.financeflow.service;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.financeflow.dto.IndicadorMercadoResposta;
+import com.financeflow.dto.TaxasInvestimentoResposta;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpHeaders;
@@ -19,6 +21,10 @@ public class IndicadorMercadoService {
     private static final Duration DURACAO_CACHE = Duration.ofMinutes(5);
     private static final String URL_SGS_SELIC = "https://api.bcb.gov.br/dados/serie/bcdata.sgs.432/dados/ultimos/1?formato=json";
     private static final String URL_SGS_DOLAR = "https://api.bcb.gov.br/dados/serie/bcdata.sgs.1/dados/ultimos/1?formato=json";
+    private static final Duration DURACAO_CACHE_TAXAS = Duration.ofHours(1);
+    // CDI anualizado (base 252) e rentabilidade mensal da poupança nova (depósitos a partir de 04/05/2012)
+    private static final String URL_SGS_CDI = "https://api.bcb.gov.br/dados/serie/bcdata.sgs.4389/dados/ultimos/1?formato=json";
+    private static final String URL_SGS_POUPANCA = "https://api.bcb.gov.br/dados/serie/bcdata.sgs.195/dados/ultimos/1?formato=json";
     private static final String HOST_YAHOO = "query1.finance.yahoo.com";
     private static final String SIMBOLO_IBOVESPA = "^BVSP";
 
@@ -26,6 +32,7 @@ public class IndicadorMercadoService {
 
     private volatile IndicadorMercadoResposta cache;
     private volatile LocalDateTime cacheEm;
+    private volatile TaxasInvestimentoResposta cacheTaxas;
 
     public IndicadorMercadoService(RestClient restClient) {
         this.restClient = restClient;
@@ -46,6 +53,32 @@ public class IndicadorMercadoService {
         cache = resposta;
         cacheEm = LocalDateTime.now();
         return resposta;
+    }
+
+    /**
+     * Taxas da Simulação de investimento (RN005). Cache de 1 hora (mudam no máximo uma vez por dia); se a consulta
+     * falhar, mantém o último valor obtido daquela taxa, pra uma instabilidade do BCB não derrubar a simulação.
+     */
+    public synchronized TaxasInvestimentoResposta obterTaxasInvestimento() {
+        // Com alguma taxa faltando, tenta de novo na próxima chamada em vez de esperar 1 hora
+        boolean cacheCompleto = cacheTaxas != null && cacheTaxas.selic() != null && cacheTaxas.cdi() != null
+                && cacheTaxas.poupancaMensal() != null;
+        if (cacheCompleto && Duration.between(cacheTaxas.atualizadoEm(), LocalDateTime.now()).compareTo(DURACAO_CACHE_TAXAS) < 0) {
+            return cacheTaxas;
+        }
+
+        BigDecimal selic = buscarSerieSgs(URL_SGS_SELIC, "Selic");
+        BigDecimal cdi = buscarSerieSgs(URL_SGS_CDI, "CDI");
+        BigDecimal poupanca = buscarSerieSgs(URL_SGS_POUPANCA, "Poupança");
+
+        TaxasInvestimentoResposta anterior = cacheTaxas;
+        cacheTaxas = new TaxasInvestimentoResposta(
+                selic != null || anterior == null ? selic : anterior.selic(),
+                cdi != null || anterior == null ? cdi : anterior.cdi(),
+                poupanca != null || anterior == null ? poupanca : anterior.poupancaMensal(),
+                LocalDateTime.now()
+        );
+        return cacheTaxas;
     }
 
     private BigDecimal buscarSerieSgs(String url, String nomeIndicador) {
@@ -83,6 +116,8 @@ public class IndicadorMercadoService {
         }
     }
 
+    // A série da poupança traz também "dataFim", que não interessa
+    @JsonIgnoreProperties(ignoreUnknown = true)
     private record ItemSgs(String data, String valor) {
     }
 }

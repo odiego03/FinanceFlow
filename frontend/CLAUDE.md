@@ -44,6 +44,7 @@ services/
 ├── transacaoService.js          # inclui evolução, por categoria e importação de extrato
 ├── metaService.js               # metas e contribuições
 ├── parcelamentoService.js       # parcelamentos e sugestão de parcelas
+├── simulacaoService.js          # simulação de investimento e taxas do BCB
 ├── indicadorMercadoService.js   # Selic, dólar, Ibovespa
 └── comprometimentoService.js    # indicador de comprometimento de renda
 ```
@@ -274,3 +275,22 @@ futuras (ver `backend/CLAUDE.md`).
   O aviso verde de sucesso (`mensagemSucesso`, antes
   `mensagemImportacao`) é compartilhado entre a importação e o
   parcelamento.
+- **Simulador de Investimentos** (`pages/Simulacao.jsx`, rota
+  `/simulacao`, serviço `services/simulacaoService.js`): o item do menu
+  lateral, que era "em breve", foi ativado.
+  - **Cabeçalho**: taxas do dia (`GET /simulacoes/taxas`) com "Fonte:
+    Banco Central".
+  - **Formulário**: valor inicial, aporte mensal opcional, prazo (1 a
+    360 meses, com atalhos 6 meses / 1 / 2 / 5 anos) e "% do CDI" do CDB
+    (padrão 100). "Simular" chama `POST /simulacoes`.
+  - **Cards por cenário**: valor líquido em destaque, rendimento
+    líquido, valor bruto e IR ("Isento" na poupança). O melhor cenário
+    ganha borda azul e o selo "Melhor opção". Cenário sem taxa mostra
+    "Taxa indisponível no Banco Central agora".
+  - **Gráfico de linhas** (Recharts): saldo bruto mês a mês dos cenários
+    disponíveis, mais o "Valor investido" tracejado em cinza. A cor
+    segue o cenário (Poupança `#eb6834`, CDB `#2a78d6`, Tesouro Selic
+    `#1baf7a`, validados contra daltonismo) e se repete no marcador do
+    card.
+  - **Rodapé**: aviso de simulação educativa (taxas de hoje, IR por
+    depósito, sem custódia do Tesouro nem IOF).

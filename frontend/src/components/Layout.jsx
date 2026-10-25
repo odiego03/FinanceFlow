@@ -9,9 +9,10 @@ const itensAtivos = [
   { rota: '/transacoes', rotulo: 'Transações' },
   { rota: '/categorias', rotulo: 'Categorias' },
   { rota: '/metas', rotulo: 'Metas Financeiras' },
+  { rota: '/simulacao', rotulo: 'Simulador de Investimentos' },
 ]
 
-const itensEmBreve = ['Relatórios', 'Simulador de Investimentos']
+const itensEmBreve = ['Relatórios']
 
 function Layout() {
   const { usuario, sair } = useAuth()

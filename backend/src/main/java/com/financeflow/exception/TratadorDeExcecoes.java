@@ -70,6 +70,11 @@ public class TratadorDeExcecoes {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("mensagem", excecao.getMessage()));
     }
 
+    @ExceptionHandler(SimulacaoInvalidaException.class)
+    public ResponseEntity<Map<String, String>> tratarSimulacaoInvalida(SimulacaoInvalidaException excecao) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("mensagem", excecao.getMessage()));
+    }
+
     @ExceptionHandler(ArquivoExtratoInvalidoException.class)
     public ResponseEntity<Map<String, String>> tratarArquivoExtratoInvalido(ArquivoExtratoInvalidoException excecao) {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("mensagem", excecao.getMessage()));

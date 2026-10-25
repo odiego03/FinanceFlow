@@ -148,10 +148,10 @@ Parcelamento e das Sugestões da Sprint#4.
 
 #### 4.2 Simulação de investimento (RN005)
 
-- [ ] `POST /simulacoes` com valor inicial, aporte mensal opcional e prazo em meses
-- [ ] Busca as taxas na API SGS do Banco Central (Selic, CDI e poupança), com o mesmo esquema de cache e fallback do rodapé de indicadores
-- [ ] Calcula o rendimento projetado em três cenários: Poupança, CDB (% do CDI informado pelo usuário, padrão 100%) e Tesouro Selic. Mostra o valor bruto e o valor líquido após o IR regressivo (22,5% → 15% conforme o prazo; poupança é isenta)
-- [ ] Tela de Simulação no frontend: formulário, cards por cenário e gráfico da evolução mês a mês
+- [x] `POST /simulacoes` com valor inicial, aporte mensal opcional (no fim de cada mês) e prazo em meses (1 a 360). Nada é gravado: a simulação é só um cálculo
+- [x] Busca as taxas na API SGS do Banco Central (Selic 432, CDI 4389 e poupança 195), com cache de 1 hora. Se o BCB falhar, usa o último valor obtido; sem nenhum, o cenário vem como indisponível
+- [x] Calcula o rendimento projetado em três cenários: Poupança, CDB (% do CDI informado pelo usuário, padrão 100%) e Tesouro Selic. Mostra o valor bruto e o valor líquido após o IR regressivo (22,5% → 15% conforme o tempo de cada depósito; poupança é isenta)
+- [x] Tela "Simulador de Investimentos" no frontend: formulário, cards por cenário com o melhor destacado e gráfico da evolução mês a mês
 
 #### 4.3 Sugestões financeiras personalizadas (RN006)
 
@@ -248,6 +248,15 @@ Regra de negócio (RN007): o progresso da meta é a soma das contribuições, e 
 | GET | `/parcelamentos/sugestao?valorTotal=&dataPrimeiraParcela=` | — | `200` `{"rendaMedia", "despesasMedia", "parcelasComprometidas", "margemLivre", "quantidadeMinimaParcelas"}`; os dois últimos vêm `null` sem receita nos últimos 3 meses |
 
 Regra de negócio (RN004): o valor é dividido igualmente entre as parcelas (centavos que sobram na última), e a sugestão é a menor quantidade de parcelas cuja parcela cabe na margem livre mensal do usuário.
+
+### Simulação de investimento
+
+| Método | Rota | Body | Resposta |
+|---|---|---|---|
+| POST | `/simulacoes` | `{"valorInicial", "aporteMensal"?, "prazoMeses", "percentualCdi"?}` | `200` taxas usadas, total investido, os 3 cenários (bruto, IR, líquido), `melhorCenario` e a evolução mês a mês · `400` validação, ou valor inicial e aporte zerados |
+| GET | `/simulacoes/taxas` | — | `200` `{"selic", "cdi", "poupancaMensal", "atualizadoEm"}` (Selic e CDI em % a.a., poupança em % a.m.) |
+
+Regra de negócio (RN005): juros compostos mês a mês com as taxas atuais do Banco Central; CDB e Tesouro Selic pagam IR regressivo sobre o rendimento de cada depósito, a poupança é isenta.
 
 ### Indicadores
 
