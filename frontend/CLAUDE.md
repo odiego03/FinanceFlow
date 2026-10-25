@@ -45,6 +45,7 @@ services/
 ├── metaService.js               # metas e contribuições
 ├── parcelamentoService.js       # parcelamentos e sugestão de parcelas
 ├── simulacaoService.js          # simulação de investimento e taxas do BCB
+├── sugestaoService.js           # sugestões personalizadas do Dashboard
 ├── indicadorMercadoService.js   # Selic, dólar, Ibovespa
 └── comprometimentoService.js    # indicador de comprometimento de renda
 ```
@@ -294,3 +295,17 @@ futuras (ver `backend/CLAUDE.md`).
     card.
   - **Rodapé**: aviso de simulação educativa (taxas de hoje, IR por
     depósito, sem custódia do Tesouro nem IOF).
+- **Sugestões** (`components/PainelSugestoes.jsx`, serviço
+  `services/sugestaoService.js`): painel "Sugestões para você" no
+  Dashboard, logo abaixo dos cards e do alerta de comprometimento.
+  - **Dados**: chama `GET /sugestoes?mes=` com o mês do filtro de
+    período ("Todo o período" usa o mês atual).
+  - **Cada sugestão**: selo de severidade com **ícone + texto** (Alerta
+    / Atenção / Dica, nunca só cor), título, mensagem (o texto vem pronto
+    do backend), a lista de itens com valor, quando houver, e um link de
+    ação (Ver despesas, Abrir o simulador, Ver metas...).
+  - **Lista**: mostra 4 e abre o resto com "Ver todas (N)". Sem
+    sugestões, diz que as finanças do mês estão em dia.
+- **Mês inicial do Dashboard**: o "mês mais recente com lançamento"
+  agora ignora datas futuras. Sem isso, as parcelas já agendadas faziam
+  o Dashboard abrir no mês da última parcela.

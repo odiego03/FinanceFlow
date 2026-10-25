@@ -590,6 +590,43 @@ Sem entidade: `POST /simulacoes` só calcula e devolve, nada é gravado
 
 Testes em `CalculadoraInvestimentoTest`.
 
+### 8.3 Sugestões personalizadas (RN006)
+
+Sem entidade: `GET /sugestoes?mes=AAAA-MM` (padrão: mês atual) calcula
+na hora. As regras ficam em `RegrasSugestao`, uma classe pura que
+devolve a sugestão já com o texto pronto. `SugestaoService` junta os
+dados e chama as regras. Cada sugestão tem:
+- `tipo`, `severidade` (`ALERTA` > `ATENCAO` > `DICA`, a ordem da lista);
+- `titulo`, `mensagem`;
+- `valor`: o número principal;
+- `itens`: lista `{nome, valor}`, ex: as categorias que mais pesaram.
+
+As regras de **comprometimento e sobra** usam o mês pedido (mesma conta
+do Indicador, via `CalculadoraComprometimento`). As de **metas e
+parcelas** olham pra frente, a partir de hoje.
+
+| Tipo | Quando | O que diz |
+|------|--------|-----------|
+| `REDUZIR_GASTOS` (alerta) | nível `RISCO` | quanto reduzir pra ficar abaixo de 80% (`despesas − 80% da renda + R$ 0,01`) + as 3 não essenciais que mais pesaram |
+| `REDUZIR_ESSENCIAIS` (atenção) | essenciais ≥ 50% | quanto cortar nas essenciais ou quanto a renda precisaria crescer (essenciais × 2 − renda) + as 3 essenciais que mais pesaram |
+| `SEM_RENDA` (atenção) | despesa sem nenhuma receita no mês | pede pra lançar as receitas |
+| `INVESTIR_SOBRA` (dica) | renda − despesas > 0 | quanto a sobra renderia investida todo mês por 12 meses no melhor cenário da Simulação (sem as taxas do BCB, sai sem a projeção) |
+| `META_VENCIDA` (alerta) | data-alvo passou e não concluiu | quanto falta |
+| `META_ATRASADA` (atenção) | abaixo do ritmo linear entre a criação e a data-alvo | o esperado × o atual, e quanto contribuir por mês até a data |
+| `META_NO_PRAZO` (dica) | no ritmo | quanto contribuir por mês até a data (meses contados com o atual e o da data-alvo) |
+| `PARCELAS_ACIMA_DA_MARGEM` (alerta) | margem livre do Parcelamento (8.1) negativa com parcelas agendadas | quanto falta por mês + os parcelamentos em andamento |
+
+Detalhes que não são óbvios:
+- **Por que existe `REDUZIR_ESSENCIAIS`**: o README previa "apontar as
+  não essenciais" também no nível `ATENCAO`. Só que `ATENCAO` vem das
+  essenciais ≥ 50%, e cortar não essencial não muda esse percentual.
+  Por isso a regra separada.
+- **Atraso de meta**: só é cobrado depois de 30 dias da criação. Antes
+  disso, qualquer meta com zero contribuído apareceria como atrasada no
+  dia seguinte.
+
+Testes em `RegrasSugestaoTest`.
+
 ---
 
 ## 9. Convenções de código

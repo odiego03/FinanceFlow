@@ -158,11 +158,12 @@ Parcelamento e das Sugestões da Sprint#4.
 Baseadas em regras fixas (sem IA), acionadas pelo Indicador de
 comprometimento e pela Simulação:
 
-- [ ] Nível `RISCO` ou `ATENCAO`: aponta as categorias não essenciais com mais gasto no mês e quanto reduzir pra voltar ao nível `NORMAL`
-- [ ] Sobra no mês (renda − despesas > 0): sugere investir a sobra e mostra quanto ela renderia no melhor cenário da Simulação
-- [ ] Meta com data-alvo: calcula quanto falta contribuir por mês pra bater no prazo e avisa se a meta estiver atrasada
-- [ ] Parcelamento acima da margem livre: alerta
-- [ ] `GET /sugestoes` e painel de sugestões no Dashboard
+- [x] Nível `RISCO`: aponta as 3 categorias não essenciais com mais gasto no mês e quanto reduzir pra ficar abaixo de 80%
+- [x] Essenciais ≥ 50% (`ATENCAO`): cortar o não essencial não resolve, então mostra quanto reduzir nas essenciais, ou quanto a renda precisaria crescer
+- [x] Sobra no mês (renda − despesas > 0): sugere investir a sobra e mostra quanto ela renderia em 12 meses no melhor cenário da Simulação
+- [x] Meta com data-alvo: calcula quanto falta contribuir por mês pra bater no prazo e avisa se a meta está vencida ou atrasada (abaixo do ritmo linear entre a criação e a data-alvo)
+- [x] Parcelamento acima da margem livre: alerta, listando os parcelamentos em andamento
+- [x] `GET /sugestoes?mes=AAAA-MM` e painel "Sugestões para você" no Dashboard, que segue o filtro de período
 
 #### 4.4 Importação do Itaú
 
@@ -257,6 +258,14 @@ Regra de negócio (RN004): o valor é dividido igualmente entre as parcelas (cen
 | GET | `/simulacoes/taxas` | — | `200` `{"selic", "cdi", "poupancaMensal", "atualizadoEm"}` (Selic e CDI em % a.a., poupança em % a.m.) |
 
 Regra de negócio (RN005): juros compostos mês a mês com as taxas atuais do Banco Central; CDB e Tesouro Selic pagam IR regressivo sobre o rendimento de cada depósito, a poupança é isenta.
+
+### Sugestões
+
+| Método | Rota | Body | Resposta |
+|---|---|---|---|
+| GET | `/sugestoes?mes=AAAA-MM` | — | `200` lista de `{"tipo", "severidade", "titulo", "mensagem", "valor", "itens"}`, ordenada por severidade (`ALERTA`, `ATENCAO`, `DICA`); sem `mes` = mês atual |
+
+Regra de negócio (RN006): sugestões por regras fixas (sem IA), acionadas pelo Indicador de comprometimento, pela Simulação, pelas Metas com data-alvo e pela margem livre do Parcelamento.
 
 ### Indicadores
 

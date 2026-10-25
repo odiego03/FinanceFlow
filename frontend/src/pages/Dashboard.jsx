@@ -12,7 +12,9 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
+import PainelSugestoes from '../components/PainelSugestoes'
 import * as comprometimentoService from '../services/comprometimentoService'
+import * as sugestaoService from '../services/sugestaoService'
 import * as transacaoService from '../services/transacaoService'
 import styles from './Dashboard.module.css'
 
@@ -160,6 +162,7 @@ function Dashboard() {
   const [respostaCategoria, setRespostaCategoria] = useState({ filtro: null, dados: [] })
 
   const [respostaComprometimento, setRespostaComprometimento] = useState({ filtro: null, dados: null })
+  const [respostaSugestoes, setRespostaSugestoes] = useState({ filtro: null, dados: [], erro: false })
 
   const [erro, setErro] = useState('')
 
@@ -179,8 +182,11 @@ function Dashboard() {
   }, [transacoes])
 
   // Sem escolha do usuário, abre no mês mais recente que tem lançamento, pra não começar com tudo vazio
-  const mesMaisRecenteComDados = transacoes.length > 0
-    ? transacoes.reduce((maisRecente, transacao) => (transacao.data > maisRecente ? transacao.data : maisRecente), '').slice(0, 7)
+  // Ignora datas futuras: parcelas já agendadas fariam o Dashboard abrir no mês da última parcela
+  const hojeIso = new Date().toLocaleDateString('sv-SE')
+  const transacoesAteHoje = transacoes.filter((transacao) => transacao.data <= hojeIso)
+  const mesMaisRecenteComDados = transacoesAteHoje.length > 0
+    ? transacoesAteHoje.reduce((maisRecente, transacao) => (transacao.data > maisRecente ? transacao.data : maisRecente), '').slice(0, 7)
     : mesAtualIso()
   const periodo = periodoEscolhido ?? mesMaisRecenteComDados
   const mesFiltro = periodo === TODO_PERIODO ? null : periodo
@@ -189,6 +195,18 @@ function Dashboard() {
   const carregandoCategoria = carregandoTransacoes || respostaCategoria.filtro !== filtroCategoria
   const carregandoEvolucao = respostaEvolucao.filtro !== mesesEvolucao
   const carregandoComprometimento = carregandoTransacoes || respostaComprometimento.filtro !== mesFiltro
+
+  // As sugestões são mensais; em "Todo o período" usam o mês atual
+  const mesSugestoes = mesFiltro ?? mesAtualIso()
+  const carregandoSugestoes = carregandoTransacoes || respostaSugestoes.filtro !== mesSugestoes
+
+  useEffect(() => {
+    if (carregandoTransacoes) return
+    sugestaoService
+      .listar(mesSugestoes)
+      .then((dados) => setRespostaSugestoes({ filtro: mesSugestoes, dados, erro: false }))
+      .catch(() => setRespostaSugestoes({ filtro: mesSugestoes, dados: [], erro: true }))
+  }, [mesSugestoes, carregandoTransacoes])
 
   // Indicador é mensal: em "Todo o período" não busca nada (o card pede pra escolher um mês)
   useEffect(() => {
@@ -310,6 +328,13 @@ function Dashboard() {
       {!carregandoComprometimento && mesFiltro ? (
         <AlertaComprometimento indicador={respostaComprometimento.dados} rotuloPeriodo={rotuloPeriodo} />
       ) : null}
+
+      <PainelSugestoes
+        sugestoes={respostaSugestoes.dados}
+        carregando={carregandoSugestoes}
+        erro={respostaSugestoes.erro}
+        rotuloMes={formatarMesCompleto(mesSugestoes).toLowerCase()}
+      />
 
       <div className={styles.graficos}>
         <div className={styles.graficoCard}>
