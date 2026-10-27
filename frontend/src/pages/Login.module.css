@@ -6,14 +6,14 @@
   justify-content: center;
   padding: 24px;
   box-sizing: border-box;
-  background: var(--fundo-login);
+  background: linear-gradient(135deg, #dfe6fb 0%, #eef1fc 55%, #f7f8fd 100%);
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
 
 .card {
   width: 100%;
   max-width: 400px;
-  background: var(--superficie);
+  background: #ffffff;
   border-radius: 20px;
   box-shadow: 0 20px 40px rgba(30, 41, 59, 0.1);
   padding: 40px 36px;
@@ -35,21 +35,21 @@
   font-size: 1.9rem;
   font-weight: 800;
   letter-spacing: -0.03em;
-  color: var(--texto-forte);
+  color: #111827;
   text-align: center;
 }
 
 .subtitulo {
   margin: 6px 0 28px;
   font-size: 0.98rem;
-  color: var(--texto-suave);
+  color: #64748b;
   text-align: center;
 }
 
 .toggleGroup {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  background: var(--superficie-3);
+  background: #eef1f5;
   border-radius: 12px;
   padding: 6px;
   gap: 6px;
@@ -63,14 +63,14 @@
   padding: 10px 12px;
   font-size: 0.95rem;
   font-weight: 600;
-  color: var(--texto-suave);
+  color: #6b7280;
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
 .toggleActive {
-  background: var(--superficie);
-  color: var(--texto-forte);
+  background: #ffffff;
+  color: #111827;
   box-shadow: 0 2px 8px rgba(15, 23, 42, 0.08);
 }
 
@@ -83,26 +83,26 @@
 .label {
   display: block;
   font-size: 0.92rem;
-  color: var(--texto-2);
+  color: #374151;
   font-weight: 600;
   margin-bottom: -8px;
 }
 
 .input {
   width: 100%;
-  border: 1.5px solid var(--borda);
+  border: 1.5px solid #e2e8f0;
   border-radius: 12px;
-  background: var(--superficie);
+  background: #fff;
   padding: 13px 14px;
   font-size: 1rem;
-  color: var(--texto);
+  color: #1f2937;
   box-sizing: border-box;
   outline: none;
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .input:focus {
-  border-color: var(--primaria);
+  border-color: #2563eb;
   box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
 }
 
@@ -113,7 +113,7 @@
   font-size: 0.92rem;
   font-weight: 500;
   background: rgba(239, 68, 68, 0.08);
-  color: var(--erro-texto);
+  color: #b91c1c;
   border: 1px solid rgba(239, 68, 68, 0.2);
 }
 
@@ -121,7 +121,7 @@
   margin-top: 8px;
   border: none;
   border-radius: 12px;
-  background: var(--primaria);
+  background: #2563eb;
   color: #ffffff;
   font-size: 1.02rem;
   font-weight: 700;
@@ -132,7 +132,7 @@
 }
 
 .submitButton:hover:not(:disabled) {
-  background: var(--primaria-hover);
+  background: #1d4ed8;
   transform: translateY(-1px);
 }
 
@@ -146,14 +146,14 @@
   margin: 20px 0 0;
   text-align: center;
   font-size: 0.92rem;
-  color: var(--texto-suave);
+  color: #6b7280;
 }
 
 .link {
   border: none;
   background: none;
   padding: 0;
-  color: var(--primaria);
+  color: #2563eb;
   font-weight: 700;
   font-size: inherit;
   cursor: pointer;

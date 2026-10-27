@@ -12,7 +12,7 @@ ordem — cada camada depende da anterior:
 
 - Classe `@Entity` com `@Table(name = "...")` em snake_case plural.
 - Getters/setters explícitos (sem Lombok, ver `backend/CLAUDE.md`).
-- Nomes de classe, campos e métodos em português (ver seção 9 do
+- Nomes de classe, campos e métodos em português (ver seção 6 do
   `backend/CLAUDE.md`).
 - Se houver enum, criar como arquivo próprio (ver `TipoMovimentacao`
   como referência).
@@ -38,29 +38,13 @@ ordem — cada camada depende da anterior:
 - Endpoints REST, sem lógica de negócio — só recebe, delega ao
   Service e devolve a resposta.
 - Seguir o padrão de rotas já usado (`/usuarios`, `/categorias`,
-  `/transacoes`, `/metas`, `/indicadores`). Sub-recursos ficam sob o
-  recurso pai (ex: `/metas/{id}/contribuicoes`,
-  `/transacoes/importar/preview`).
-- Erros de negócio viram status HTTP pelo `TratadorDeExcecoes`
-  (`400`, `404`, `409`, `401`), com o campo `mensagem` que o frontend
-  exibe. A exceção nova estende `NegocioException` e passa o
-  `HttpStatus` no construtor — o tratador já pega todas, não precisa
-  cadastrar nada lá.
-
-## Casos especiais
-
-- Lógica que não é CRUD e é reaproveitável (parsers, cálculos) vai em
-  classe própria no pacote do Service, sem estado de banco — ver
-  `service/extrato/` (um parser por banco) e `CalculadoraComprometimento`
-  como referência. Cobrir com teste unitário em `src/test`.
-- Respostas e requisições da API usam DTOs em `com.financeflow.dto`
-  (records); não expor a entidade JPA direto.
+  `/transacoes`).
 
 ## Antes de implementar
 
 Confirme com o usuário:
 1. A entidade faz parte da Sprint atual? (ver `backend/CLAUDE.md`,
-   seção de módulos e a seção da sprint atual — hoje a 8, Sprint#4)
+   seção de módulos e roadmap)
 2. Alguma regra de negócio (RN) nova precisa ser documentada no
    `CLAUDE.md` antes de implementar, ou já está lá?
 
@@ -68,5 +52,5 @@ Não avance para módulos fora do escopo da sprint atual sem
 confirmar antes.
 
 Nomenclatura em português e comentários mínimos (só quando
-essenciais, sem enfeite) valem para todas as camadas — ver seção 9
+essenciais, sem enfeite) valem para todas as camadas — ver seção 6
 do `backend/CLAUDE.md`.

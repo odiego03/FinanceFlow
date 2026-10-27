@@ -12,14 +12,7 @@ services:
       PGDATABASE: ${PGDATABASE}
       PGUSER: ${PGUSER}
       PGPASSWORD: ${PGPASSWORD}
-      JWT_SECRET: ${JWT_SECRET:?defina JWT_SECRET no .env}
-      CORS_ORIGENS: ${CORS_ORIGENS:-http://localhost:3000}
-    healthcheck:
-      test: ["CMD", "curl", "-fs", "http://localhost:8080/actuator/health"]
-      interval: 15s
-      timeout: 5s
-      retries: 5
-      start_period: 60s
+      JWT_SECRET: ${JWT_SECRET}
 
   frontend:
     build:
@@ -29,7 +22,6 @@ services:
     container_name: financeflow-frontend
     restart: unless-stopped
     ports:
-      - "3000:8080"
+      - "3000:80"
     depends_on:
-      backend:
-        condition: service_healthy
+      - backend

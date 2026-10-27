@@ -10,13 +10,11 @@
 }
 
 .modal {
-  background: var(--superficie);
+  background: #ffffff;
   border-radius: 16px;
   padding: 28px;
   width: 100%;
   max-width: 420px;
-  max-height: 90vh;
-  overflow-y: auto;
   box-sizing: border-box;
   box-shadow: 0 20px 50px rgba(0, 0, 0, 0.25);
 }
@@ -25,7 +23,7 @@
   margin: 0 0 20px;
   font-size: 1.3rem;
   font-weight: 700;
-  color: var(--texto-forte);
+  color: #111827;
 }
 
 .label {
@@ -33,22 +31,22 @@
   margin: 16px 0 6px;
   font-size: 0.9rem;
   font-weight: 600;
-  color: var(--texto-2);
+  color: #374151;
 }
 
 .input {
   width: 100%;
-  border: 1.5px solid var(--borda);
+  border: 1.5px solid #e2e8f0;
   border-radius: 10px;
   padding: 11px 12px;
   font-size: 0.98rem;
-  color: var(--texto);
+  color: #1f2937;
   box-sizing: border-box;
   outline: none;
 }
 
 .input:focus {
-  border-color: var(--primaria);
+  border-color: #2563eb;
   box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
 }
 
@@ -56,7 +54,7 @@
   display: block;
   margin-top: 4px;
   font-size: 0.78rem;
-  color: var(--texto-fraco);
+  color: #9ca3af;
 }
 
 .tipoGroup {
@@ -66,12 +64,12 @@
 }
 
 .tipoBotao {
-  border: 1.5px solid var(--borda);
-  background: var(--superficie-2);
+  border: 1.5px solid #e2e8f0;
+  background: #f8fafc;
   border-radius: 10px;
   padding: 12px;
   font-weight: 700;
-  color: var(--texto-suave);
+  color: #6b7280;
   cursor: pointer;
 }
 
@@ -87,80 +85,6 @@
   color: #ffffff;
 }
 
-.essencial {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  margin-top: 16px;
-  padding: 10px 12px;
-  border: 1.5px solid var(--borda);
-  border-radius: 10px;
-  cursor: pointer;
-}
-
-.essencial input {
-  margin-top: 3px;
-  width: 16px;
-  height: 16px;
-  accent-color: var(--primaria);
-  flex-shrink: 0;
-}
-
-.essencial span {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  font-size: 0.9rem;
-  color: var(--texto);
-}
-
-.essencial small {
-  font-size: 0.78rem;
-  color: var(--texto-suave);
-}
-
-.iconeGroup {
-  display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
-  gap: 8px;
-}
-
-.iconeBotao {
-  border: 1.5px solid var(--borda);
-  background: var(--superficie-2);
-  border-radius: 10px;
-  padding: 8px 0;
-  font-size: 1.1rem;
-  color: var(--texto-3);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.iconeSelecionado {
-  border-color: var(--primaria);
-  background: var(--destaque-suave);
-}
-
-.corGroup {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-}
-
-.corBotao {
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  border: 2px solid transparent;
-  cursor: pointer;
-}
-
-.corSelecionada {
-  border-color: var(--texto-forte);
-}
-
 .errorMessage {
   margin: 12px 0 0;
   padding: 10px 12px;
@@ -168,7 +92,7 @@
   font-size: 0.9rem;
   font-weight: 500;
   background: rgba(239, 68, 68, 0.08);
-  color: var(--erro-texto);
+  color: #b91c1c;
   border: 1px solid rgba(239, 68, 68, 0.2);
 }
 
@@ -181,8 +105,8 @@
 
 .cancelar {
   border: none;
-  background: var(--superficie-3);
-  color: var(--texto-2);
+  background: #f1f5f9;
+  color: #374151;
   font-weight: 600;
   padding: 10px 18px;
   border-radius: 10px;
@@ -190,12 +114,12 @@
 }
 
 .cancelar:hover {
-  background: var(--borda);
+  background: #e2e8f0;
 }
 
 .adicionar {
   border: none;
-  background: var(--primaria);
+  background: #2563eb;
   color: #ffffff;
   font-weight: 700;
   padding: 10px 20px;
@@ -204,7 +128,7 @@
 }
 
 .adicionar:hover:not(:disabled) {
-  background: var(--primaria-hover);
+  background: #1d4ed8;
 }
 
 .adicionar:disabled {

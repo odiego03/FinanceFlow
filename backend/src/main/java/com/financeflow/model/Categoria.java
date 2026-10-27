@@ -30,14 +30,6 @@ public class Categoria {
     @JoinColumn(name = "usuario_id", nullable = false)
     private Usuario usuario;
 
-    private String icone;
-
-    private String cor;
-
-    // Só vale pra DESPESA (indicador 50/30/20). null = nunca definido: categorias criadas antes do campo
-    // existir — aí vale o padrão do catálogo de pré-definidas (ver CategoriasPredefinidas.ehEssencial)
-    private Boolean essencial;
-
     public Long getId() {
         return id;
     }
@@ -68,29 +60,5 @@ public class Categoria {
 
     public void setUsuario(Usuario usuario) {
         this.usuario = usuario;
-    }
-
-    public String getIcone() {
-        return icone;
-    }
-
-    public void setIcone(String icone) {
-        this.icone = icone;
-    }
-
-    public String getCor() {
-        return cor;
-    }
-
-    public void setCor(String cor) {
-        this.cor = cor;
-    }
-
-    public Boolean getEssencial() {
-        return essencial;
-    }
-
-    public void setEssencial(Boolean essencial) {
-        this.essencial = essencial;
     }
 }

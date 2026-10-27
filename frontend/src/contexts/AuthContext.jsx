@@ -17,9 +17,7 @@ export function AuthProvider({ children }) {
     usuarioService
       .buscarUsuarioAtual()
       .then(setUsuario)
-      .catch((erro) => {
-        // Só 401 é token inválido; queda de rede ou erro 500 não deve deslogar
-        if (erro.response?.status !== 401) return
+      .catch(() => {
         localStorage.removeItem(CHAVE_TOKEN)
         setToken(null)
         setUsuario(null)
@@ -39,7 +37,7 @@ export function AuthProvider({ children }) {
   }
 
   return (
-    <AuthContext.Provider value={{ token, usuario, autenticado: Boolean(token), entrar, sair, atualizarUsuario: setUsuario }}>
+    <AuthContext.Provider value={{ token, usuario, autenticado: Boolean(token), entrar, sair }}>
       {children}
     </AuthContext.Provider>
   )
