@@ -587,6 +587,24 @@ Sem entidade: `POST /simulacoes` só calcula e devolve, nada é gravado
   cada cenário e o valor investido mês a mês, pro gráfico.
 - Valor inicial e aporte zerados ao mesmo tempo → `400`
   (`SimulacaoInvalidaException`).
+- **Inflação**: as taxas trazem também o IPCA acumulado em 12 meses
+  (SGS 13522, `ipca12Meses`). Cada cenário devolve `valorLiquidoHoje`
+  (o líquido em dinheiro de hoje, `valor ÷ (1 + ipca)^(meses/12)`, com a
+  inflação dos últimos 12 meses repetida no prazo) e `rendimentoReal`
+  (`valorLiquidoHoje` − o investido também em dinheiro de hoje, cada
+  aporte descontado pelo mês em que entra). `rendimentoReal` negativo =
+  perde da inflação. Sem o IPCA, os dois vêm `null`.
+- **Modo meta** (`POST /simulacoes/aporte-necessario`, `valorObjetivo`,
+  `valorInicial` opcional, `prazoMeses`, `percentualCdi`): o menor
+  aporte mensal, em centavos, cujo valor **líquido de IR** chega no
+  objetivo, por cenário (`CalculadoraInvestimento.aporteNecessario`,
+  busca binária, porque o IR por depósito não tem fórmula fechada).
+  `0` quando o valor inicial sozinho já chega. `melhorCenario` = o de
+  menor aporte.
+- **Leitura do BCB**: a resposta da API SGS é lida como texto e
+  convertida com o `ObjectMapper`, porque o BCB às vezes manda o JSON
+  com `Content-Type: text/html` e o conversor do Spring recusava (a
+  taxa aparecia como indisponível de forma intermitente).
 
 Testes em `CalculadoraInvestimentoTest`.
 
@@ -677,6 +695,43 @@ Testes em `RegrasSugestaoTest`.
 - A prévia e a exclusão usam a mesma seleção (`selecionarParaExclusao`)
   e devolvem o mesmo formato.
 
+**Tema** (`PreferenciasUsuario.tema`, enum `Tema`): `CLARO`, `ESCURO`
+ou `SISTEMA` (segue o sistema operacional).
+- A coluna é **nullable** de propósito: entrou depois da tabela, e o
+  Hibernate (`ddl-auto=update`) não consegue adicionar `NOT NULL` sem
+  default em linhas que já existem. `null` vale `CLARO`, pra quem já
+  usava o app não ver a interface mudar sozinha.
+- Quem aplica é o frontend.
+
+**Tutorial** (`PreferenciasUsuario.tutorialConcluido`, migração `V3`):
+- `GET /usuarios/me/preferencias` devolve `tutorialConcluido`; sem
+  registro ou com `null`, vale `false`. Assim o tutorial aparece uma
+  vez pra todo mundo, inclusive pra quem já usava o app antes dele.
+- Muda só por `PUT /usuarios/me/preferencias/tutorial`
+  (`{"concluido": true}`). O `PUT` das preferências não mexe nele, pra
+  salvar o tema ou os limites não reabrir o tutorial.
+- Se ainda não havia registro de preferências, ele nasce com os
+  padrões (`PreferenciasService.buscarOuCriar`).
+
+### 8.5 Relatórios
+
+Sem entidade: `GET /relatorios?tipo=MENSAL|ANUAL&referencia=` calcula
+na hora (`RelatorioService` + `CalculadoraRelatorio`, pura).
+- **Período**: o mensal compara com o mês anterior. O anual compara com
+  o ano anterior e traz `evolucaoMensal` (12 meses, sempre, com zero
+  onde não houve lançamento).
+- **Resumo** de cada período: receitas, despesas, saldo, quantidade e
+  taxa de poupança (`saldo ÷ receitas`, `null` sem receita).
+- **Por categoria** (despesa e receita):
+  - total, percentual do total do tipo e total no período anterior;
+  - variação em % (`null` quando o anterior é zero);
+  - entram também as categorias que só existem no período anterior,
+    com total 0 e −100%, pra mostrar o que deixou de ser gasto.
+- **Maiores despesas**: as 5 maiores do período.
+- Parcelas entram como despesas comuns, cada uma no mês dela.
+
+Testes em `CalculadoraRelatorioTest`.
+
 ---
 
 ## 9. Convenções de código
@@ -711,7 +766,11 @@ instalar Postgres localmente.
    spring.datasource.url=jdbc:postgresql://<host>:<porta>/<banco>?sslmode=require
    spring.datasource.username=<usuario>
    spring.datasource.password=<senha>
+   jwt.chave-secreta=<qualquer texto com 32+ caracteres>
    ```
+   A chave do JWT não tem mais valor padrão no `application.properties`
+   (com uma chave fixa no repositório, qualquer um forjaria tokens).
+   Sem ela o backend não sobe.
 3. Empacote e rode o jar com o profile `local` (mais confiável que
    `spring-boot:run`, que se mostrou instável em alguns ambientes):
    ```
@@ -719,9 +778,68 @@ instalar Postgres localmente.
    java -jar target/financeflow-backend-0.1.0.jar --spring.profiles.active=local
    ```
 
-As tabelas são criadas/atualizadas automaticamente pelo Hibernate
-(`spring.jpa.hibernate.ddl-auto=update`) — não precisa rodar SQL
-manual.
+O esquema é das migrações do **Flyway** (`src/main/resources/db/migration`),
+que rodam sozinhas ao subir. O Hibernate só confere se as entidades
+batem com o banco (`ddl-auto=validate`) e não cria mais nada.
+- `V1__esquema_inicial.sql` é o esquema de quando o Flyway entrou. No
+  Neon, que já tinha as tabelas criadas pelo antigo `ddl-auto=update`,
+  ela não roda: `baseline-on-migrate` marca a V1 como aplicada. Num
+  banco vazio, ela cria tudo.
+- `V2` cria os índices das chaves estrangeiras (o Postgres não cria
+  sozinho).
+- **Mudou uma entidade? Crie `V<n>__descricao.sql`.** Nunca edite uma
+  migração que já rodou (o Flyway confere o checksum e para de subir).
+  Coluna nova em tabela com dados: nullable ou com `default`.
+
+## 10.1 Testes
+
+`./mvnw test` roda tudo, sem precisar do Neon:
+- unitários das classes puras (`Calculadora*`, `RegrasSugestao`,
+  parsers, `SugestorCategoria`);
+- `ApiIntegracaoTest`: sobe a aplicação inteira com H2 em modo
+  PostgreSQL (profile `teste`, `src/test/resources`), rodando as
+  mesmas migrações do Flyway, e testa pelas rotas HTTP (isolamento
+  entre usuários, 401/404, troca de tipo de categoria, limites, saldo
+  de contribuição, bloqueio de login).
+
+## 10.2 Decisões da auditoria final
+
+- **Exceções**: toda exceção de regra de negócio estende
+  `NegocioException`, que carrega o `HttpStatus`; o
+  `TratadorDeExcecoes` tem um handler só pra elas. Exceção nova = só a
+  classe, sem mexer no tratador. O handler genérico agora loga o erro
+  (antes engolia) e 404/405/413/parâmetro ausente têm status próprio.
+- **Usuário do token**: `UsuarioRepository.buscarDoToken(email)` em vez
+  de uma cópia de `buscarUsuarioPorEmail` em cada Service. Token de
+  usuário que não existe mais dá `401` (antes `500`).
+- **Email** é gravado em minúsculas e comparado sem diferenciar caixa
+  (cadastro e login). Contas antigas com maiúscula continuam entrando:
+  o login procura ignorando a caixa e, se houver mais de uma, vale a da
+  senha certa. **Senha não tem tamanho mínimo no cadastro** (decisão do
+  grupo, pra criar usuários de teste fácil); a troca de senha continua
+  exigindo 6.
+- **Login**: 5 erros seguidos no mesmo email bloqueiam por 15 minutos
+  (`LimitadorTentativasLogin`, em memória, `429`).
+- **Categoria em uso não muda de tipo** (`409`), pelo mesmo motivo de
+  não poder ser excluída: deixaria transações com tipo diferente da
+  categoria (RN003) e meta em categoria de despesa (RN007).
+- **Limites nos DTOs**: textos com `@Size` (descrição 200, nome de
+  categoria 50, nome de meta/usuário 100) e valores com
+  `@DecimalMax("99999999.99")` (a coluna é `numeric(10,2)`). A
+  importação corta a descrição em 200 já no preview, pra a detecção de
+  duplicata comparar com o que fica gravado.
+- **APIs externas** com timeout (3s conexão, 5s leitura).
+- **Consultas por período**: `findByUsuarioIdAndDataBetween` /
+  `buscarDoPeriodo` em vez de carregar todo o histórico e filtrar em
+  memória. Metas somam as contribuições numa consulta só. A confirmação
+  da importação carrega categorias e regras de uma vez (os inserts
+  continuam um por linha, porque o id é `IDENTITY`).
+- **Contribuição a meta** roda em `@Transactional` com
+  `PESSIMISTIC_WRITE` na meta e na transação, pra duas contribuições
+  ao mesmo tempo não passarem juntas do saldo.
+- **Limitação conhecida**: o token continua valendo até expirar (8h)
+  depois de uma troca de senha. Revogar exigiria consultar o banco a
+  cada requisição.
 
 ---
 

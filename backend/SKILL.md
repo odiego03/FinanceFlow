@@ -41,9 +41,11 @@ ordem — cada camada depende da anterior:
   `/transacoes`, `/metas`, `/indicadores`). Sub-recursos ficam sob o
   recurso pai (ex: `/metas/{id}/contribuicoes`,
   `/transacoes/importar/preview`).
-- Erros de negócio viram status HTTP no `TratadorDeExcecoes`
+- Erros de negócio viram status HTTP pelo `TratadorDeExcecoes`
   (`400`, `404`, `409`, `401`), com o campo `mensagem` que o frontend
-  exibe — cadastrar a nova exceção lá.
+  exibe. A exceção nova estende `NegocioException` e passa o
+  `HttpStatus` no construtor — o tratador já pega todas, não precisa
+  cadastrar nada lá.
 
 ## Casos especiais
 

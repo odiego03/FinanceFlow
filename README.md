@@ -29,6 +29,8 @@ O banco é compartilhado (Neon) — não precisa instalar Postgres local.
    spring.datasource.url=jdbc:postgresql://<host>:<porta>/<banco>?sslmode=require
    spring.datasource.username=<usuario>
    spring.datasource.password=<senha>
+   # qualquer texto com 32+ caracteres; sem isso o backend não sobe (não há chave padrão no código)
+   jwt.chave-secreta=<chave-secreta-local>
    ```
 3. Empacote e rode o jar com o profile `local` (mais confiável que `mvnw spring-boot:run`, que se mostrou instável em alguns ambientes):
    ```bash
@@ -36,7 +38,7 @@ O banco é compartilhado (Neon) — não precisa instalar Postgres local.
    ./mvnw clean package -DskipTests
    java -jar target/financeflow-backend-0.1.0.jar --spring.profiles.active=local
    ```
-4. API disponível em `http://localhost:8080`. As tabelas são criadas/atualizadas automaticamente pelo Hibernate — não precisa rodar SQL manual.
+4. API disponível em `http://localhost:8080`. As tabelas são criadas e atualizadas pelas migrações do Flyway (`backend/src/main/resources/db/migration`), que rodam sozinhas ao subir — não precisa rodar SQL manual. Mudança de esquema = um arquivo `V<n>__descricao.sql` novo; nunca editar uma migração que já rodou.
 
 ## Como rodar tudo com Docker
 
@@ -59,7 +61,7 @@ Pré-requisito: Docker e Docker Compose instalados.
    - Frontend: `http://localhost:3000`
    - Backend: `http://localhost:8080`
 
-O `.env` nunca é commitado (já está no `.gitignore`). As tabelas continuam sendo criadas automaticamente pelo Hibernate na primeira conexão.
+O `.env` nunca é commitado (já está no `.gitignore`). `JWT_SECRET` é obrigatório (o compose não sobe sem ele), e as migrações do Flyway rodam na primeira conexão. O frontend só abre depois que o healthcheck do backend (`/actuator/health`) responde. Os dois containers rodam sem root.
 
 ## Roadmap
 
@@ -177,9 +179,17 @@ O parser (`ItauExtratoParser`) já existe, mas foi escrito com base no layout ma
 
 - [x] Primeiros testes automatizados (parsers, sugestão de categoria, indicador de comprometimento)
 - [ ] Testes automatizados dos Services com as regras de negócio (RN001–RN007, importação, indicador, parcelamento)
-- [x] Perfil do usuário (tela "Meu Perfil"): editar nome e trocar senha
+- [x] Correções da auditoria final: timeout nas APIs externas, categoria em uso não muda de tipo, limites de tamanho/valor (400 em vez de 500), email sem diferenciar maiúsculas, bloqueio após 5 logins errados, segredo JWT obrigatório, Flyway com índices, consultas por período, contribuição com trava, Docker sem root e com healthcheck
+- [x] Testes de integração da API (H2 + migrações): isolamento entre usuários, 401/404, troca de tipo de categoria, limites de valor, saldo de contribuição e bloqueio de login; teste do parser do Itaú
+- [x] Simulador com inflação (IPCA, "dinheiro de hoje"), modo meta (aporte mensal necessário) e uso da sobra real
+- [x] Redesenho de Dashboard, Transações (paginação, lista por dia) e modais; cabeçalho e marca novos; esqueletos de carregamento; Configurações em abas; tutorial de primeiro acesso
+- [x] Registro completo da sprint para a documentação do TCC: [`docs/sprint4.md`](docs/sprint4.md)
+- [x] Tela de Configurações (antes "Meu Perfil"), em abas: perfil e senha, aparência e privacidade, alertas e simulador, dados (exportar CSV, restaurar categorias padrão, excluir por período) e ajuda
+- [x] Tutorial de primeiro acesso, guardado na conta e reaberto em Configurações → Ajuda
 - [x] Preferências salvas na conta: ocultar valores em R$ (também pelo olho da barra superior), limites próprios do alerta de comprometimento (o Indicador e as Sugestões passam a usá-los) e padrões do Simulador
-- [x] Excluir transações por período, na "Zona de perigo" do Perfil: prévia do que sai (quantidade, totais, contribuições a metas) e confirmação digitando EXCLUIR. Parcelas ficam de fora
+- [x] Excluir transações por período, na "Zona de perigo" de Configurações → Dados: prévia do que sai (quantidade, totais, contribuições a metas) e confirmação digitando EXCLUIR. Parcelas ficam de fora
+- [x] Tema escuro: Claro, Escuro ou Automático (segue o sistema), salvo nas preferências da conta
+- [x] Relatórios mensal e anual: resumo com taxa de poupança, comparação com o período anterior, despesas e receitas por categoria, maiores despesas, mês a mês (anual), exportação CSV e impressão/PDF
 - [x] Filtros na lista de Transações: período (presets ou datas personalizadas), categoria, tipo, faixa de valor, busca e ordenação, com resumo dos totais filtrados
 - [ ] Paginação na lista de Transações
 - [ ] README final: rotas completas, link do Figma, integrantes da equipe
@@ -200,6 +210,8 @@ Todas as rotas abaixo, exceto `POST /usuarios` e `POST /login`, exigem o header 
 | PUT | `/usuarios/me/senha` | `{"senhaAtual", "novaSenha"}` | `204` · `400` senha atual incorreta ou nova com menos de 6 caracteres |
 | GET | `/usuarios/me/preferencias` | — | `200` `{"ocultarValores", "limiteEssencial", "limiteTotal", "simuladorPercentualCdi", "simuladorPrazoMeses"}` (padrões se nunca salvou) |
 | PUT | `/usuarios/me/preferencias` | igual à resposta do `GET` | `200` preferências salvas · `400` fora das faixas ou limite essencial ≥ limite total |
+
+As preferências incluem `tema`: `CLARO` (padrão), `ESCURO` ou `SISTEMA`.
 
 ### Categoria
 
@@ -266,6 +278,12 @@ Regra de negócio (RN004): o valor é dividido igualmente entre as parcelas (cen
 | GET | `/simulacoes/taxas` | — | `200` `{"selic", "cdi", "poupancaMensal", "atualizadoEm"}` (Selic e CDI em % a.a., poupança em % a.m.) |
 
 Regra de negócio (RN005): juros compostos mês a mês com as taxas atuais do Banco Central; CDB e Tesouro Selic pagam IR regressivo sobre o rendimento de cada depósito, a poupança é isenta.
+
+### Relatórios
+
+| Método | Rota | Body | Resposta |
+|---|---|---|---|
+| GET | `/relatorios?tipo=MENSAL&referencia=AAAA-MM` ou `?tipo=ANUAL&referencia=AAAA` | — | `200` resumo do período e do anterior (receitas, despesas, saldo, taxa de poupança), totais por categoria com variação, 5 maiores despesas e, no anual, a evolução mês a mês · `400` referência inválida |
 
 ### Sugestões
 
