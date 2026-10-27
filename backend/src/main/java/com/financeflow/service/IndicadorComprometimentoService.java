@@ -1,6 +1,7 @@
 package com.financeflow.service;
 
 import com.financeflow.dto.IndicadorComprometimentoResposta;
+import com.financeflow.dto.PreferenciasResposta;
 import com.financeflow.model.TipoMovimentacao;
 import com.financeflow.model.Transacao;
 import com.financeflow.model.Usuario;
@@ -17,19 +18,20 @@ public class IndicadorComprometimentoService {
 
     private final TransacaoRepository repositorioTransacao;
     private final UsuarioRepository repositorioUsuario;
+    private final PreferenciasService preferenciasService;
 
-    public IndicadorComprometimentoService(TransacaoRepository repositorioTransacao, UsuarioRepository repositorioUsuario) {
+    public IndicadorComprometimentoService(TransacaoRepository repositorioTransacao, UsuarioRepository repositorioUsuario,
+                                           PreferenciasService preferenciasService) {
         this.repositorioTransacao = repositorioTransacao;
         this.repositorioUsuario = repositorioUsuario;
+        this.preferenciasService = preferenciasService;
     }
 
     public IndicadorComprometimentoResposta calcular(String emailUsuario, YearMonth mes) {
-        Usuario usuario = repositorioUsuario.findByEmail(emailUsuario)
-                .orElseThrow(() -> new IllegalStateException("usuário do token não existe mais: " + emailUsuario));
+        Usuario usuario = repositorioUsuario.buscarDoToken(emailUsuario);
 
-        List<Transacao> doMes = repositorioTransacao.findByUsuarioId(usuario.getId()).stream()
-                .filter(transacao -> YearMonth.from(transacao.getData()).equals(mes))
-                .toList();
+        List<Transacao> doMes = repositorioTransacao.findByUsuarioIdAndDataBetween(usuario.getId(), mes.atDay(1),
+                mes.atEndOfMonth());
 
         BigDecimal renda = BigDecimal.ZERO;
         BigDecimal essenciais = BigDecimal.ZERO;
@@ -44,6 +46,8 @@ public class IndicadorComprometimentoService {
             }
         }
 
-        return CalculadoraComprometimento.calcular(mes, renda, essenciais, naoEssenciais);
+        PreferenciasResposta preferencias = preferenciasService.buscarPorUsuarioId(usuario.getId());
+        return CalculadoraComprometimento.calcular(mes, renda, essenciais, naoEssenciais,
+                preferencias.limiteEssencial(), preferencias.limiteTotal());
     }
 }

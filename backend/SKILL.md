@@ -12,7 +12,7 @@ ordem — cada camada depende da anterior:
 
 - Classe `@Entity` com `@Table(name = "...")` em snake_case plural.
 - Getters/setters explícitos (sem Lombok, ver `backend/CLAUDE.md`).
-- Nomes de classe, campos e métodos em português (ver seção 7 do
+- Nomes de classe, campos e métodos em português (ver seção 9 do
   `backend/CLAUDE.md`).
 - Se houver enum, criar como arquivo próprio (ver `TipoMovimentacao`
   como referência).
@@ -41,9 +41,11 @@ ordem — cada camada depende da anterior:
   `/transacoes`, `/metas`, `/indicadores`). Sub-recursos ficam sob o
   recurso pai (ex: `/metas/{id}/contribuicoes`,
   `/transacoes/importar/preview`).
-- Erros de negócio viram status HTTP no `TratadorDeExcecoes`
+- Erros de negócio viram status HTTP pelo `TratadorDeExcecoes`
   (`400`, `404`, `409`, `401`), com o campo `mensagem` que o frontend
-  exibe — cadastrar a nova exceção lá.
+  exibe. A exceção nova estende `NegocioException` e passa o
+  `HttpStatus` no construtor — o tratador já pega todas, não precisa
+  cadastrar nada lá.
 
 ## Casos especiais
 
@@ -58,7 +60,7 @@ ordem — cada camada depende da anterior:
 
 Confirme com o usuário:
 1. A entidade faz parte da Sprint atual? (ver `backend/CLAUDE.md`,
-   seção de módulos e a seção da sprint atual — hoje a 7, Sprint#3)
+   seção de módulos e a seção da sprint atual — hoje a 8, Sprint#4)
 2. Alguma regra de negócio (RN) nova precisa ser documentada no
    `CLAUDE.md` antes de implementar, ou já está lá?
 
@@ -66,5 +68,5 @@ Não avance para módulos fora do escopo da sprint atual sem
 confirmar antes.
 
 Nomenclatura em português e comentários mínimos (só quando
-essenciais, sem enfeite) valem para todas as camadas — ver seção 7
+essenciais, sem enfeite) valem para todas as camadas — ver seção 9
 do `backend/CLAUDE.md`.

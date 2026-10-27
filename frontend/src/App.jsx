@@ -6,6 +6,9 @@ import Categorias from './pages/Categorias'
 import Dashboard from './pages/Dashboard'
 import Login from './pages/Login'
 import Metas from './pages/Metas'
+import Configuracoes from './pages/Configuracoes'
+import Relatorios from './pages/Relatorios'
+import Simulacao from './pages/Simulacao'
 import Transacoes from './pages/Transacoes'
 
 function App() {
@@ -21,6 +24,11 @@ function App() {
           <Route path="/categorias" element={<Categorias />} />
           <Route path="/transacoes" element={<Transacoes />} />
           <Route path="/metas" element={<Metas />} />
+          <Route path="/relatorios" element={<Relatorios />} />
+          <Route path="/simulacao" element={<Simulacao />} />
+          <Route path="/configuracoes" element={<Configuracoes />} />
+          {/* Endereço antigo da tela, pra links salvos continuarem funcionando */}
+          <Route path="/perfil" element={<Navigate to="/configuracoes?aba=perfil" replace />} />
         </Route>
       </Route>
 

@@ -1,12 +1,14 @@
 package com.financeflow.exception;
 
-public class CategoriaEmUsoException extends RuntimeException {
+import org.springframework.http.HttpStatus;
 
-    public CategoriaEmUsoException(long quantidadeTransacoes, long quantidadeMetas) {
-        super(montarMensagem(quantidadeTransacoes, quantidadeMetas));
+public class CategoriaEmUsoException extends NegocioException {
+
+    public CategoriaEmUsoException(String acao, long quantidadeTransacoes, long quantidadeMetas) {
+        super(montarMensagem(acao, quantidadeTransacoes, quantidadeMetas), HttpStatus.CONFLICT);
     }
 
-    private static String montarMensagem(long quantidadeTransacoes, long quantidadeMetas) {
+    private static String montarMensagem(String acao, long quantidadeTransacoes, long quantidadeMetas) {
         StringBuilder uso = new StringBuilder();
         if (quantidadeTransacoes > 0) {
             uso.append(quantidadeTransacoes).append(quantidadeTransacoes == 1 ? " transação" : " transações");
@@ -17,7 +19,7 @@ public class CategoriaEmUsoException extends RuntimeException {
             }
             uso.append(quantidadeMetas).append(quantidadeMetas == 1 ? " meta" : " metas");
         }
-        return "não é possível excluir: a categoria está em uso por " + uso
+        return "não é possível " + acao + ": a categoria está em uso por " + uso
                 + ". Mova ou exclua esses registros antes.";
     }
 }

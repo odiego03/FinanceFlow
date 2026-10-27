@@ -25,7 +25,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @Service
 public class MetaFinanceiraService {
@@ -48,7 +50,7 @@ public class MetaFinanceiraService {
     }
 
     public MetaFinanceiraResposta cadastrar(MetaFinanceiraRequisicao requisicao, String emailUsuario) {
-        Usuario usuario = buscarUsuarioPorEmail(emailUsuario);
+        Usuario usuario = repositorioUsuario.buscarDoToken(emailUsuario);
         Categoria categoria = buscarCategoriaValida(requisicao.categoriaId(), usuario.getId());
 
         MetaFinanceira meta = new MetaFinanceira();
@@ -65,9 +67,13 @@ public class MetaFinanceiraService {
     }
 
     public List<MetaFinanceiraResposta> listar(String emailUsuario) {
-        Long usuarioId = buscarUsuarioPorEmail(emailUsuario).getId();
+        Long usuarioId = repositorioUsuario.buscarDoToken(emailUsuario).getId();
+        Map<Long, BigDecimal> contribuidoPorMeta = new HashMap<>();
+        for (Object[] linha : repositorioContribuicao.somarPorMetaDoUsuario(usuarioId)) {
+            contribuidoPorMeta.put((Long) linha[0], (BigDecimal) linha[1]);
+        }
         return repositorioMeta.findByUsuarioId(usuarioId).stream()
-                .map(this::montarResposta)
+                .map(meta -> MetaFinanceiraResposta.de(meta, contribuidoPorMeta.getOrDefault(meta.getId(), BigDecimal.ZERO)))
                 .toList();
     }
 
@@ -106,11 +112,14 @@ public class MetaFinanceiraService {
         repositorioMeta.delete(meta);
     }
 
+    // Meta e transação travadas (nessa ordem) até o commit: as somas abaixo não mudam no meio da validação
+    @Transactional
     public ContribuicaoMetaResposta registrarContribuicao(Long metaId, ContribuicaoMetaRequisicao requisicao,
                                                             String emailUsuario) {
-        Usuario usuario = buscarUsuarioPorEmail(emailUsuario);
-        MetaFinanceira meta = buscarEntidadePorId(metaId, emailUsuario);
-        Transacao transacao = repositorioTransacao.findByIdAndUsuarioId(requisicao.transacaoId(), usuario.getId())
+        Usuario usuario = repositorioUsuario.buscarDoToken(emailUsuario);
+        MetaFinanceira meta = repositorioMeta.buscarParaAtualizar(metaId, usuario.getId())
+                .orElseThrow(() -> new MetaNaoEncontradaException(metaId));
+        Transacao transacao = repositorioTransacao.buscarParaAtualizar(requisicao.transacaoId(), usuario.getId())
                 .orElseThrow(() -> new TransacaoNaoEncontradaException(requisicao.transacaoId()));
 
         if (transacao.getTipo() != TipoMovimentacao.RECEITA
@@ -161,13 +170,8 @@ public class MetaFinanceiraService {
     }
 
     private MetaFinanceira buscarEntidadePorId(Long id, String emailUsuario) {
-        Long usuarioId = buscarUsuarioPorEmail(emailUsuario).getId();
+        Long usuarioId = repositorioUsuario.buscarDoToken(emailUsuario).getId();
         return repositorioMeta.findByIdAndUsuarioId(id, usuarioId)
                 .orElseThrow(() -> new MetaNaoEncontradaException(id));
-    }
-
-    private Usuario buscarUsuarioPorEmail(String email) {
-        return repositorioUsuario.findByEmail(email)
-                .orElseThrow(() -> new IllegalStateException("usuário do token não existe mais: " + email));
     }
 }

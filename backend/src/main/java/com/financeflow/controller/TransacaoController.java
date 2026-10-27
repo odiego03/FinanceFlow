@@ -2,6 +2,7 @@ package com.financeflow.controller;
 
 import com.financeflow.dto.BancoExtrato;
 import com.financeflow.dto.EvolucaoMensalResposta;
+import com.financeflow.dto.ExclusaoEmMassaResposta;
 import com.financeflow.dto.ImportacaoConfirmacaoRequisicao;
 import com.financeflow.dto.ImportacaoResultadoResposta;
 import com.financeflow.dto.LinhaImportacaoResposta;
@@ -28,6 +29,7 @@ import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.time.LocalDate;
 import java.time.YearMonth;
 import java.util.List;
 
@@ -67,6 +69,23 @@ public class TransacaoController {
             @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM") YearMonth mes,
             Authentication autenticacao) {
         return transacaoService.totaisPorCategoria(autenticacao.getName(), tipo, mes);
+    }
+
+    // Sem dataInicio/dataFim = sem limite daquele lado (os dois vazios = todo o histórico)
+    @GetMapping("/exclusao-em-massa/previa")
+    public ExclusaoEmMassaResposta previaExclusao(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dataInicio,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dataFim,
+            Authentication autenticacao) {
+        return transacaoService.previaExclusaoPorPeriodo(autenticacao.getName(), dataInicio, dataFim);
+    }
+
+    @DeleteMapping("/exclusao-em-massa")
+    public ExclusaoEmMassaResposta excluirPorPeriodo(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dataInicio,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dataFim,
+            Authentication autenticacao) {
+        return transacaoService.excluirPorPeriodo(autenticacao.getName(), dataInicio, dataFim);
     }
 
     @GetMapping("/{id}")

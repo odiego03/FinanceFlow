@@ -1,19 +1,17 @@
 import { useEffect, useMemo, useState } from 'react'
+import { Carregando, Esqueleto } from '../components/Esqueleto'
 import ModalConfirmacao from '../components/ModalConfirmacao'
 import ModalMeta from '../components/ModalMeta'
 import { mensagemDeErro } from '../services/api'
 import * as categoriaService from '../services/categoriaService'
 import * as metaService from '../services/metaService'
+import { usePreferencias } from '../contexts/PreferenciasContext'
 import styles from './Metas.module.css'
-
-const formatadorMoeda = new Intl.NumberFormat('pt-BR', {
-  style: 'currency',
-  currency: 'BRL',
-})
 
 const formatadorData = new Intl.DateTimeFormat('pt-BR')
 
 function Metas() {
+  const { formatarMoeda } = usePreferencias()
   const [metas, setMetas] = useState([])
   const [categorias, setCategorias] = useState([])
   const [carregando, setCarregando] = useState(true)
@@ -30,7 +28,7 @@ function Metas() {
       ])
       setMetas(dadosMetas)
       setCategorias(dadosCategorias)
-    } catch (erroRequisicao) {
+    } catch {
       setErro('Não foi possível carregar as metas.')
     } finally {
       setCarregando(false)
@@ -96,7 +94,19 @@ function Metas() {
       ) : null}
 
       {carregando ? (
-        <p>Carregando...</p>
+        <Carregando rotulo="Carregando metas" className={styles.grade}>
+          {[0, 1, 2].map((indice) => (
+            <div key={indice} className={styles.card}>
+              <Esqueleto largura="60%" altura={20} />
+              <div className={styles.metaInfo}>
+                <Esqueleto largura={120} altura={22} raio={999} />
+                <Esqueleto largura={96} altura={22} raio={999} />
+              </div>
+              <Esqueleto altura={10} raio={999} />
+              <Esqueleto largura="70%" altura={16} />
+            </div>
+          ))}
+        </Carregando>
       ) : metas.length === 0 ? (
         <p className={styles.vazio}>Nenhuma meta cadastrada ainda.</p>
       ) : (
@@ -109,10 +119,10 @@ function Metas() {
                   <h2>{meta.nome}</h2>
                   <div className={styles.acoesCard}>
                     <button type="button" onClick={() => abrirEdicao(meta)} aria-label={`Editar ${meta.nome}`}>
-                      ✎
+                      <i className="bi bi-pencil" aria-hidden="true" />
                     </button>
                     <button type="button" onClick={() => setMetaParaExcluir(meta)} aria-label={`Excluir ${meta.nome}`}>
-                      🗑
+                      <i className="bi bi-trash3" aria-hidden="true" />
                     </button>
                   </div>
                 </div>
@@ -129,8 +139,8 @@ function Metas() {
                 </div>
 
                 <div className={styles.valores}>
-                  <strong>{formatadorMoeda.format(meta.valorAtual)}</strong>
-                  <span> de {formatadorMoeda.format(meta.valorAlvo)} ({percentual.toFixed(0)}%)</span>
+                  <strong>{formatarMoeda(meta.valorAtual)}</strong>
+                  <span> de {formatarMoeda(meta.valorAlvo)} ({percentual.toFixed(0)}%)</span>
                 </div>
               </div>
             )

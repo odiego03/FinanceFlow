@@ -29,6 +29,8 @@ O banco é compartilhado (Neon) — não precisa instalar Postgres local.
    spring.datasource.url=jdbc:postgresql://<host>:<porta>/<banco>?sslmode=require
    spring.datasource.username=<usuario>
    spring.datasource.password=<senha>
+   # qualquer texto com 32+ caracteres; sem isso o backend não sobe (não há chave padrão no código)
+   jwt.chave-secreta=<chave-secreta-local>
    ```
 3. Empacote e rode o jar com o profile `local` (mais confiável que `mvnw spring-boot:run`, que se mostrou instável em alguns ambientes):
    ```bash
@@ -36,7 +38,7 @@ O banco é compartilhado (Neon) — não precisa instalar Postgres local.
    ./mvnw clean package -DskipTests
    java -jar target/financeflow-backend-0.1.0.jar --spring.profiles.active=local
    ```
-4. API disponível em `http://localhost:8080`. As tabelas são criadas/atualizadas automaticamente pelo Hibernate — não precisa rodar SQL manual.
+4. API disponível em `http://localhost:8080`. As tabelas são criadas e atualizadas pelas migrações do Flyway (`backend/src/main/resources/db/migration`), que rodam sozinhas ao subir — não precisa rodar SQL manual. Mudança de esquema = um arquivo `V<n>__descricao.sql` novo; nunca editar uma migração que já rodou.
 
 ## Como rodar tudo com Docker
 
@@ -59,7 +61,7 @@ Pré-requisito: Docker e Docker Compose instalados.
    - Frontend: `http://localhost:3000`
    - Backend: `http://localhost:8080`
 
-O `.env` nunca é commitado (já está no `.gitignore`). As tabelas continuam sendo criadas automaticamente pelo Hibernate na primeira conexão.
+O `.env` nunca é commitado (já está no `.gitignore`). `JWT_SECRET` é obrigatório (o compose não sobe sem ele), e as migrações do Flyway rodam na primeira conexão. O frontend só abre depois que o healthcheck do backend (`/actuator/health`) responde. Os dois containers rodam sem root.
 
 ## Roadmap
 
@@ -71,7 +73,7 @@ previstos na proposta, mais as pendências técnicas.
 | Sprint#1 | Usuário + autenticação, Categoria, Transação, Docker | ✅ concluída |
 | Sprint#2 | Metas financeiras, gráficos do Dashboard, categorias pré-definidas, indicadores de mercado | ✅ concluída |
 | Sprint#3 | Importação de extrato (Nubank), Indicador de comprometimento de renda, correções da auditoria | ✅ concluída |
-| Sprint#4 | Parcelamento, Simulação de investimento, Sugestões personalizadas, importação do Itaú, encerramento | ⏳ planejada |
+| Sprint#4 | Parcelamento, Simulação de investimento, Sugestões personalizadas, importação do Itaú, encerramento | 🚧 em andamento |
 
 Módulos do sistema e onde cada um entra:
 
@@ -140,29 +142,30 @@ Parcelamento e das Sugestões da Sprint#4.
 
 #### 4.1 Parcelamento (RN004)
 
-- [ ] Entidade `Parcelamento`: usuário, categoria, descrição, valor total, quantidade de parcelas, data da primeira parcela
-- [ ] Ao criar, gera automaticamente uma Transação DESPESA por mês, com descrição `"<descrição> (n/N)"`. O valor é dividido igualmente e os centavos que sobram vão na última parcela (a soma sempre bate com o total)
-- [ ] Sugestão de parcelas: calcula a margem livre mensal (renda média − despesas médias dos últimos 3 meses, usando o Indicador da Sprint#3) e informa a quantidade máxima de parcelas recomendada antes do usuário confirmar
-- [ ] Excluir o parcelamento apaga as parcelas futuras (as já vencidas ficam como histórico)
-- [ ] As parcelas aparecem na tela de Transações identificadas como parcela
+- [x] Entidade `Parcelamento`: usuário, categoria (de despesa), descrição, valor total, quantidade de parcelas (2 a 60), data da primeira parcela
+- [x] Ao criar, gera automaticamente uma Transação DESPESA por mês, com descrição `"<descrição> (n/N)"`. O valor é dividido igualmente e os centavos que sobram vão na última parcela (a soma sempre bate com o total)
+- [x] Sugestão de parcelas: calcula a margem livre mensal (renda média − despesas médias dos 3 meses completos anteriores − parcelas já agendadas) e informa, antes do usuário confirmar, a menor quantidade de parcelas cuja parcela cabe nessa margem (mais parcelas = parcela menor)
+- [x] Excluir o parcelamento apaga as parcelas futuras (as já vencidas ficam como histórico)
+- [x] As parcelas aparecem na tela de Transações com o selo `n/N`. Uma parcela não pode ser editada nem excluída sozinha: a lixeira dela exclui o parcelamento
 
 #### 4.2 Simulação de investimento (RN005)
 
-- [ ] `POST /simulacoes` com valor inicial, aporte mensal opcional e prazo em meses
-- [ ] Busca as taxas na API SGS do Banco Central (Selic, CDI e poupança), com o mesmo esquema de cache e fallback do rodapé de indicadores
-- [ ] Calcula o rendimento projetado em três cenários: Poupança, CDB (% do CDI informado pelo usuário, padrão 100%) e Tesouro Selic. Mostra o valor bruto e o valor líquido após o IR regressivo (22,5% → 15% conforme o prazo; poupança é isenta)
-- [ ] Tela de Simulação no frontend: formulário, cards por cenário e gráfico da evolução mês a mês
+- [x] `POST /simulacoes` com valor inicial, aporte mensal opcional (no fim de cada mês) e prazo em meses (1 a 360). Nada é gravado: a simulação é só um cálculo
+- [x] Busca as taxas na API SGS do Banco Central (Selic 432, CDI 4389 e poupança 195), com cache de 1 hora. Se o BCB falhar, usa o último valor obtido; sem nenhum, o cenário vem como indisponível
+- [x] Calcula o rendimento projetado em três cenários: Poupança, CDB (% do CDI informado pelo usuário, padrão 100%) e Tesouro Selic. Mostra o valor bruto e o valor líquido após o IR regressivo (22,5% → 15% conforme o tempo de cada depósito; poupança é isenta)
+- [x] Tela "Simulador de Investimentos" no frontend: formulário, cards por cenário com o melhor destacado e gráfico da evolução mês a mês
 
 #### 4.3 Sugestões financeiras personalizadas (RN006)
 
 Baseadas em regras fixas (sem IA), acionadas pelo Indicador de
 comprometimento e pela Simulação:
 
-- [ ] Nível `RISCO` ou `ATENCAO`: aponta as categorias não essenciais com mais gasto no mês e quanto reduzir pra voltar ao nível `NORMAL`
-- [ ] Sobra no mês (renda − despesas > 0): sugere investir a sobra e mostra quanto ela renderia no melhor cenário da Simulação
-- [ ] Meta com data-alvo: calcula quanto falta contribuir por mês pra bater no prazo e avisa se a meta estiver atrasada
-- [ ] Parcelamento acima da margem livre: alerta
-- [ ] `GET /sugestoes` e painel de sugestões no Dashboard
+- [x] Nível `RISCO`: aponta as 3 categorias não essenciais com mais gasto no mês e quanto reduzir pra ficar abaixo de 80%
+- [x] Essenciais ≥ 50% (`ATENCAO`): cortar o não essencial não resolve, então mostra quanto reduzir nas essenciais, ou quanto a renda precisaria crescer
+- [x] Sobra no mês (renda − despesas > 0): sugere investir a sobra e mostra quanto ela renderia em 12 meses no melhor cenário da Simulação
+- [x] Meta com data-alvo: calcula quanto falta contribuir por mês pra bater no prazo e avisa se a meta está vencida ou atrasada (abaixo do ritmo linear entre a criação e a data-alvo)
+- [x] Parcelamento acima da margem livre: alerta, listando os parcelamentos em andamento
+- [x] `GET /sugestoes?mes=AAAA-MM` e painel "Sugestões para você" no Dashboard, que segue o filtro de período
 
 #### 4.4 Importação do Itaú
 
@@ -176,7 +179,17 @@ O parser (`ItauExtratoParser`) já existe, mas foi escrito com base no layout ma
 
 - [x] Primeiros testes automatizados (parsers, sugestão de categoria, indicador de comprometimento)
 - [ ] Testes automatizados dos Services com as regras de negócio (RN001–RN007, importação, indicador, parcelamento)
-- [ ] Perfil do usuário: editar nome e trocar senha
+- [x] Correções da auditoria final: timeout nas APIs externas, categoria em uso não muda de tipo, limites de tamanho/valor (400 em vez de 500), email sem diferenciar maiúsculas, bloqueio após 5 logins errados, segredo JWT obrigatório, Flyway com índices, consultas por período, contribuição com trava, Docker sem root e com healthcheck
+- [x] Testes de integração da API (H2 + migrações): isolamento entre usuários, 401/404, troca de tipo de categoria, limites de valor, saldo de contribuição e bloqueio de login; teste do parser do Itaú
+- [x] Simulador com inflação (IPCA, "dinheiro de hoje"), modo meta (aporte mensal necessário) e uso da sobra real
+- [x] Redesenho de Dashboard, Transações (paginação, lista por dia) e modais; cabeçalho e marca novos; esqueletos de carregamento; Configurações em abas; tutorial de primeiro acesso
+- [x] Registro completo da sprint para a documentação do TCC: [`docs/sprint4.md`](docs/sprint4.md)
+- [x] Tela de Configurações (antes "Meu Perfil"), em abas: perfil e senha, aparência e privacidade, alertas e simulador, dados (exportar CSV, restaurar categorias padrão, excluir por período) e ajuda
+- [x] Tutorial de primeiro acesso, guardado na conta e reaberto em Configurações → Ajuda
+- [x] Preferências salvas na conta: ocultar valores em R$ (também pelo olho da barra superior), limites próprios do alerta de comprometimento (o Indicador e as Sugestões passam a usá-los) e padrões do Simulador
+- [x] Excluir transações por período, na "Zona de perigo" de Configurações → Dados: prévia do que sai (quantidade, totais, contribuições a metas) e confirmação digitando EXCLUIR. Parcelas ficam de fora
+- [x] Tema escuro: Claro, Escuro ou Automático (segue o sistema), salvo nas preferências da conta
+- [x] Relatórios mensal e anual: resumo com taxa de poupança, comparação com o período anterior, despesas e receitas por categoria, maiores despesas, mês a mês (anual), exportação CSV e impressão/PDF
 - [x] Filtros na lista de Transações: período (presets ou datas personalizadas), categoria, tipo, faixa de valor, busca e ordenação, com resumo dos totais filtrados
 - [ ] Paginação na lista de Transações
 - [ ] README final: rotas completas, link do Figma, integrantes da equipe
@@ -193,6 +206,12 @@ Todas as rotas abaixo, exceto `POST /usuarios` e `POST /login`, exigem o header 
 | POST | `/usuarios` | `{"nome", "email", "senha"}` | `201` dados do usuário (sem senha) · `409` email já cadastrado · `400` validação |
 | POST | `/login` | `{"email", "senha"}` | `200` `{"token": "..."}` · `401` credenciais inválidas |
 | GET | `/usuarios/me` | — | `200` dados do usuário autenticado |
+| PUT | `/usuarios/me` | `{"nome"}` | `200` usuário atualizado (o e-mail não muda) · `400` validação |
+| PUT | `/usuarios/me/senha` | `{"senhaAtual", "novaSenha"}` | `204` · `400` senha atual incorreta ou nova com menos de 6 caracteres |
+| GET | `/usuarios/me/preferencias` | — | `200` `{"ocultarValores", "limiteEssencial", "limiteTotal", "simuladorPercentualCdi", "simuladorPrazoMeses"}` (padrões se nunca salvou) |
+| PUT | `/usuarios/me/preferencias` | igual à resposta do `GET` | `200` preferências salvas · `400` fora das faixas ou limite essencial ≥ limite total |
+
+As preferências incluem `tema`: `CLARO` (padrão), `ESCURO` ou `SISTEMA`.
 
 ### Categoria
 
@@ -215,10 +234,12 @@ Todas as rotas abaixo, exceto `POST /usuarios` e `POST /login`, exigem o header 
 | POST | `/transacoes` | `{"categoriaId", "tipo": "RECEITA"\|"DESPESA", "valor", "descricao"?, "data": "AAAA-MM-DD"}` | `201` criada · `400` tipo incompatível com a categoria ou valor inválido · `404` categoria não encontrada |
 | GET | `/transacoes` | — | `200` lista das transações do usuário |
 | GET | `/transacoes/{id}` | — | `200` · `404` não encontrada |
-| PUT | `/transacoes/{id}` | igual ao `POST` | `200` atualizada · `400` valor menor que o já contribuído pra metas, ou troca de tipo/categoria numa transação com contribuições · `404` não encontrada |
-| DELETE | `/transacoes/{id}` | — | `204` (apaga junto as contribuições pra metas) · `404` não encontrada |
+| PUT | `/transacoes/{id}` | igual ao `POST` | `200` atualizada · `400` valor menor que o já contribuído pra metas, troca de tipo/categoria numa transação com contribuições, ou a transação é uma parcela · `404` não encontrada |
+| DELETE | `/transacoes/{id}` | — | `204` (apaga junto as contribuições pra metas) · `400` a transação é uma parcela (exclua o parcelamento) · `404` não encontrada |
 | GET | `/transacoes/evolucao-mensal?meses=6` | — | `200` receitas/despesas dos últimos N meses (padrão 6, máx. 24) |
 | GET | `/transacoes/por-categoria?tipo=DESPESA&mes=AAAA-MM` | — | `200` total por categoria (com cor), do maior pro menor; sem `mes` = todo o período · `400` parâmetro inválido |
+| GET | `/transacoes/exclusao-em-massa/previa?dataInicio=&dataFim=` | — | `200` `{"quantidade", "totalReceitas", "totalDespesas", "contribuicoesMetas", "valorContribuidoMetas", "parcelasMantidas"}` do que seria apagado · `400` início depois do fim |
+| DELETE | `/transacoes/exclusao-em-massa?dataInicio=&dataFim=` | — | `200` mesmo formato, com o que foi apagado (datas vazias = sem limite; parcelas nunca entram) |
 | POST | `/transacoes/importar/preview` | multipart: `arquivo` (CSV) + `banco` = `NUBANK`\|`ITAU` | `200` linhas que seriam importadas, com categoria sugerida e flag de duplicada (não grava nada) · `400` arquivo inválido |
 | POST | `/transacoes/importar/confirmar` | `{"linhas": [{"data", "descricao", "valor", "tipo", "categoriaId", "identificador"?}]}` | `200` `{"transacoesCriadas", "transacoes"}` · `400` validação ou tipo incompatível |
 
@@ -237,12 +258,47 @@ Regra de negócio: o `tipo` da transação precisa ser igual ao `tipo` da catego
 
 Regra de negócio (RN007): o progresso da meta é a soma das contribuições, e cada contribuição vem de uma receita da mesma categoria da meta, limitada ao saldo ainda não destinado daquela transação.
 
+### Parcelamento
+
+| Método | Rota | Body | Resposta |
+|---|---|---|---|
+| POST | `/parcelamentos` | `{"categoriaId", "descricao", "valorTotal", "quantidadeParcelas", "dataPrimeiraParcela": "AAAA-MM-DD"}` | `201` parcelamento criado (as parcelas viram Transações) · `400` categoria não é de despesa ou validação · `404` categoria não encontrada |
+| GET | `/parcelamentos` | — | `200` lista dos parcelamentos, com valor da parcela e quantas já venceram |
+| GET | `/parcelamentos/{id}` | — | `200` · `404` não encontrado |
+| DELETE | `/parcelamentos/{id}` | — | `204` apaga as parcelas futuras; as vencidas ficam como transações comuns · `404` não encontrado |
+| GET | `/parcelamentos/sugestao?valorTotal=&dataPrimeiraParcela=` | — | `200` `{"rendaMedia", "despesasMedia", "parcelasComprometidas", "margemLivre", "quantidadeMinimaParcelas"}`; os dois últimos vêm `null` sem receita nos últimos 3 meses |
+
+Regra de negócio (RN004): o valor é dividido igualmente entre as parcelas (centavos que sobram na última), e a sugestão é a menor quantidade de parcelas cuja parcela cabe na margem livre mensal do usuário.
+
+### Simulação de investimento
+
+| Método | Rota | Body | Resposta |
+|---|---|---|---|
+| POST | `/simulacoes` | `{"valorInicial", "aporteMensal"?, "prazoMeses", "percentualCdi"?}` | `200` taxas usadas, total investido, os 3 cenários (bruto, IR, líquido), `melhorCenario` e a evolução mês a mês · `400` validação, ou valor inicial e aporte zerados |
+| GET | `/simulacoes/taxas` | — | `200` `{"selic", "cdi", "poupancaMensal", "atualizadoEm"}` (Selic e CDI em % a.a., poupança em % a.m.) |
+
+Regra de negócio (RN005): juros compostos mês a mês com as taxas atuais do Banco Central; CDB e Tesouro Selic pagam IR regressivo sobre o rendimento de cada depósito, a poupança é isenta.
+
+### Relatórios
+
+| Método | Rota | Body | Resposta |
+|---|---|---|---|
+| GET | `/relatorios?tipo=MENSAL&referencia=AAAA-MM` ou `?tipo=ANUAL&referencia=AAAA` | — | `200` resumo do período e do anterior (receitas, despesas, saldo, taxa de poupança), totais por categoria com variação, 5 maiores despesas e, no anual, a evolução mês a mês · `400` referência inválida |
+
+### Sugestões
+
+| Método | Rota | Body | Resposta |
+|---|---|---|---|
+| GET | `/sugestoes?mes=AAAA-MM` | — | `200` lista de `{"tipo", "severidade", "titulo", "mensagem", "valor", "itens"}`, ordenada por severidade (`ALERTA`, `ATENCAO`, `DICA`); sem `mes` = mês atual |
+
+Regra de negócio (RN006): sugestões por regras fixas (sem IA), acionadas pelo Indicador de comprometimento, pela Simulação, pelas Metas com data-alvo e pela margem livre do Parcelamento.
+
 ### Indicadores
 
 | Método | Rota | Body | Resposta |
 |---|---|---|---|
 | GET | `/indicadores/mercado` | — | `200` `{"selic", "dolar", "ibovespa", "atualizadoEm"}`; um campo vem `null` se a API externa dele falhar |
-| GET | `/indicadores/comprometimento?mes=AAAA-MM` | — | `200` renda, despesas essenciais/não essenciais, percentuais e `nivel` (`NORMAL`, `ATENCAO`, `RISCO` ou `SEM_RENDA`) do mês (padrão: mês atual) |
+| GET | `/indicadores/comprometimento?mes=AAAA-MM` | — | `200` renda, despesas essenciais/não essenciais, percentuais, `nivel` (`NORMAL`, `ATENCAO`, `RISCO` ou `SEM_RENDA`) e os limites usados (`limiteEssencial`, `limiteTotal`, das preferências do usuário) do mês (padrão: mês atual) |
 
 ## Protótipo
 

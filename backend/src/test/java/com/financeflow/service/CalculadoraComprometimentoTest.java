@@ -39,6 +39,17 @@ class CalculadoraComprometimentoTest {
     }
 
     @Test
+    void limitesPersonalizadosMudamONivel() {
+        // 60% de total é NORMAL no padrão (80%), mas RISCO com o limite do usuário em 60%
+        IndicadorComprometimentoResposta resposta = CalculadoraComprometimento.calcular(MES, new BigDecimal("5000"),
+                new BigDecimal("1000"), new BigDecimal("2000"), new BigDecimal("40"), new BigDecimal("60"));
+
+        assertThat(resposta.nivel()).isEqualTo(NivelComprometimento.RISCO);
+        assertThat(resposta.limiteTotal()).isEqualByComparingTo("60");
+        assertThat(calcular("5000", "1000", "2000").nivel()).isEqualTo(NivelComprometimento.NORMAL);
+    }
+
+    @Test
     void riscoPrevaleceSobreAtencao() {
         assertThat(calcular("5000", "3000", "1500").nivel()).isEqualTo(NivelComprometimento.RISCO);
     }

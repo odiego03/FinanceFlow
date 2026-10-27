@@ -16,13 +16,13 @@
   margin: 0;
   font-size: 1.6rem;
   font-weight: 700;
-  color: #111827;
+  color: var(--texto-forte);
 }
 
 .botaoNova {
   border: none;
   border-radius: 10px;
-  background: #2563eb;
+  background: var(--primaria);
   color: #ffffff;
   font-weight: 700;
   font-size: 0.95rem;
@@ -31,7 +31,7 @@
 }
 
 .botaoNova:hover {
-  background: #1d4ed8;
+  background: var(--primaria-hover);
 }
 
 .errorMessage {
@@ -41,12 +41,12 @@
   font-size: 0.92rem;
   font-weight: 500;
   background: rgba(239, 68, 68, 0.08);
-  color: #b91c1c;
+  color: var(--erro-texto);
   border: 1px solid rgba(239, 68, 68, 0.2);
 }
 
 .vazio {
-  color: #9ca3af;
+  color: var(--texto-fraco);
 }
 
 .grade {
@@ -56,8 +56,8 @@
 }
 
 .card {
-  background: #ffffff;
-  border: 1px solid #e5e7eb;
+  background: var(--superficie);
+  border: 1px solid var(--borda);
   border-radius: 14px;
   padding: 18px;
   display: flex;
@@ -76,7 +76,7 @@
   margin: 0;
   font-size: 1.05rem;
   font-weight: 700;
-  color: #111827;
+  color: var(--texto-forte);
 }
 
 .acoesCard {
@@ -87,7 +87,7 @@
 
 .acoesCard button {
   border: none;
-  background: rgba(0, 0, 0, 0.05);
+  background: var(--sobreposicao);
   border-radius: 8px;
   width: 26px;
   height: 26px;
@@ -96,7 +96,7 @@
 }
 
 .acoesCard button:hover {
-  background: rgba(0, 0, 0, 0.1);
+  background: var(--sobreposicao-forte);
 }
 
 .metaInfo {
@@ -119,31 +119,31 @@
 }
 
 .badgeData {
-  background: #f1f5f9;
-  color: #6b7280;
+  background: var(--superficie-3);
+  color: var(--texto-suave);
 }
 
 .barraProgresso {
   height: 8px;
   border-radius: 999px;
-  background: #eef1f5;
+  background: var(--superficie-3);
   overflow: hidden;
 }
 
 .barraPreenchida {
   height: 100%;
-  background: #2563eb;
+  background: var(--primaria);
   border-radius: 999px;
   transition: width 0.3s ease;
 }
 
 .valores {
   font-size: 0.92rem;
-  color: #4b5563;
+  color: var(--texto-3);
 }
 
 .valores strong {
-  color: #111827;
+  color: var(--texto-forte);
   font-size: 1.05rem;
 }
 

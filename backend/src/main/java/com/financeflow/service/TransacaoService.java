@@ -1,14 +1,18 @@
 package com.financeflow.service;
 
 import com.financeflow.dto.EvolucaoMensalResposta;
+import com.financeflow.dto.ExclusaoEmMassaResposta;
 import com.financeflow.dto.TotalPorCategoriaResposta;
 import com.financeflow.dto.TransacaoRequisicao;
 import com.financeflow.dto.TransacaoResposta;
 import com.financeflow.exception.CategoriaNaoEncontradaException;
 import com.financeflow.exception.ContribuicaoInvalidaException;
+import com.financeflow.exception.ParcelamentoInvalidoException;
+import com.financeflow.exception.PeriodoInvalidoException;
 import com.financeflow.exception.TipoIncompativelException;
 import com.financeflow.exception.TransacaoNaoEncontradaException;
 import com.financeflow.model.Categoria;
+import com.financeflow.model.ContribuicaoMeta;
 import com.financeflow.model.TipoMovimentacao;
 import com.financeflow.model.Transacao;
 import com.financeflow.model.Usuario;
@@ -20,6 +24,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.YearMonth;
 import java.util.ArrayList;
@@ -48,7 +53,7 @@ public class TransacaoService {
     }
 
     public TransacaoResposta cadastrar(TransacaoRequisicao requisicao, String emailUsuario) {
-        Usuario usuario = buscarUsuarioPorEmail(emailUsuario);
+        Usuario usuario = repositorioUsuario.buscarDoToken(emailUsuario);
         Categoria categoria = buscarCategoriaDoUsuario(requisicao.categoriaId(), usuario.getId());
         validarTipoCompativel(requisicao.tipo(), categoria);
 
@@ -67,7 +72,7 @@ public class TransacaoService {
     }
 
     public List<TransacaoResposta> listar(String emailUsuario) {
-        Long usuarioId = buscarUsuarioPorEmail(emailUsuario).getId();
+        Long usuarioId = repositorioUsuario.buscarDoToken(emailUsuario).getId();
 
         Map<Long, BigDecimal> contribuidoPorTransacao = new HashMap<>();
         for (Object[] linha : repositorioContribuicao.somarPorTransacaoDoUsuario(usuarioId)) {
@@ -86,6 +91,12 @@ public class TransacaoService {
 
     public TransacaoResposta atualizar(Long id, TransacaoRequisicao requisicao, String emailUsuario) {
         Transacao transacao = buscarEntidadePorId(id, emailUsuario);
+        // Editar uma parcela sozinha quebraria a soma das parcelas = valor total (RN004)
+        if (transacao.getParcelamento() != null) {
+            throw new ParcelamentoInvalidoException(
+                    "essa transação é uma parcela e não pode ser editada sozinha — "
+                            + "pra corrigir, exclua o parcelamento e lance de novo");
+        }
         Categoria categoria = buscarCategoriaDoUsuario(requisicao.categoriaId(), transacao.getUsuario().getId());
         validarTipoCompativel(requisicao.tipo(), categoria);
 
@@ -117,17 +128,75 @@ public class TransacaoService {
     @Transactional
     public void deletar(Long id, String emailUsuario) {
         Transacao transacao = buscarEntidadePorId(id, emailUsuario);
+        if (transacao.getParcelamento() != null) {
+            throw new ParcelamentoInvalidoException(
+                    "essa transação é uma parcela — exclua o parcelamento (as parcelas futuras saem junto)");
+        }
         repositorioContribuicao.deleteAll(repositorioContribuicao.findByTransacaoId(transacao.getId()));
         repositorioTransacao.delete(transacao);
     }
 
+    public ExclusaoEmMassaResposta previaExclusaoPorPeriodo(String emailUsuario, LocalDate inicio, LocalDate fim) {
+        SelecaoExclusao selecao = selecionarParaExclusao(emailUsuario, inicio, fim);
+        return selecao.resumo();
+    }
+
+    /**
+     * Apaga as transações do período (sem limite = todo o histórico), junto com as contribuições delas pra metas.
+     * Parcelas ficam de fora: parcela só sai excluindo o parcelamento (RN004). Em lote, numa consulta por tabela,
+     * porque o delete um a um pagaria a latência do Neon por linha.
+     */
+    @Transactional
+    public ExclusaoEmMassaResposta excluirPorPeriodo(String emailUsuario, LocalDate inicio, LocalDate fim) {
+        SelecaoExclusao selecao = selecionarParaExclusao(emailUsuario, inicio, fim);
+        repositorioContribuicao.deleteAllInBatch(selecao.contribuicoes());
+        repositorioTransacao.deleteAllInBatch(selecao.transacoes());
+        return selecao.resumo();
+    }
+
+    private SelecaoExclusao selecionarParaExclusao(String emailUsuario, LocalDate inicio, LocalDate fim) {
+        if (inicio != null && fim != null && inicio.isAfter(fim)) {
+            throw new PeriodoInvalidoException("a data inicial não pode ser depois da data final");
+        }
+        Long usuarioId = repositorioUsuario.buscarDoToken(emailUsuario).getId();
+
+        List<Transacao> doPeriodo = repositorioTransacao.buscarDoPeriodo(usuarioId, inicio, fim);
+        List<Transacao> transacoes = doPeriodo.stream().filter(t -> t.getParcelamento() == null).toList();
+        int parcelasMantidas = doPeriodo.size() - transacoes.size();
+
+        List<ContribuicaoMeta> contribuicoes = transacoes.isEmpty() ? List.of()
+                : repositorioContribuicao.findByTransacaoIdIn(transacoes.stream().map(Transacao::getId).toList());
+
+        ExclusaoEmMassaResposta resumo = new ExclusaoEmMassaResposta(
+                transacoes.size(),
+                somarPorTipo(transacoes, TipoMovimentacao.RECEITA),
+                somarPorTipo(transacoes, TipoMovimentacao.DESPESA),
+                contribuicoes.size(),
+                contribuicoes.stream().map(ContribuicaoMeta::getValor).reduce(BigDecimal.ZERO, BigDecimal::add),
+                parcelasMantidas
+        );
+        return new SelecaoExclusao(transacoes, contribuicoes, resumo);
+    }
+
+    private record SelecaoExclusao(List<Transacao> transacoes, List<ContribuicaoMeta> contribuicoes,
+                                   ExclusaoEmMassaResposta resumo) {
+    }
+
+    private BigDecimal somarPorTipo(List<Transacao> transacoes, TipoMovimentacao tipo) {
+        return transacoes.stream()
+                .filter(t -> t.getTipo() == tipo)
+                .map(Transacao::getValor)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
     public List<EvolucaoMensalResposta> evolucaoMensal(String emailUsuario, int quantidadeMeses) {
-        Long usuarioId = buscarUsuarioPorEmail(emailUsuario).getId();
-        List<Transacao> transacoes = repositorioTransacao.findByUsuarioId(usuarioId);
+        Long usuarioId = repositorioUsuario.buscarDoToken(emailUsuario).getId();
         int meses = Math.max(1, Math.min(MAXIMO_MESES_EVOLUCAO, quantidadeMeses));
+        YearMonth mesAtual = YearMonth.now();
+        List<Transacao> transacoes = repositorioTransacao.findByUsuarioIdAndDataBetween(usuarioId,
+                mesAtual.minusMonths(meses - 1).atDay(1), mesAtual.atEndOfMonth());
 
         List<EvolucaoMensalResposta> resultado = new ArrayList<>();
-        YearMonth mesAtual = YearMonth.now();
 
         for (int i = meses - 1; i >= 0; i--) {
             YearMonth mes = mesAtual.minusMonths(i);
@@ -141,10 +210,12 @@ public class TransacaoService {
 
     // mes == null significa todo o período
     public List<TotalPorCategoriaResposta> totaisPorCategoria(String emailUsuario, TipoMovimentacao tipo, YearMonth mes) {
-        Long usuarioId = buscarUsuarioPorEmail(emailUsuario).getId();
+        Long usuarioId = repositorioUsuario.buscarDoToken(emailUsuario).getId();
 
-        List<Transacao> filtradas = repositorioTransacao.findByUsuarioId(usuarioId).stream()
-                .filter(t -> t.getTipo() == tipo && (mes == null || YearMonth.from(t.getData()).equals(mes)))
+        List<Transacao> doPeriodo = mes == null ? repositorioTransacao.findByUsuarioId(usuarioId)
+                : repositorioTransacao.findByUsuarioIdAndDataBetween(usuarioId, mes.atDay(1), mes.atEndOfMonth());
+        List<Transacao> filtradas = doPeriodo.stream()
+                .filter(t -> t.getTipo() == tipo)
                 .toList();
         Map<Long, Categoria> categoriasPorId = filtradas.stream()
                 .collect(Collectors.toMap(t -> t.getCategoria().getId(), Transacao::getCategoria, (a, b) -> a));
@@ -188,13 +259,8 @@ public class TransacaoService {
     }
 
     private Transacao buscarEntidadePorId(Long id, String emailUsuario) {
-        Long usuarioId = buscarUsuarioPorEmail(emailUsuario).getId();
+        Long usuarioId = repositorioUsuario.buscarDoToken(emailUsuario).getId();
         return repositorioTransacao.findByIdAndUsuarioId(id, usuarioId)
                 .orElseThrow(() -> new TransacaoNaoEncontradaException(id));
-    }
-
-    private Usuario buscarUsuarioPorEmail(String email) {
-        return repositorioUsuario.findByEmail(email)
-                .orElseThrow(() -> new IllegalStateException("usuário do token não existe mais: " + email));
     }
 }

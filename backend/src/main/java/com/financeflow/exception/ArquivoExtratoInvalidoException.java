@@ -1,8 +1,10 @@
 package com.financeflow.exception;
 
-public class ArquivoExtratoInvalidoException extends RuntimeException {
+import org.springframework.http.HttpStatus;
+
+public class ArquivoExtratoInvalidoException extends NegocioException {
 
     public ArquivoExtratoInvalidoException(String mensagem) {
-        super(mensagem);
+        super(mensagem, HttpStatus.BAD_REQUEST);
     }
 }

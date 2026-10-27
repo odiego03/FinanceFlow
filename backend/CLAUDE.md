@@ -93,10 +93,11 @@ investimento é independente.
 - **RN003 — Classificação obrigatória**: toda Transação precisa de um
   `tipo` (RECEITA ou DESPESA) e uma Categoria — e o tipo da Transação
   deve ser compatível com o tipo da Categoria vinculada.
-- **RN004 — Parcelamento**: ao parcelar uma transação, o sistema divide
-  o valor igualmente entre as parcelas e gera os lançamentos futuros
-  automaticamente. Sugere um limite máximo de parcelas com base na
-  margem financeira disponível do usuário. *(Sprint#4)*
+- **RN004 — Parcelamento**: ao parcelar uma despesa, o sistema divide
+  o valor igualmente entre as parcelas (centavos que sobram na última)
+  e gera os lançamentos futuros automaticamente. Com base na margem
+  financeira disponível do usuário, sugere a menor quantidade de
+  parcelas cuja parcela cabe no orçamento. *(Sprint#4, ver 8.1)*
 - **RN005 — Simulação de investimento**: consulta a API pública do
   Banco Central (taxas Selic, CDB, Poupança) e calcula o rendimento
   projetado para valor e prazo informados. *(Sprint#4)*
@@ -493,7 +494,247 @@ baixo demais pra um extrato com muitos lançamentos).
 
 ---
 
-## 8. Convenções de código
+## 8. Sprint#4 — Escopo atual
+
+Última sprint: Parcelamento (RN004), Simulação de investimento (RN005),
+Sugestões personalizadas (RN006), importação do Itaú com arquivo real
+e encerramento. Tudo numa branch só (`feature/sprint4`), com um PR
+único pra `main`.
+
+### 8.1 `Parcelamento` (RN004)
+
+| Campo | Tipo | Regra |
+|-------|------|-------|
+| id | Long (PK, auto) | — |
+| usuario | Usuario (`@ManyToOne`) | obrigatório |
+| categoria | Categoria (`@ManyToOne`) | obrigatória — deve ser do tipo DESPESA |
+| descricao | String | obrigatória, até 190 caracteres (sobra espaço pro sufixo " (n/N)") |
+| valorTotal | BigDecimal(10,2) | obrigatório, > 0 |
+| quantidadeParcelas | Integer | 2 a 60 |
+| dataPrimeiraParcela | LocalDate | obrigatória |
+| criadoEm | LocalDateTime | preenchido automaticamente na criação |
+
+`Transacao` ganhou `parcelamento` (`@ManyToOne`, nullable) e
+`numeroParcela` (nullable): só as parcelas geradas têm esses campos.
+
+- **Criar** (`POST /parcelamentos`, `@Transactional`) gera uma
+  Transação DESPESA por mês, a partir de `dataPrimeiraParcela`
+  (`plusMonths`, então dia 31 vira o último dia dos meses mais curtos),
+  com descrição `"<descrição> (n/N)"`. Divisão em
+  `CalculadoraParcelamento.dividir`: cada parcela arredondada pra baixo
+  em centavos e o que sobra vai na última. A soma sempre bate com o
+  total.
+- **Parcela não é editada nem excluída sozinha**: `PUT` e `DELETE` em
+  `/transacoes/{id}` de uma parcela dão `400`
+  (`ParcelamentoInvalidoException`), senão a soma deixaria de bater com
+  o total. Pra corrigir, exclui o parcelamento e lança de novo.
+- **Excluir** (`DELETE /parcelamentos/{id}`, `@Transactional`): apaga
+  as parcelas com data depois de hoje. As já vencidas ficam como
+  transações comuns (perdem o vínculo e o `numeroParcela`, mas mantêm
+  o "(n/N)" na descrição).
+- **Sugestão de parcelas** (`GET /parcelamentos/sugestao?valorTotal=&dataPrimeiraParcela=`):
+  - margem livre = renda média − despesas médias − parcelas já agendadas
+  - as médias são dos **3 meses completos anteriores ao mês atual**
+    (o mês atual ainda está pela metade), sempre divididas por 3
+  - as despesas médias **não** contam parcelas. O que ainda vai ser
+    pago entra como "parcelas já agendadas": a soma das parcelas
+    existentes no mês mais carregado a partir do mês da primeira parcela
+    nova. Assim parcelamento já encerrado não pesa, e o que está em
+    andamento não conta duas vezes.
+  - Sem receita nos 3 meses: `margemLivre` e `quantidadeMinimaParcelas`
+    vêm `null`.
+  - **Decisão sobre o texto da RN004**: a margem limita o *valor* da
+    parcela, não a quantidade (mais parcelas = parcela menor). Então o
+    "limite" sugerido é a **menor quantidade de parcelas cuja parcela
+    cabe na margem** (`CalculadoraParcelamento.quantidadeMinimaQueCabe`,
+    comparando a última parcela, que é a maior). Se nem em 60x cabe,
+    vem `null`. A sugestão é só informativa: o usuário pode parcelar
+    acima da margem.
+
+Testes em `CalculadoraParcelamentoTest`.
+
+### 8.2 Simulação de investimento (RN005)
+
+Sem entidade: `POST /simulacoes` só calcula e devolve, nada é gravado
+(por isso responde `200`, não `201`).
+
+- **Taxas**: `IndicadorMercadoService.obterTaxasInvestimento()` busca na
+  API SGS do BCB a Selic meta (432, % a.a.), o CDI anualizado base 252
+  (4389, % a.a.) e a rentabilidade mensal da poupança nova (195, % a.m.,
+  já com a TR). Cache de 1 hora, separado do rodapé. Se uma série falhar,
+  mantém o último valor obtido dela; com alguma taxa faltando, o cache
+  não vale e a próxima chamada tenta de novo. Sem valor nenhum, o
+  cenário volta `disponivel: false`, com os valores `null`.
+  `GET /simulacoes/taxas` expõe as taxas pro cabeçalho da tela.
+- **Cenários**:
+  - Poupança: taxa mensal do BCB direto, isenta de IR.
+  - CDB: CDI × `percentualCdi` (50 a 200, padrão 100).
+  - Tesouro Selic: Selic meta, **sem** a taxa de custódia da B3 (0,20%
+    a.a.). Fica documentado como simplificação.
+  - Taxa anual → mensal por equivalência: `(1 + a)^(1/12) − 1`.
+- **Cálculo** (`CalculadoraInvestimento`, pura):
+  - juros compostos mês a mês; o valor inicial entra no mês 0 e o
+    aporte no **fim** de cada mês (o último aporte não rende);
+  - IR regressivo calculado **por depósito**, pelo tempo que cada um
+    ficou aplicado: até 6 meses 22,5%, até 12 meses 20%, até 24 meses
+    17,5%, acima disso 15%. É como a Receita cobra: o aporte do mês 11
+    de uma aplicação de 12 meses paga 22,5%, não 20%;
+  - IOF ignorado (prazo mínimo de 1 mês ≈ 30 dias, quando ele já é
+    zero).
+- **Resposta**: total investido, os 3 cenários (taxa anual efetiva,
+  bruto, IR, líquido, rendimentos), `melhorCenario` (maior valor
+  líquido entre os disponíveis) e `evolucao`, com o saldo **bruto** de
+  cada cenário e o valor investido mês a mês, pro gráfico.
+- Valor inicial e aporte zerados ao mesmo tempo → `400`
+  (`SimulacaoInvalidaException`).
+- **Inflação**: as taxas trazem também o IPCA acumulado em 12 meses
+  (SGS 13522, `ipca12Meses`). Cada cenário devolve `valorLiquidoHoje`
+  (o líquido em dinheiro de hoje, `valor ÷ (1 + ipca)^(meses/12)`, com a
+  inflação dos últimos 12 meses repetida no prazo) e `rendimentoReal`
+  (`valorLiquidoHoje` − o investido também em dinheiro de hoje, cada
+  aporte descontado pelo mês em que entra). `rendimentoReal` negativo =
+  perde da inflação. Sem o IPCA, os dois vêm `null`.
+- **Modo meta** (`POST /simulacoes/aporte-necessario`, `valorObjetivo`,
+  `valorInicial` opcional, `prazoMeses`, `percentualCdi`): o menor
+  aporte mensal, em centavos, cujo valor **líquido de IR** chega no
+  objetivo, por cenário (`CalculadoraInvestimento.aporteNecessario`,
+  busca binária, porque o IR por depósito não tem fórmula fechada).
+  `0` quando o valor inicial sozinho já chega. `melhorCenario` = o de
+  menor aporte.
+- **Leitura do BCB**: a resposta da API SGS é lida como texto e
+  convertida com o `ObjectMapper`, porque o BCB às vezes manda o JSON
+  com `Content-Type: text/html` e o conversor do Spring recusava (a
+  taxa aparecia como indisponível de forma intermitente).
+
+Testes em `CalculadoraInvestimentoTest`.
+
+### 8.3 Sugestões personalizadas (RN006)
+
+Sem entidade: `GET /sugestoes?mes=AAAA-MM` (padrão: mês atual) calcula
+na hora. As regras ficam em `RegrasSugestao`, uma classe pura que
+devolve a sugestão já com o texto pronto. `SugestaoService` junta os
+dados e chama as regras. Cada sugestão tem:
+- `tipo`, `severidade` (`ALERTA` > `ATENCAO` > `DICA`, a ordem da lista);
+- `titulo`, `mensagem`;
+- `valor`: o número principal;
+- `itens`: lista `{nome, valor}`, ex: as categorias que mais pesaram.
+
+As regras de **comprometimento e sobra** usam o mês pedido (mesma conta
+do Indicador, via `CalculadoraComprometimento`). As de **metas e
+parcelas** olham pra frente, a partir de hoje.
+
+| Tipo | Quando | O que diz |
+|------|--------|-----------|
+| `REDUZIR_GASTOS` (alerta) | nível `RISCO` | quanto reduzir pra ficar abaixo de 80% (`despesas − 80% da renda + R$ 0,01`) + as 3 não essenciais que mais pesaram |
+| `REDUZIR_ESSENCIAIS` (atenção) | essenciais ≥ 50% | quanto cortar nas essenciais ou quanto a renda precisaria crescer (essenciais × 2 − renda) + as 3 essenciais que mais pesaram |
+| `SEM_RENDA` (atenção) | despesa sem nenhuma receita no mês | pede pra lançar as receitas |
+| `INVESTIR_SOBRA` (dica) | renda − despesas > 0 | quanto a sobra renderia investida todo mês por 12 meses no melhor cenário da Simulação (sem as taxas do BCB, sai sem a projeção) |
+| `META_VENCIDA` (alerta) | data-alvo passou e não concluiu | quanto falta |
+| `META_ATRASADA` (atenção) | abaixo do ritmo linear entre a criação e a data-alvo | o esperado × o atual, e quanto contribuir por mês até a data |
+| `META_NO_PRAZO` (dica) | no ritmo | quanto contribuir por mês até a data (meses contados com o atual e o da data-alvo) |
+| `PARCELAS_ACIMA_DA_MARGEM` (alerta) | margem livre do Parcelamento (8.1) negativa com parcelas agendadas | quanto falta por mês + os parcelamentos em andamento |
+
+Detalhes que não são óbvios:
+- **Por que existe `REDUZIR_ESSENCIAIS`**: o README previa "apontar as
+  não essenciais" também no nível `ATENCAO`. Só que `ATENCAO` vem das
+  essenciais ≥ 50%, e cortar não essencial não muda esse percentual.
+  Por isso a regra separada.
+- **Atraso de meta**: só é cobrado depois de 30 dias da criação. Antes
+  disso, qualquer meta com zero contribuído apareceria como atrasada no
+  dia seguinte.
+
+Testes em `RegrasSugestaoTest`.
+
+### 8.4 Perfil, preferências e exclusão em massa
+
+**Perfil**:
+- `PUT /usuarios/me` muda só o `nome`. O e-mail é o login e o
+  `subject` do JWT, então não muda.
+- `PUT /usuarios/me/senha` confere a `senhaAtual` com o BCrypt e exige
+  pelo menos 6 caracteres na nova. Senha atual errada dá **400**
+  (`SenhaAtualIncorretaException`), **não 401**: o frontend trata
+  qualquer `401` de rota autenticada como sessão expirada e desloga.
+
+**`PreferenciasUsuario`** (`preferencias_usuarios`, 1:1 com `Usuario`):
+
+| Campo | Faixa | Padrão |
+|-------|-------|--------|
+| ocultarValores | — | false |
+| limiteEssencial | 20–90 (%) | 50 |
+| limiteTotal | 30–100 (%), maior que o essencial | 80 |
+| simuladorPercentualCdi | 50–200 | 100 |
+| simuladorPrazoMeses | 1–360 | 12 |
+
+- O registro só é criado no primeiro `PUT`. Até lá, o
+  `GET /usuarios/me/preferencias` devolve os padrões
+  (`PreferenciasService.buscarPorUsuarioId`), sem migração pra usuários
+  antigos.
+- Os limites personalizados entram em
+  `CalculadoraComprometimento.calcular(..., limiteEssencial, limiteTotal)`
+  (a versão de 4 argumentos usa 50/80). O Indicador e as Sugestões leem
+  as preferências do usuário.
+- `IndicadorComprometimentoResposta` devolve os limites usados, pro
+  frontend explicar o alerta com o número certo.
+- Os textos das Sugestões também usam esses limites ("abaixo de 70%").
+- Ocultar valores e os padrões do simulador são só de exibição: o
+  backend guarda, quem aplica é o frontend.
+
+**Exclusão em massa** (`TransacaoService.previaExclusaoPorPeriodo` /
+`excluirPorPeriodo`):
+- `GET /transacoes/exclusao-em-massa/previa` e
+  `DELETE /transacoes/exclusao-em-massa`, os dois com
+  `dataInicio`/`dataFim` opcionais. Vazio = sem limite daquele lado; os
+  dois vazios = todo o histórico. Início depois do fim dá 400.
+- **Parcelas nunca entram** (RN004: parcela só sai excluindo o
+  parcelamento). Vêm contadas em `parcelasMantidas`.
+- As `ContribuicaoMeta` das transações apagadas saem junto, como no
+  delete unitário.
+- `@Transactional` e `deleteAllInBatch`: uma consulta por tabela, em
+  vez de uma por linha, porque cada ida ao Neon paga latência.
+- As `RegraCategorizacao` aprendidas ficam.
+- A prévia e a exclusão usam a mesma seleção (`selecionarParaExclusao`)
+  e devolvem o mesmo formato.
+
+**Tema** (`PreferenciasUsuario.tema`, enum `Tema`): `CLARO`, `ESCURO`
+ou `SISTEMA` (segue o sistema operacional).
+- A coluna é **nullable** de propósito: entrou depois da tabela, e o
+  Hibernate (`ddl-auto=update`) não consegue adicionar `NOT NULL` sem
+  default em linhas que já existem. `null` vale `CLARO`, pra quem já
+  usava o app não ver a interface mudar sozinha.
+- Quem aplica é o frontend.
+
+**Tutorial** (`PreferenciasUsuario.tutorialConcluido`, migração `V3`):
+- `GET /usuarios/me/preferencias` devolve `tutorialConcluido`; sem
+  registro ou com `null`, vale `false`. Assim o tutorial aparece uma
+  vez pra todo mundo, inclusive pra quem já usava o app antes dele.
+- Muda só por `PUT /usuarios/me/preferencias/tutorial`
+  (`{"concluido": true}`). O `PUT` das preferências não mexe nele, pra
+  salvar o tema ou os limites não reabrir o tutorial.
+- Se ainda não havia registro de preferências, ele nasce com os
+  padrões (`PreferenciasService.buscarOuCriar`).
+
+### 8.5 Relatórios
+
+Sem entidade: `GET /relatorios?tipo=MENSAL|ANUAL&referencia=` calcula
+na hora (`RelatorioService` + `CalculadoraRelatorio`, pura).
+- **Período**: o mensal compara com o mês anterior. O anual compara com
+  o ano anterior e traz `evolucaoMensal` (12 meses, sempre, com zero
+  onde não houve lançamento).
+- **Resumo** de cada período: receitas, despesas, saldo, quantidade e
+  taxa de poupança (`saldo ÷ receitas`, `null` sem receita).
+- **Por categoria** (despesa e receita):
+  - total, percentual do total do tipo e total no período anterior;
+  - variação em % (`null` quando o anterior é zero);
+  - entram também as categorias que só existem no período anterior,
+    com total 0 e −100%, pra mostrar o que deixou de ser gasto.
+- **Maiores despesas**: as 5 maiores do período.
+- Parcelas entram como despesas comuns, cada uma no mês dela.
+
+Testes em `CalculadoraRelatorioTest`.
+
+---
+
+## 9. Convenções de código
 
 - Nomes de classes, métodos, variáveis, parâmetros e pacotes internos
   em **português**, em todo o código (não só nas entidades) — ex:
@@ -512,7 +753,7 @@ baixo demais pra um extrato com muitos lançamentos).
 
 ---
 
-## 9. Como rodar localmente
+## 10. Como rodar localmente
 
 O banco Postgres é compartilhado (hospedado no Neon) — ninguém precisa
 instalar Postgres localmente.
@@ -525,7 +766,11 @@ instalar Postgres localmente.
    spring.datasource.url=jdbc:postgresql://<host>:<porta>/<banco>?sslmode=require
    spring.datasource.username=<usuario>
    spring.datasource.password=<senha>
+   jwt.chave-secreta=<qualquer texto com 32+ caracteres>
    ```
+   A chave do JWT não tem mais valor padrão no `application.properties`
+   (com uma chave fixa no repositório, qualquer um forjaria tokens).
+   Sem ela o backend não sobe.
 3. Empacote e rode o jar com o profile `local` (mais confiável que
    `spring-boot:run`, que se mostrou instável em alguns ambientes):
    ```
@@ -533,13 +778,72 @@ instalar Postgres localmente.
    java -jar target/financeflow-backend-0.1.0.jar --spring.profiles.active=local
    ```
 
-As tabelas são criadas/atualizadas automaticamente pelo Hibernate
-(`spring.jpa.hibernate.ddl-auto=update`) — não precisa rodar SQL
-manual.
+O esquema é das migrações do **Flyway** (`src/main/resources/db/migration`),
+que rodam sozinhas ao subir. O Hibernate só confere se as entidades
+batem com o banco (`ddl-auto=validate`) e não cria mais nada.
+- `V1__esquema_inicial.sql` é o esquema de quando o Flyway entrou. No
+  Neon, que já tinha as tabelas criadas pelo antigo `ddl-auto=update`,
+  ela não roda: `baseline-on-migrate` marca a V1 como aplicada. Num
+  banco vazio, ela cria tudo.
+- `V2` cria os índices das chaves estrangeiras (o Postgres não cria
+  sozinho).
+- **Mudou uma entidade? Crie `V<n>__descricao.sql`.** Nunca edite uma
+  migração que já rodou (o Flyway confere o checksum e para de subir).
+  Coluna nova em tabela com dados: nullable ou com `default`.
+
+## 10.1 Testes
+
+`./mvnw test` roda tudo, sem precisar do Neon:
+- unitários das classes puras (`Calculadora*`, `RegrasSugestao`,
+  parsers, `SugestorCategoria`);
+- `ApiIntegracaoTest`: sobe a aplicação inteira com H2 em modo
+  PostgreSQL (profile `teste`, `src/test/resources`), rodando as
+  mesmas migrações do Flyway, e testa pelas rotas HTTP (isolamento
+  entre usuários, 401/404, troca de tipo de categoria, limites, saldo
+  de contribuição, bloqueio de login).
+
+## 10.2 Decisões da auditoria final
+
+- **Exceções**: toda exceção de regra de negócio estende
+  `NegocioException`, que carrega o `HttpStatus`; o
+  `TratadorDeExcecoes` tem um handler só pra elas. Exceção nova = só a
+  classe, sem mexer no tratador. O handler genérico agora loga o erro
+  (antes engolia) e 404/405/413/parâmetro ausente têm status próprio.
+- **Usuário do token**: `UsuarioRepository.buscarDoToken(email)` em vez
+  de uma cópia de `buscarUsuarioPorEmail` em cada Service. Token de
+  usuário que não existe mais dá `401` (antes `500`).
+- **Email** é gravado em minúsculas e comparado sem diferenciar caixa
+  (cadastro e login). Contas antigas com maiúscula continuam entrando:
+  o login procura ignorando a caixa e, se houver mais de uma, vale a da
+  senha certa. **Senha não tem tamanho mínimo no cadastro** (decisão do
+  grupo, pra criar usuários de teste fácil); a troca de senha continua
+  exigindo 6.
+- **Login**: 5 erros seguidos no mesmo email bloqueiam por 15 minutos
+  (`LimitadorTentativasLogin`, em memória, `429`).
+- **Categoria em uso não muda de tipo** (`409`), pelo mesmo motivo de
+  não poder ser excluída: deixaria transações com tipo diferente da
+  categoria (RN003) e meta em categoria de despesa (RN007).
+- **Limites nos DTOs**: textos com `@Size` (descrição 200, nome de
+  categoria 50, nome de meta/usuário 100) e valores com
+  `@DecimalMax("99999999.99")` (a coluna é `numeric(10,2)`). A
+  importação corta a descrição em 200 já no preview, pra a detecção de
+  duplicata comparar com o que fica gravado.
+- **APIs externas** com timeout (3s conexão, 5s leitura).
+- **Consultas por período**: `findByUsuarioIdAndDataBetween` /
+  `buscarDoPeriodo` em vez de carregar todo o histórico e filtrar em
+  memória. Metas somam as contribuições numa consulta só. A confirmação
+  da importação carrega categorias e regras de uma vez (os inserts
+  continuam um por linha, porque o id é `IDENTITY`).
+- **Contribuição a meta** roda em `@Transactional` com
+  `PESSIMISTIC_WRITE` na meta e na transação, pra duas contribuições
+  ao mesmo tempo não passarem juntas do saldo.
+- **Limitação conhecida**: o token continua valendo até expirar (8h)
+  depois de uma troca de senha. Revogar exigiria consultar o banco a
+  cada requisição.
 
 ---
 
-## 10. Próximos passos (na ordem)
+## 11. Próximos passos (na ordem)
 
 Sprint#2 concluída: `MetaFinanceira` com progresso via
 `ContribuicaoMeta` (contribuição por Transação, limitada ao saldo dela

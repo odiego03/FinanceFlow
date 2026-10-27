@@ -1,15 +1,23 @@
 import { useMemo, useState } from 'react'
 import * as transacaoService from '../services/transacaoService'
 import { agruparReceitasPorMeta } from '../utils/agruparReceitasPorMeta'
+import { resumirDescricao } from '../utils/descricao'
 import DestinarMetasImportacao from './DestinarMetasImportacao'
+import Modal from './Modal'
 import styles from './ModalImportarExtrato.module.css'
 
 const formatadorMoeda = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' })
 const formatadorData = new Intl.DateTimeFormat('pt-BR')
 
 const BANCOS = [
-  { valor: 'NUBANK', texto: 'Nubank' },
-  { valor: 'ITAU', texto: 'Itaú' },
+  { valor: 'NUBANK', texto: 'Nubank', sigla: 'Nu', cor: '#820ad1' },
+  { valor: 'ITAU', texto: 'Itaú', sigla: 'It', cor: '#ec7000' },
+]
+
+const ETAPAS = [
+  { valor: 'upload', texto: 'Arquivo' },
+  { valor: 'revisao', texto: 'Revisão' },
+  { valor: 'metas', texto: 'Metas' },
 ]
 
 const FILTROS_REVISAO = [
@@ -50,6 +58,7 @@ function ModalImportarExtrato({ categorias, metas, onConcluir, onCancelar }) {
   const [linhas, setLinhas] = useState([])
   const [erro, setErro] = useState('')
   const [carregando, setCarregando] = useState(false)
+  const [arrastando, setArrastando] = useState(false)
 
   const categoriasPorTipo = useMemo(() => {
     const mapa = { RECEITA: [], DESPESA: [] }
@@ -153,115 +162,218 @@ function ModalImportarExtrato({ categorias, metas, onConcluir, onCancelar }) {
     }
   }
 
-  // Na etapa de metas as transações já existem: fechar pelo fundo perderia o aviso de sucesso, então não fecha
-  const fecharPeloFundo = etapa === 'metas' ? undefined : onCancelar
+  const escolherArquivo = (escolhido) => {
+    setArquivo(escolhido ?? null)
+    setErro('')
+  }
+
+  const soltarArquivo = (event) => {
+    event.preventDefault()
+    setArrastando(false)
+    escolherArquivo(event.dataTransfer.files[0])
+  }
+
+  const indiceEtapa = ETAPAS.findIndex((item) => item.valor === etapa)
+
+  const rodape =
+    etapa === 'upload' ? (
+      <>
+        <button type="button" className={styles.cancelar} onClick={onCancelar}>
+          Cancelar
+        </button>
+        <button type="submit" form="form-importar" className={styles.confirmar} disabled={carregando}>
+          {carregando ? 'Analisando...' : 'Analisar extrato'}
+        </button>
+      </>
+    ) : etapa === 'revisao' ? (
+      <>
+        <button type="button" className={styles.cancelar} onClick={onCancelar}>
+          Cancelar
+        </button>
+        {quantidadePendentes > 0 && linhasCategorizadas.length > 0 ? (
+          <button
+            type="button"
+            className={styles.confirmarParcial}
+            disabled={carregando}
+            onClick={() => handleConfirmar(linhasCategorizadas)}
+            title="As pendentes ficam de fora — dá pra importar o mesmo arquivo de novo depois"
+          >
+            Importar só as categorizadas ({linhasCategorizadas.length})
+          </button>
+        ) : null}
+        <button
+          type="button"
+          className={styles.confirmar}
+          disabled={!podeConfirmar || carregando}
+          onClick={() => handleConfirmar(linhasIncluidas)}
+          title={podeConfirmar ? undefined : 'Escolha a categoria das pendentes, ou use "Importar só as categorizadas"'}
+        >
+          {carregando ? 'Importando...' : `Importar ${linhasIncluidas.length} lançamento(s)`}
+        </button>
+      </>
+    ) : null
 
   return (
-    <div className={styles.backdrop} onClick={fecharPeloFundo}>
-      <div
-        className={`${styles.modal} ${etapa !== 'upload' ? styles.modalLargo : ''}`}
-        onClick={(event) => event.stopPropagation()}
-      >
-        <h2>{etapa === 'metas' ? `${resultadoImportacao.quantidade} transação(ões) importada(s) — destinar às metas?` : 'Importar extrato'}</h2>
+    <Modal
+      titulo={etapa === 'metas' ? `${resultadoImportacao.quantidade} transação(ões) importada(s)` : 'Importar extrato'}
+      subtitulo={
+        etapa === 'metas'
+          ? 'Quer destinar alguma dessas receitas às suas metas?'
+          : 'Traga os lançamentos do banco de uma vez, sem digitar um por um.'
+      }
+      largo={etapa !== 'upload'}
+      // Na etapa de metas as transações já existem: fechar perderia o aviso de sucesso
+      podeFechar={etapa !== 'metas'}
+      onFechar={onCancelar}
+      rodape={rodape}
+    >
+      <ol className={styles.etapas}>
+        {ETAPAS.map((item, posicao) => (
+          <li
+            key={item.valor}
+            className={posicao === indiceEtapa ? styles.etapaAtual : posicao < indiceEtapa ? styles.etapaFeita : styles.etapa}
+          >
+            <span className={styles.etapaNumero}>
+              {posicao < indiceEtapa ? <i className="bi bi-check-lg" aria-hidden="true" /> : posicao + 1}
+            </span>
+            {item.texto}
+          </li>
+        ))}
+      </ol>
 
-        {etapa === 'metas' ? (
-          <DestinarMetasImportacao
-            grupos={resultadoImportacao.grupos}
-            onConcluir={(totalDestinado) => onConcluir(resultadoImportacao.quantidade, totalDestinado)}
-          />
-        ) : etapa === 'upload' ? (
-          <form onSubmit={handleAnalisar}>
-            <span className={styles.label}>Banco</span>
-            <div className={styles.bancoGroup}>
+      {etapa === 'metas' ? (
+        <DestinarMetasImportacao
+          grupos={resultadoImportacao.grupos}
+          onConcluir={(totalDestinado) => onConcluir(resultadoImportacao.quantidade, totalDestinado)}
+        />
+      ) : etapa === 'upload' ? (
+        <form id="form-importar" className={styles.formularioUpload} onSubmit={handleAnalisar}>
+          <div className={styles.grupoCampo}>
+            <span className={styles.label}>De qual banco é o extrato?</span>
+            <div className={styles.bancoGroup} role="radiogroup" aria-label="Banco">
               {BANCOS.map((opcao) => (
                 <button
                   key={opcao.valor}
                   type="button"
+                  role="radio"
+                  aria-checked={banco === opcao.valor}
                   className={`${styles.bancoBotao} ${banco === opcao.valor ? styles.bancoBotaoAtivo : ''}`}
                   onClick={() => setBanco(opcao.valor)}
                 >
-                  {opcao.texto}
+                  <span className={styles.bancoSigla} style={{ background: opcao.cor }} aria-hidden="true">
+                    {opcao.sigla}
+                  </span>
+                  <span>
+                    {opcao.texto}
+                    <small>Extrato da conta em CSV</small>
+                  </span>
                 </button>
               ))}
             </div>
+          </div>
 
-            <label className={styles.label} htmlFor="arquivoExtrato">
-              Arquivo CSV
-            </label>
-            <input
-              id="arquivoExtrato"
-              type="file"
-              accept=".csv"
-              className={styles.input}
-              onChange={(event) => setArquivo(event.target.files[0] ?? null)}
-            />
-            <span className={styles.ajuda}>
-              O arquivo é lido só pra gerar as transações — não fica guardado no sistema.
-            </span>
-
-            {erro ? (
-              <p className={styles.errorMessage} aria-live="polite">
-                {erro}
-              </p>
-            ) : null}
-
-            <div className={styles.acoes}>
-              <button type="button" className={styles.cancelar} onClick={onCancelar}>
-                Cancelar
-              </button>
-              <button type="submit" className={styles.confirmar} disabled={carregando}>
-                {carregando ? 'Analisando...' : 'Analisar'}
-              </button>
-            </div>
-          </form>
-        ) : (
-          <>
-            <p className={styles.ajuda}>
-              {quantidadePendentes > 0
-                ? `${quantidadePendentes} lançamento(s) pendente(s) de categoria. `
-                : 'Todos os lançamentos incluídos têm categoria. '}
-              {quantidadeSugeridas > 0
-                ? `${quantidadeSugeridas} com categoria sugerida pela descrição — confira antes de confirmar.`
-                : ''}
-            </p>
-            <div className={styles.barraRevisao}>
-              <div className={styles.filtrosRevisao} role="group" aria-label="Filtrar lançamentos">
-                {FILTROS_REVISAO.map((opcao) => (
-                  <button
-                    key={opcao.valor}
-                    type="button"
-                    aria-pressed={filtroRevisao === opcao.valor}
-                    className={`${styles.chipFiltro} ${filtroRevisao === opcao.valor ? styles.chipFiltroAtivo : ''}`}
-                    onClick={() => setFiltroRevisao(opcao.valor)}
-                  >
-                    {opcao.texto} <span className={styles.contagem}>{contagemPorFiltro[opcao.valor]}</span>
-                  </button>
-                ))}
-              </div>
-              <label className={styles.marcarTodas}>
-                <input
-                  type="checkbox"
-                  checked={todasVisiveisMarcadas}
-                  onChange={(event) => marcarVisiveis(event.target.checked)}
-                  disabled={linhasVisiveis.length === 0}
-                />
-                Marcar todas
-              </label>
-            </div>
-
-            <div className={styles.lista} role="list">
-              <div className={styles.cabecalhoLista} aria-hidden="true">
-                <span />
-                <span>Data / Valor</span>
-                <span>Descrição</span>
-                <span>Categoria</span>
-                <span>Status</span>
-              </div>
-
-              {linhasVisiveis.length === 0 ? (
-                <p className={styles.listaVazia}>Nenhum lançamento neste filtro.</p>
+          <div className={styles.grupoCampo}>
+            <span className={styles.label}>Arquivo</span>
+            <label
+              className={`${styles.areaArquivo} ${arrastando ? styles.areaArquivoAtiva : ''} ${arquivo ? styles.areaArquivoPreenchida : ''}`}
+              onDragOver={(event) => {
+                event.preventDefault()
+                setArrastando(true)
+              }}
+              onDragLeave={() => setArrastando(false)}
+              onDrop={soltarArquivo}
+            >
+              <input
+                type="file"
+                accept=".csv"
+                className={styles.inputArquivo}
+                onChange={(event) => escolherArquivo(event.target.files[0])}
+              />
+              {arquivo ? (
+                <>
+                  <i className="bi bi-file-earmark-check" aria-hidden="true" />
+                  <strong>{arquivo.name}</strong>
+                  <small>{(arquivo.size / 1024).toFixed(1)} KB · clique para trocar</small>
+                </>
               ) : (
-                linhasVisiveis.map(({ linha, indice }) => (
+                <>
+                  <i className="bi bi-cloud-arrow-up" aria-hidden="true" />
+                  <strong>Arraste o arquivo CSV aqui</strong>
+                  <small>ou clique para escolher no computador</small>
+                </>
+              )}
+            </label>
+            <span className={styles.ajuda}>
+              <i className="bi bi-shield-check" aria-hidden="true" /> O arquivo é lido só para gerar as transações e não
+              fica guardado. Nada é gravado antes de você revisar.
+            </span>
+          </div>
+
+          {erro ? (
+            <p className={styles.errorMessage} role="alert">
+              {erro}
+            </p>
+          ) : null}
+        </form>
+      ) : (
+        <div className={styles.revisao}>
+          <p className={styles.resumoRevisao}>
+            {quantidadePendentes > 0 ? (
+              <span className={styles.resumoPendente}>
+                <i className="bi bi-exclamation-circle" aria-hidden="true" /> {quantidadePendentes} sem categoria — escolha
+                para poder importar todas.
+              </span>
+            ) : (
+              <span className={styles.resumoOk}>
+                <i className="bi bi-check-circle" aria-hidden="true" /> Todos os lançamentos marcados têm categoria.
+              </span>
+            )}
+            {quantidadeSugeridas > 0 ? (
+              <span> {quantidadeSugeridas} com categoria sugerida pela descrição: confira antes de importar.</span>
+            ) : null}
+            <span> Escolher a categoria de um favorecido preenche as outras linhas dele.</span>
+          </p>
+
+          <div className={styles.barraRevisao}>
+            <div className={styles.filtrosRevisao} role="group" aria-label="Filtrar lançamentos">
+              {FILTROS_REVISAO.map((opcao) => (
+                <button
+                  key={opcao.valor}
+                  type="button"
+                  aria-pressed={filtroRevisao === opcao.valor}
+                  className={`${styles.chipFiltro} ${filtroRevisao === opcao.valor ? styles.chipFiltroAtivo : ''}`}
+                  onClick={() => setFiltroRevisao(opcao.valor)}
+                >
+                  {opcao.texto} <span className={styles.contagem}>{contagemPorFiltro[opcao.valor]}</span>
+                </button>
+              ))}
+            </div>
+            <label className={styles.marcarTodas}>
+              <input
+                type="checkbox"
+                checked={todasVisiveisMarcadas}
+                onChange={(event) => marcarVisiveis(event.target.checked)}
+                disabled={linhasVisiveis.length === 0}
+              />
+              Marcar todas
+            </label>
+          </div>
+
+          <div className={styles.lista} role="list">
+            <div className={styles.cabecalhoLista} aria-hidden="true">
+              <span />
+              <span>Data / Valor</span>
+              <span>Descrição</span>
+              <span>Categoria</span>
+              <span>Status</span>
+            </div>
+
+            {linhasVisiveis.length === 0 ? (
+              <p className={styles.listaVazia}>Nenhum lançamento neste filtro.</p>
+            ) : (
+              linhasVisiveis.map(({ linha, indice }) => {
+                const resumo = resumirDescricao(linha.descricao)
+                return (
                   <div
                     key={`${linha.data}-${linha.descricao}-${indice}`}
                     role="listitem"
@@ -281,9 +393,10 @@ function ModalImportarExtrato({ categorias, metas, onConcluir, onCancelar }) {
                         {formatadorMoeda.format(linha.valor)}
                       </strong>
                     </div>
-                    <p className={styles.descricao} title={linha.descricao}>
-                      {linha.descricao}
-                    </p>
+                    <div className={styles.descricao} title={linha.descricao}>
+                      <strong>{resumo.titulo}</strong>
+                      {resumo.detalhe ? <small>{resumo.detalhe}</small> : null}
+                    </div>
                     <select
                       className={styles.selectCategoria}
                       value={linha.categoriaId}
@@ -302,47 +415,19 @@ function ModalImportarExtrato({ categorias, metas, onConcluir, onCancelar }) {
                       <BadgeStatus linha={linha} />
                     </div>
                   </div>
-                ))
-              )}
-            </div>
+                )
+              })
+            )}
+          </div>
 
-            {erro ? (
-              <p className={styles.errorMessage} aria-live="polite">
-                {erro}
-              </p>
-            ) : null}
-
-            <div className={styles.acoes}>
-              <button type="button" className={styles.cancelar} onClick={onCancelar}>
-                Cancelar
-              </button>
-              {quantidadePendentes > 0 && linhasCategorizadas.length > 0 ? (
-                <button
-                  type="button"
-                  className={styles.confirmarParcial}
-                  disabled={carregando}
-                  onClick={() => handleConfirmar(linhasCategorizadas)}
-                  title="As pendentes ficam de fora — dá pra importar o mesmo arquivo de novo depois"
-                >
-                  Importar só as categorizadas ({linhasCategorizadas.length})
-                </button>
-              ) : null}
-              <button
-                type="button"
-                className={styles.confirmar}
-                disabled={!podeConfirmar || carregando}
-                onClick={() => handleConfirmar(linhasIncluidas)}
-                title={podeConfirmar ? undefined : 'Escolha a categoria das pendentes, ou use "Importar só as categorizadas"'}
-              >
-                {carregando
-                  ? 'Importando...'
-                  : `Importar todas (${linhasIncluidas.length})`}
-              </button>
-            </div>
-          </>
-        )}
-      </div>
-    </div>
+          {erro ? (
+            <p className={styles.errorMessage} role="alert">
+              {erro}
+            </p>
+          ) : null}
+        </div>
+      )}
+    </Modal>
   )
 }
 
