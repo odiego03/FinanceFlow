@@ -2,14 +2,14 @@
   display: flex;
   flex-direction: column;
   gap: 20px;
-  max-width: 900px;
+  max-width: 1080px;
 }
 
 .pagina h1 {
   margin: 0;
   font-size: 1.6rem;
   font-weight: 700;
-  color: #111827;
+  color: var(--texto-forte);
 }
 
 .colunas {
@@ -23,8 +23,8 @@
   display: flex;
   flex-direction: column;
   gap: 12px;
-  background: #ffffff;
-  border: 1px solid #e5e7eb;
+  background: var(--superficie);
+  border: 1px solid var(--borda);
   border-radius: 14px;
   padding: 20px;
 }
@@ -36,21 +36,21 @@
   margin: 0;
   font-size: 1.1rem;
   font-weight: 700;
-  color: #111827;
+  color: var(--texto-forte);
 }
 
 .secao h3 {
   margin: 0;
   font-size: 0.98rem;
   font-weight: 700;
-  color: #111827;
+  color: var(--texto-forte);
 }
 
 .descricao {
   margin: 0;
   font-size: 0.86rem;
   line-height: 1.5;
-  color: #6b7280;
+  color: var(--texto-suave);
 }
 
 .formulario {
@@ -65,37 +65,37 @@
   gap: 6px;
   font-size: 0.88rem;
   font-weight: 600;
-  color: #374151;
+  color: var(--texto-2);
 }
 
 .campo input,
 .campo select {
   width: 100%;
-  border: 1.5px solid #e2e8f0;
+  border: 1.5px solid var(--borda);
   border-radius: 10px;
   padding: 10px 12px;
   font-size: 0.95rem;
-  color: #1f2937;
+  color: var(--texto);
   box-sizing: border-box;
   outline: none;
-  background: #ffffff;
+  background: var(--superficie);
 }
 
 .campo input:focus,
 .campo select:focus {
-  border-color: #2563eb;
+  border-color: var(--primaria);
   box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
 }
 
 .campo input:disabled {
-  background: #f8fafc;
-  color: #6b7280;
+  background: var(--superficie-2);
+  color: var(--texto-suave);
 }
 
 .campo small {
   font-weight: 500;
   font-size: 0.78rem;
-  color: #9ca3af;
+  color: var(--texto-fraco);
 }
 
 .linha {
@@ -111,7 +111,7 @@
   gap: 10px;
   margin: 0;
   padding: 14px;
-  border: 1px solid #f1f5f9;
+  border: 1px solid var(--superficie-3);
   border-radius: 12px;
 }
 
@@ -119,7 +119,37 @@
   padding: 0 6px;
   font-size: 0.9rem;
   font-weight: 700;
-  color: #111827;
+  color: var(--texto-forte);
+}
+
+.segmentado {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-self: flex-start;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 12px;
+  background: var(--superficie-3);
+}
+
+.segmentado button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: none;
+  background: transparent;
+  color: var(--texto-2);
+  font-weight: 600;
+  font-size: 0.88rem;
+  padding: 8px 14px;
+  border-radius: 9px;
+  cursor: pointer;
+}
+
+.segmentado .segmentoAtivo {
+  background: var(--superficie);
+  color: var(--primaria);
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.15);
 }
 
 .alternador {
@@ -128,7 +158,7 @@
   gap: 10px;
   font-size: 0.92rem;
   font-weight: 600;
-  color: #1f2937;
+  color: var(--texto);
   cursor: pointer;
 }
 
@@ -136,7 +166,7 @@
   width: 18px;
   height: 18px;
   margin-top: 2px;
-  accent-color: #2563eb;
+  accent-color: var(--primaria);
 }
 
 .alternador small {
@@ -144,7 +174,7 @@
   margin-top: 2px;
   font-weight: 500;
   font-size: 0.8rem;
-  color: #6b7280;
+  color: var(--texto-suave);
 }
 
 .acoes {
@@ -166,21 +196,21 @@
 }
 
 .botaoPrimario {
-  background: #2563eb;
+  background: var(--primaria);
   color: #ffffff;
 }
 
 .botaoPrimario:hover:not(:disabled) {
-  background: #1d4ed8;
+  background: var(--primaria-hover);
 }
 
 .botaoSecundario {
-  background: #f1f5f9;
-  color: #374151;
+  background: var(--superficie-3);
+  color: var(--texto-2);
 }
 
 .botaoSecundario:hover:not(:disabled) {
-  background: #e2e8f0;
+  background: var(--borda);
 }
 
 .botaoPerigo {
@@ -189,7 +219,7 @@
 }
 
 .botaoPerigo:hover:not(:disabled) {
-  background: #b91c1c;
+  background: var(--perigo-hover);
 }
 
 .botaoPrimario:disabled,
@@ -206,7 +236,7 @@
   padding: 0;
   font-size: 0.85rem;
   font-weight: 700;
-  color: #2563eb;
+  color: var(--primaria);
   cursor: pointer;
 }
 
@@ -225,13 +255,13 @@
 
 .erro {
   background: rgba(239, 68, 68, 0.08);
-  color: #b91c1c;
+  color: var(--erro-texto);
   border: 1px solid rgba(239, 68, 68, 0.2);
 }
 
 .sucesso {
   background: rgba(22, 163, 74, 0.08);
-  color: #15803d;
+  color: var(--sucesso-texto);
   border: 1px solid rgba(22, 163, 74, 0.25);
 }
 
@@ -240,7 +270,7 @@
 }
 
 .zonaPerigo h2 {
-  color: #b91c1c;
+  color: var(--erro-texto);
 }
 
 .previa {
@@ -252,7 +282,7 @@
   background: rgba(220, 38, 38, 0.05);
   border: 1px solid rgba(220, 38, 38, 0.2);
   font-size: 0.9rem;
-  color: #1f2937;
+  color: var(--texto);
 }
 
 .previa p {
@@ -270,5 +300,100 @@
 .previaVazia {
   margin: 0;
   font-size: 0.9rem;
-  color: #6b7280;
+  color: var(--texto-suave);
+}
+
+.estrutura {
+  display: grid;
+  grid-template-columns: 240px minmax(0, 1fr);
+  gap: 20px;
+  align-items: start;
+}
+
+.abas {
+  position: sticky;
+  top: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px;
+  border: 1px solid var(--borda);
+  border-radius: 14px;
+  background: var(--superficie);
+}
+
+.aba,
+.abaAtiva {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: none;
+  border-radius: 10px;
+  padding: 10px 12px;
+  background: transparent;
+  color: var(--texto-2);
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+
+.aba:hover {
+  background: var(--superficie-3);
+}
+
+.abaAtiva {
+  background: var(--destaque-suave);
+  color: var(--primaria);
+}
+
+.conteudoAba {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  min-width: 0;
+}
+
+.perguntas {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+}
+
+.perguntas dt {
+  margin-top: 8px;
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: var(--texto-forte);
+}
+
+.perguntas dt:first-child {
+  margin-top: 0;
+}
+
+.perguntas dd {
+  margin: 0;
+  font-size: 0.88rem;
+  line-height: 1.5;
+  color: var(--texto-3);
+}
+
+/* No celular as abas viram uma faixa horizontal com rolagem, acima do conteúdo */
+@media (max-width: 860px) {
+  .estrutura {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .abas {
+    position: static;
+    flex-direction: row;
+    overflow-x: auto;
+  }
+
+  .aba,
+  .abaAtiva {
+    flex-shrink: 0;
+    white-space: nowrap;
+  }
 }

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { Carregando, Esqueleto } from '../components/Esqueleto'
 import IconeCategoria from '../components/IconeCategoria'
 import ModalCategoria from '../components/ModalCategoria'
 import ModalConfirmacao from '../components/ModalConfirmacao'
@@ -27,10 +28,10 @@ function ColunaCategorias({ titulo, tipo, categorias, onEditar, onExcluir }) {
             ) : null}
             <div className={styles.acoesItem}>
               <button type="button" onClick={() => onEditar(categoria)} aria-label={`Editar ${categoria.nome}`}>
-                ✎
+                <i className="bi bi-pencil" aria-hidden="true" />
               </button>
               <button type="button" onClick={() => onExcluir(categoria)} aria-label={`Excluir ${categoria.nome}`}>
-                🗑
+                <i className="bi bi-trash3" aria-hidden="true" />
               </button>
             </div>
           </div>
@@ -52,7 +53,7 @@ function Categorias() {
     try {
       const dados = await categoriaService.listar()
       setCategorias(dados)
-    } catch (erroRequisicao) {
+    } catch {
       setErro('Não foi possível carregar as categorias.')
     } finally {
       setCarregando(false)
@@ -63,7 +64,7 @@ function Categorias() {
     const carregarComPredefinidas = async () => {
       try {
         await categoriaService.adicionarPredefinidas()
-      } catch (erroRequisicao) {
+      } catch {
         // usuário mantém só as categorias que já tinha se essa chamada falhar
       }
       await carregarCategorias()
@@ -127,7 +128,19 @@ function Categorias() {
       ) : null}
 
       {carregando ? (
-        <p>Carregando...</p>
+        <Carregando rotulo="Carregando categorias" className={styles.colunas}>
+          {['Categorias de Receita', 'Categorias de Despesa'].map((titulo, coluna) => (
+            <div key={titulo} className={styles.coluna}>
+              <h2 className={coluna === 0 ? styles.tituloReceita : styles.tituloDespesa}>{titulo}</h2>
+              {[55, 40, 62, 48, 35].map((largura) => (
+                <div key={largura} className={styles.itemCategoria}>
+                  <Esqueleto circulo altura={28} />
+                  <Esqueleto largura={`${largura}%`} />
+                </div>
+              ))}
+            </div>
+          ))}
+        </Carregando>
       ) : (
         <div className={styles.colunas}>
           <ColunaCategorias

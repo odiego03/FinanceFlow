@@ -1,19 +1,26 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
+import { Carregando, Esqueleto } from '../components/Esqueleto'
+import IconeCategoria from '../components/IconeCategoria'
 import ModalConfirmacao from '../components/ModalConfirmacao'
 import ModalContribuicaoMeta from '../components/ModalContribuicaoMeta'
 import ModalImportarExtrato from '../components/ModalImportarExtrato'
 import ModalTransacao from '../components/ModalTransacao'
+import Paginacao from '../components/Paginacao'
+import { usePreferencias } from '../contexts/PreferenciasContext'
 import { mensagemDeErro } from '../services/api'
 import * as categoriaService from '../services/categoriaService'
 import * as metaService from '../services/metaService'
 import * as parcelamentoService from '../services/parcelamentoService'
 import * as transacaoService from '../services/transacaoService'
-import { usePreferencias } from '../contexts/PreferenciasContext'
+import { resumirDescricao } from '../utils/descricao'
 import styles from './Transacoes.module.css'
 
+const formatadorDia = new Intl.DateTimeFormat('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' })
+const formatadorDiaComAno = new Intl.DateTimeFormat('pt-BR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
 const formatadorData = new Intl.DateTimeFormat('pt-BR')
 
-const opcoesFiltro = [
+const opcoesTipo = [
   { valor: 'TODAS', texto: 'Todas' },
   { valor: 'RECEITA', texto: 'Receitas' },
   { valor: 'DESPESA', texto: 'Despesas' },
@@ -46,6 +53,9 @@ const FILTROS_INICIAIS = {
   valorMaximo: '',
   ordenacao: 'DATA_DESC',
 }
+
+// Os que ficam escondidos atrás de "Mais filtros": contam no selo do botão
+const FILTROS_AVANCADOS = ['categoriaId', 'valorMinimo', 'valorMaximo']
 
 function dataIso(data) {
   return `${data.getFullYear()}-${String(data.getMonth() + 1).padStart(2, '0')}-${String(data.getDate()).padStart(2, '0')}`
@@ -86,6 +96,108 @@ function compararTransacoes(ordenacao) {
   }
 }
 
+function rotuloDia(iso) {
+  const hoje = new Date()
+  const ontem = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate() - 1)
+  if (iso === dataIso(hoje)) return 'Hoje'
+  if (iso === dataIso(ontem)) return 'Ontem'
+  const data = new Date(`${iso}T00:00:00`)
+  const texto = (data.getFullYear() === hoje.getFullYear() ? formatadorDia : formatadorDiaComAno).format(data)
+  return texto.charAt(0).toUpperCase() + texto.slice(1)
+}
+
+// Agrupa os itens da página por dia, mantendo a ordem em que já vieram
+function agruparPorDia(transacoes) {
+  const grupos = []
+  transacoes.forEach((transacao) => {
+    const ultimo = grupos[grupos.length - 1]
+    if (ultimo && ultimo.data === transacao.data) {
+      ultimo.itens.push(transacao)
+    } else {
+      grupos.push({ data: transacao.data, itens: [transacao] })
+    }
+  })
+  return grupos
+}
+
+function ListaEsqueleto() {
+  return (
+    <Carregando rotulo="Carregando transações" className={styles.cartaoLista}>
+      {[0, 1].map((grupo) => (
+        <div key={grupo}>
+          <div className={styles.cabecalhoDia}>
+            <Esqueleto largura={180} altura={13} />
+          </div>
+          {[62, 48, 70, 55].map((largura) => (
+            <div key={largura} className={styles.linha}>
+              <Esqueleto circulo altura={38} />
+              <div className={styles.linhaTexto}>
+                <Esqueleto largura={`${largura}%`} altura={14} />
+                <Esqueleto largura="30%" altura={11} />
+              </div>
+              <Esqueleto largura={90} altura={16} />
+            </div>
+          ))}
+        </div>
+      ))}
+    </Carregando>
+  )
+}
+
+function LinhaTransacao({ transacao, categoria, mostrarData, podeContribuir, formatarMoeda, onContribuir, onEditar, onExcluir }) {
+  const receita = transacao.tipo === 'RECEITA'
+  const resumo = resumirDescricao(transacao.descricao)
+  const titulo = resumo.titulo || transacao.categoriaNome
+  const detalhes = [
+    transacao.categoriaNome,
+    resumo.detalhe,
+    transacao.parcelamentoId ? `Parcela ${transacao.numeroParcela}/${transacao.quantidadeParcelas}` : null,
+    mostrarData ? formatadorData.format(new Date(`${transacao.data}T00:00:00`)) : null,
+  ].filter(Boolean)
+
+  return (
+    <li className={styles.linha}>
+      <IconeCategoria icone={categoria?.icone ?? 'tag'} cor={categoria?.cor ?? '#94a3b8'} size={38} />
+      <div className={styles.linhaTexto} title={transacao.descricao || undefined}>
+        <strong>{titulo}</strong>
+        <span>
+          {detalhes.join(' · ')}
+          {transacao.valorContribuidoMetas > 0 ? (
+            <span className={styles.seloMeta}>
+              <i className="bi bi-bullseye" aria-hidden="true" /> {formatarMoeda(transacao.valorContribuidoMetas)} em metas
+            </span>
+          ) : null}
+        </span>
+      </div>
+      <strong className={receita ? styles.valorPositivo : styles.valorNegativo}>
+        {receita ? '+ ' : '− '}
+        {formatarMoeda(transacao.valor)}
+      </strong>
+      <div className={styles.acoesLinha}>
+        {podeContribuir ? (
+          <button type="button" onClick={onContribuir} aria-label="Destinar a uma meta" title="Destinar a uma meta">
+            <i className="bi bi-bullseye" aria-hidden="true" />
+          </button>
+        ) : null}
+        {!transacao.parcelamentoId ? (
+          <button type="button" onClick={onEditar} aria-label="Editar" title="Editar">
+            <i className="bi bi-pencil" aria-hidden="true" />
+          </button>
+        ) : null}
+        <button
+          type="button"
+          className={styles.acaoExcluir}
+          onClick={onExcluir}
+          aria-label={transacao.parcelamentoId ? 'Excluir parcelamento' : 'Excluir'}
+          title={transacao.parcelamentoId ? 'Excluir parcelamento' : 'Excluir'}
+        >
+          <i className="bi bi-trash3" aria-hidden="true" />
+        </button>
+      </div>
+    </li>
+  )
+}
+
 function Transacoes() {
   const { formatarMoeda } = usePreferencias()
   const [transacoes, setTransacoes] = useState([])
@@ -94,12 +206,17 @@ function Transacoes() {
   const [carregando, setCarregando] = useState(true)
   const [erro, setErro] = useState('')
   const [filtros, setFiltros] = useState(FILTROS_INICIAIS)
+  const [maisFiltros, setMaisFiltros] = useState(false)
+  const [pagina, setPagina] = useState(1)
+  const [tamanhoPagina, setTamanhoPagina] = useState(20)
   const [modalAberto, setModalAberto] = useState(false)
   const [transacaoEmEdicao, setTransacaoEmEdicao] = useState(null)
   const [transacaoParaExcluir, setTransacaoParaExcluir] = useState(null)
   const [contribuicaoPendente, setContribuicaoPendente] = useState(null)
   const [modalImportarAberto, setModalImportarAberto] = useState(false)
   const [mensagemSucesso, setMensagemSucesso] = useState('')
+  const topoLista = useRef(null)
+  const [parametros, setParametros] = useSearchParams()
 
   const carregarDados = async () => {
     try {
@@ -111,7 +228,7 @@ function Transacoes() {
       setTransacoes(dadosTransacoes)
       setCategorias(dadosCategorias)
       setMetas(dadosMetas)
-    } catch (erroRequisicao) {
+    } catch {
       setErro('Não foi possível carregar os dados.')
     } finally {
       setCarregando(false)
@@ -121,6 +238,19 @@ function Transacoes() {
   useEffect(() => {
     carregarDados()
   }, [])
+
+  // "Lançar transação" do Dashboard chega com ?nova=1: abre o modal e limpa o parâmetro (voltar não reabre)
+  useEffect(() => {
+    if (parametros.get('nova') !== '1') return
+    setTransacaoEmEdicao(null)
+    setModalAberto(true)
+    setParametros({}, { replace: true })
+  }, [parametros, setParametros])
+
+  const categoriasPorId = useMemo(
+    () => Object.fromEntries(categorias.map((categoria) => [categoria.id, categoria])),
+    [categorias],
+  )
 
   const transacoesFiltradas = useMemo(() => {
     const termo = filtros.busca.trim().toLowerCase()
@@ -144,12 +274,31 @@ function Transacoes() {
       .sort(compararTransacoes(filtros.ordenacao))
   }, [transacoes, filtros])
 
+  // Em "mais recentes", o que tem data depois de hoje (parcelas futuras) iria pro topo e esconderia o que já
+  // aconteceu: fica num bloco "Agendadas" à parte, do mais próximo pro mais distante
+  const hoje = dataIso(new Date())
+  const separarAgendadas = filtros.ordenacao === 'DATA_DESC'
+  const agendadas = separarAgendadas
+    ? transacoesFiltradas.filter((transacao) => transacao.data > hoje).reverse()
+    : []
+  const realizadas = separarAgendadas
+    ? transacoesFiltradas.filter((transacao) => transacao.data <= hoje)
+    : transacoesFiltradas
+
+  const totalPaginas = Math.max(1, Math.ceil(realizadas.length / tamanhoPagina))
+  const paginaAtual = Math.min(pagina, totalPaginas)
+  const daPagina = realizadas.slice((paginaAtual - 1) * tamanhoPagina, paginaAtual * tamanhoPagina)
+  // Ordenado por valor, agrupar por dia não faz sentido: vira uma lista só, com a data em cada linha
+  const ordenadoPorData = filtros.ordenacao.startsWith('DATA')
+  const grupos = ordenadoPorData ? agruparPorDia(daPagina) : [{ data: null, itens: daPagina }]
+
   const categoriasDoFiltro = categorias
     .filter((categoria) => filtros.tipo === 'TODAS' || categoria.tipo === filtros.tipo)
     .sort((a, b) => a.nome.localeCompare(b.nome))
 
   const filtrosAtivos = Object.keys(FILTROS_INICIAIS)
     .some((campo) => campo !== 'ordenacao' && filtros[campo] !== FILTROS_INICIAIS[campo])
+  const quantidadeAvancados = FILTROS_AVANCADOS.filter((campo) => filtros[campo] !== '').length
 
   const totalReceitasFiltradas = transacoesFiltradas
     .filter((transacao) => transacao.tipo === 'RECEITA')
@@ -157,12 +306,27 @@ function Transacoes() {
   const totalDespesasFiltradas = transacoesFiltradas
     .filter((transacao) => transacao.tipo === 'DESPESA')
     .reduce((soma, transacao) => soma + transacao.valor, 0)
+  const saldoFiltrado = totalReceitasFiltradas - totalDespesasFiltradas
 
-  const alterarFiltro = (campos) => setFiltros((atual) => ({ ...atual, ...campos }))
+  // Qualquer mudança de filtro volta pra primeira página
+  const alterarFiltro = (campos) => {
+    setFiltros((atual) => ({ ...atual, ...campos }))
+    setPagina(1)
+  }
+
+  const limparFiltros = () => {
+    setFiltros({ ...FILTROS_INICIAIS, ordenacao: filtros.ordenacao })
+    setPagina(1)
+  }
+
+  const mudarPagina = (novaPagina) => {
+    setPagina(novaPagina)
+    topoLista.current?.scrollIntoView({ block: 'start', behavior: 'smooth' })
+  }
 
   // Trocar o tipo limpa a categoria escolhida se ela for do outro tipo
   const alterarTipo = (tipo) => {
-    const categoriaEscolhida = categorias.find((categoria) => String(categoria.id) === filtros.categoriaId)
+    const categoriaEscolhida = categoriasPorId[filtros.categoriaId]
     const categoriaIncompativel = categoriaEscolhida && tipo !== 'TODAS' && categoriaEscolhida.tipo !== tipo
     alterarFiltro({ tipo, ...(categoriaIncompativel ? { categoriaId: '' } : {}) })
   }
@@ -192,6 +356,7 @@ function Transacoes() {
     }
     fecharModal()
     setErro('')
+    setMensagemSucesso(estavaEditando ? 'Transação atualizada.' : 'Transação adicionada.')
     await carregarDados()
 
     if (!estavaEditando && transacaoSalva.tipo === 'RECEITA' && metasPorCategoria(transacaoSalva.categoriaId).length > 0) {
@@ -261,56 +426,106 @@ function Transacoes() {
     )
   }
 
+  const totalDia = (itens) => itens.reduce((soma, t) => soma + (t.tipo === 'RECEITA' ? t.valor : -t.valor), 0)
+
   return (
     <div className={styles.pagina}>
       <div className={styles.cabecalho}>
-        <h1>Receitas e Despesas</h1>
+        <div>
+          <h1>Transações</h1>
+          <p>Tudo o que entrou e saiu da sua conta.</p>
+        </div>
         <div className={styles.acoesCabecalho}>
-          <button type="button" className={styles.botaoImportar} onClick={() => setModalImportarAberto(true)}>
-            Importar extrato
+          <button type="button" className={styles.botaoSecundario} onClick={() => setModalImportarAberto(true)}>
+            <i className="bi bi-upload" aria-hidden="true" /> Importar extrato
           </button>
-          <button type="button" className={styles.botaoNova} onClick={abrirNovaTransacao}>
-            + Nova Transação
+          <button type="button" className={styles.botaoPrimario} onClick={abrirNovaTransacao}>
+            <i className="bi bi-plus-lg" aria-hidden="true" /> Nova transação
           </button>
         </div>
       </div>
 
-      <div className={styles.filtros}>
-        <input
-          type="text"
-          className={styles.busca}
-          placeholder="Buscar por descrição ou categoria..."
-          value={filtros.busca}
-          onChange={(event) => alterarFiltro({ busca: event.target.value })}
-        />
-        <div className={styles.filtroBotoes}>
-          {opcoesFiltro.map((opcao) => (
-            <button
-              key={opcao.valor}
-              type="button"
-              className={`${styles.filtroBotao} ${filtros.tipo === opcao.valor ? styles.filtroBotaoAtivo : ''}`}
-              onClick={() => alterarTipo(opcao.valor)}
-            >
-              {opcao.texto}
-            </button>
-          ))}
-        </div>
+      <div className={styles.resumo}>
+        {[
+          { rotulo: 'Entradas', valor: totalReceitasFiltradas, classe: styles.valorPositivo, icone: 'arrow-down-circle' },
+          { rotulo: 'Saídas', valor: totalDespesasFiltradas, classe: styles.valorNegativo, icone: 'arrow-up-circle' },
+          {
+            rotulo: 'Saldo',
+            valor: saldoFiltrado,
+            classe: saldoFiltrado >= 0 ? styles.valorPositivo : styles.valorNegativo,
+            icone: 'wallet2',
+          },
+        ].map((card) => (
+          <div key={card.rotulo} className={styles.cardResumo}>
+            <span>
+              <i className={`bi bi-${card.icone}`} aria-hidden="true" /> {card.rotulo}
+            </span>
+            {carregando ? (
+              <Esqueleto largura="60%" altura={24} raio={8} />
+            ) : (
+              <strong className={card.classe}>{formatarMoeda(card.valor)}</strong>
+            )}
+            <small>
+              {filtrosAtivos ? 'Com os filtros aplicados' : 'Todo o histórico'}
+              {!carregando ? ` · ${transacoesFiltradas.length} lançamento(s)` : ''}
+            </small>
+          </div>
+        ))}
       </div>
 
-      <div className={styles.filtrosAvancados}>
-        <label className={styles.campoFiltro}>
-          <span>Período</span>
-          <select value={filtros.periodo} onChange={(event) => alterarFiltro({ periodo: event.target.value })}>
+      <div className={styles.barraFiltros}>
+        <div className={styles.linhaFiltros}>
+          <label className={styles.busca}>
+            <i className="bi bi-search" aria-hidden="true" />
+            <input
+              type="search"
+              placeholder="Buscar por descrição ou categoria"
+              value={filtros.busca}
+              onChange={(event) => alterarFiltro({ busca: event.target.value })}
+              aria-label="Buscar"
+            />
+          </label>
+
+          <select
+            className={styles.selectFiltro}
+            value={filtros.periodo}
+            onChange={(event) => alterarFiltro({ periodo: event.target.value })}
+            aria-label="Período"
+          >
             {opcoesPeriodo.map((opcao) => (
               <option key={opcao.valor} value={opcao.valor}>
                 {opcao.texto}
               </option>
             ))}
           </select>
-        </label>
+
+          <div className={styles.segmentado} role="group" aria-label="Tipo">
+            {opcoesTipo.map((opcao) => (
+              <button
+                key={opcao.valor}
+                type="button"
+                aria-pressed={filtros.tipo === opcao.valor}
+                className={filtros.tipo === opcao.valor ? styles.segmentoAtivo : ''}
+                onClick={() => alterarTipo(opcao.valor)}
+              >
+                {opcao.texto}
+              </button>
+            ))}
+          </div>
+
+          <button
+            type="button"
+            className={`${styles.botaoFiltros} ${maisFiltros ? styles.botaoFiltrosAberto : ''}`}
+            aria-expanded={maisFiltros}
+            onClick={() => setMaisFiltros((atual) => !atual)}
+          >
+            <i className="bi bi-sliders" aria-hidden="true" /> Mais filtros
+            {quantidadeAvancados > 0 ? <span className={styles.seloFiltros}>{quantidadeAvancados}</span> : null}
+          </button>
+        </div>
 
         {filtros.periodo === 'PERSONALIZADO' ? (
-          <>
+          <div className={styles.linhaAvancada}>
             <label className={styles.campoFiltro}>
               <span>De</span>
               <input
@@ -329,165 +544,190 @@ function Transacoes() {
                 onChange={(event) => alterarFiltro({ dataFim: event.target.value })}
               />
             </label>
-          </>
+          </div>
         ) : null}
 
-        <label className={styles.campoFiltro}>
-          <span>Categoria</span>
-          <select value={filtros.categoriaId} onChange={(event) => alterarFiltro({ categoriaId: event.target.value })}>
-            <option value="">Todas</option>
-            {categoriasDoFiltro.map((categoria) => (
-              <option key={categoria.id} value={String(categoria.id)}>
-                {categoria.nome}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        <label className={styles.campoFiltro}>
-          <span>Valor mín.</span>
-          <input
-            type="number"
-            min="0"
-            step="0.01"
-            inputMode="decimal"
-            placeholder="R$"
-            className={styles.campoValor}
-            value={filtros.valorMinimo}
-            onChange={(event) => alterarFiltro({ valorMinimo: event.target.value })}
-          />
-        </label>
-
-        <label className={styles.campoFiltro}>
-          <span>Valor máx.</span>
-          <input
-            type="number"
-            min="0"
-            step="0.01"
-            inputMode="decimal"
-            placeholder="R$"
-            className={styles.campoValor}
-            value={filtros.valorMaximo}
-            onChange={(event) => alterarFiltro({ valorMaximo: event.target.value })}
-          />
-        </label>
-
-        <label className={styles.campoFiltro}>
-          <span>Ordenar</span>
-          <select value={filtros.ordenacao} onChange={(event) => alterarFiltro({ ordenacao: event.target.value })}>
-            {opcoesOrdenacao.map((opcao) => (
-              <option key={opcao.valor} value={opcao.valor}>
-                {opcao.texto}
-              </option>
-            ))}
-          </select>
-        </label>
+        {maisFiltros ? (
+          <div className={styles.linhaAvancada}>
+            <label className={styles.campoFiltro}>
+              <span>Categoria</span>
+              <select value={filtros.categoriaId} onChange={(event) => alterarFiltro({ categoriaId: event.target.value })}>
+                <option value="">Todas</option>
+                {categoriasDoFiltro.map((categoria) => (
+                  <option key={categoria.id} value={String(categoria.id)}>
+                    {categoria.nome}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className={styles.campoFiltro}>
+              <span>Valor mínimo</span>
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                inputMode="decimal"
+                placeholder="R$ 0,00"
+                value={filtros.valorMinimo}
+                onChange={(event) => alterarFiltro({ valorMinimo: event.target.value })}
+              />
+            </label>
+            <label className={styles.campoFiltro}>
+              <span>Valor máximo</span>
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                inputMode="decimal"
+                placeholder="R$ 0,00"
+                value={filtros.valorMaximo}
+                onChange={(event) => alterarFiltro({ valorMaximo: event.target.value })}
+              />
+            </label>
+            <label className={styles.campoFiltro}>
+              <span>Ordenar por</span>
+              <select value={filtros.ordenacao} onChange={(event) => alterarFiltro({ ordenacao: event.target.value })}>
+                {opcoesOrdenacao.map((opcao) => (
+                  <option key={opcao.valor} value={opcao.valor}>
+                    {opcao.texto}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+        ) : null}
 
         {filtrosAtivos ? (
-          <button
-            type="button"
-            className={styles.limparFiltros}
-            onClick={() => setFiltros({ ...FILTROS_INICIAIS, ordenacao: filtros.ordenacao })}
-          >
-            Limpar filtros
+          <button type="button" className={styles.limparFiltros} onClick={limparFiltros}>
+            <i className="bi bi-x-circle" aria-hidden="true" /> Limpar filtros
           </button>
         ) : null}
       </div>
 
-      {!carregando ? (
-        <p className={styles.resumoFiltro} aria-live="polite">
-          {transacoesFiltradas.length} de {transacoes.length} transação(ões)
-          {' · '}
-          <span className={styles.valorPositivo}>+ {formatarMoeda(totalReceitasFiltradas)}</span>
-          {' · '}
-          <span className={styles.valorNegativo}>- {formatarMoeda(totalDespesasFiltradas)}</span>
-        </p>
-      ) : null}
-
       {mensagemSucesso ? (
-        <p className={styles.mensagemSucesso} aria-live="polite">
-          {mensagemSucesso}
+        <p className={styles.mensagemSucesso} role="status">
+          <i className="bi bi-check-circle" aria-hidden="true" /> {mensagemSucesso}
+          <button type="button" onClick={() => setMensagemSucesso('')} aria-label="Fechar aviso">
+            <i className="bi bi-x" aria-hidden="true" />
+          </button>
         </p>
       ) : null}
 
       {erro ? (
-        <p className={styles.errorMessage} aria-live="polite">
+        <p className={styles.errorMessage} role="alert">
           {erro}
         </p>
       ) : null}
 
+      <div ref={topoLista} className={styles.ancoraLista} />
+
       {carregando ? (
-        <p>Carregando...</p>
-      ) : transacoesFiltradas.length === 0 ? (
-        <p className={styles.vazio}>Nenhuma transação encontrada.</p>
-      ) : (
-        <div className={styles.tabelaWrapper}>
-          <table className={styles.tabela}>
-            <thead>
-              <tr>
-                <th>Data</th>
-                <th>Tipo</th>
-                <th>Categoria</th>
-                <th>Descrição</th>
-                <th>Valor</th>
-                <th>Ações</th>
-              </tr>
-            </thead>
-            <tbody>
-              {transacoesFiltradas.map((transacao) => (
-                <tr key={transacao.id}>
-                  <td>{formatadorData.format(new Date(`${transacao.data}T00:00:00`))}</td>
-                  <td>
-                    <div className={styles.badgesTipo}>
-                      <span className={transacao.tipo === 'RECEITA' ? styles.badgeReceita : styles.badgeDespesa}>
-                        {transacao.tipo === 'RECEITA' ? 'Receita' : 'Despesa'}
-                      </span>
-                      {transacao.parcelamentoId ? (
-                        <span className={styles.badgeParcela} title="Parcela de um parcelamento">
-                          <i className="bi bi-credit-card" aria-hidden="true" /> {transacao.numeroParcela}/
-                          {transacao.quantidadeParcelas}
-                        </span>
-                      ) : null}
-                    </div>
-                  </td>
-                  <td>{transacao.categoriaNome}</td>
-                  <td>{transacao.descricao || '-'}</td>
-                  <td className={transacao.tipo === 'RECEITA' ? styles.valorPositivo : styles.valorNegativo}>
-                    {transacao.tipo === 'RECEITA' ? '+ ' : '- '}
-                    {formatarMoeda(transacao.valor)}
-                  </td>
-                  <td>
-                    <div className={styles.acoesLinha}>
-                      {transacao.tipo === 'RECEITA' && metasPorCategoria(transacao.categoriaId).length > 0 ? (
-                        <button
-                          type="button"
-                          onClick={() => abrirContribuicaoMeta(transacao)}
-                          aria-label="Adicionar a uma meta financeira"
-                          title="Adicionar a uma meta financeira"
-                        >
-                          🎯
-                        </button>
-                      ) : null}
-                      {!transacao.parcelamentoId ? (
-                        <button type="button" onClick={() => abrirEdicao(transacao)} aria-label="Editar transação">
-                          ✎
-                        </button>
-                      ) : null}
-                      <button
-                        type="button"
-                        onClick={() => setTransacaoParaExcluir(transacao)}
-                        aria-label={transacao.parcelamentoId ? 'Excluir parcelamento' : 'Excluir transação'}
-                        title={transacao.parcelamentoId ? 'Excluir parcelamento' : undefined}
-                      >
-                        🗑
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <ListaEsqueleto />
+      ) : transacoes.length === 0 ? (
+        <div className={styles.vazio}>
+          <i className="bi bi-receipt" aria-hidden="true" />
+          <strong>Nenhuma transação ainda</strong>
+          <p>Lance sua primeira receita ou despesa, ou importe o extrato do banco para começar.</p>
+          <div className={styles.acoesCabecalho}>
+            <button type="button" className={styles.botaoSecundario} onClick={() => setModalImportarAberto(true)}>
+              <i className="bi bi-upload" aria-hidden="true" /> Importar extrato
+            </button>
+            <button type="button" className={styles.botaoPrimario} onClick={abrirNovaTransacao}>
+              <i className="bi bi-plus-lg" aria-hidden="true" /> Nova transação
+            </button>
+          </div>
         </div>
+      ) : transacoesFiltradas.length === 0 ? (
+        <div className={styles.vazio}>
+          <i className="bi bi-funnel" aria-hidden="true" />
+          <strong>Nada encontrado com esses filtros</strong>
+          <p>Tente outro período ou outra busca.</p>
+          <button type="button" className={styles.botaoSecundario} onClick={limparFiltros}>
+            Limpar filtros
+          </button>
+        </div>
+      ) : (
+        <>
+          {agendadas.length > 0 ? (
+            <details className={styles.agendadas}>
+              <summary>
+                <i className="bi bi-calendar-event" aria-hidden="true" />
+                <span>
+                  <strong>Agendadas</strong>
+                  <small>
+                    {agendadas.length} lançamento(s) com data futura, como parcelas que ainda vão vencer ·{' '}
+                    {totalDia(agendadas) >= 0 ? '+ ' : '− '}
+                    {formatarMoeda(Math.abs(totalDia(agendadas)))}
+                  </small>
+                </span>
+                <i className={`bi bi-chevron-down ${styles.setaAgendadas}`} aria-hidden="true" />
+              </summary>
+              <ul className={styles.listaDia}>
+                {agendadas.map((transacao) => (
+                  <LinhaTransacao
+                    key={transacao.id}
+                    transacao={transacao}
+                    categoria={categoriasPorId[transacao.categoriaId]}
+                    mostrarData
+                    podeContribuir={false}
+                    formatarMoeda={formatarMoeda}
+                    onEditar={() => abrirEdicao(transacao)}
+                    onExcluir={() => setTransacaoParaExcluir(transacao)}
+                  />
+                ))}
+              </ul>
+            </details>
+          ) : null}
+          {realizadas.length === 0 ? (
+            <div className={styles.vazio}>
+              <i className="bi bi-calendar-check" aria-hidden="true" />
+              <strong>Só há lançamentos agendados neste filtro</strong>
+              <p>Abra "Agendadas" acima para ver as parcelas que ainda vão vencer.</p>
+            </div>
+          ) : (
+            <div className={styles.cartaoLista}>
+              {grupos.map((grupo) => (
+                <section key={grupo.data ?? 'todas'} aria-label={grupo.data ? rotuloDia(grupo.data) : 'Transações'}>
+                  {grupo.data ? (
+                    <div className={styles.cabecalhoDia}>
+                      <span>{rotuloDia(grupo.data)}</span>
+                      <span className={totalDia(grupo.itens) >= 0 ? styles.valorPositivo : styles.valorNegativo}>
+                        {totalDia(grupo.itens) >= 0 ? '+ ' : '− '}
+                        {formatarMoeda(Math.abs(totalDia(grupo.itens)))}
+                      </span>
+                    </div>
+                  ) : null}
+                  <ul className={styles.listaDia}>
+                    {grupo.itens.map((transacao) => (
+                      <LinhaTransacao
+                        key={transacao.id}
+                        transacao={transacao}
+                        categoria={categoriasPorId[transacao.categoriaId]}
+                        mostrarData={!ordenadoPorData}
+                        podeContribuir={transacao.tipo === 'RECEITA' && metasPorCategoria(transacao.categoriaId).length > 0}
+                        formatarMoeda={formatarMoeda}
+                        onContribuir={() => abrirContribuicaoMeta(transacao)}
+                        onEditar={() => abrirEdicao(transacao)}
+                        onExcluir={() => setTransacaoParaExcluir(transacao)}
+                      />
+                    ))}
+                  </ul>
+                </section>
+              ))}
+              <Paginacao
+                pagina={paginaAtual}
+                totalItens={realizadas.length}
+                tamanho={tamanhoPagina}
+                rotuloItens="transações"
+                onMudarPagina={mudarPagina}
+                onMudarTamanho={(tamanho) => {
+                  setTamanhoPagina(tamanho)
+                  setPagina(1)
+                }}
+              />
+            </div>
+          )}
+        </>
       )}
 
       {modalAberto ? (

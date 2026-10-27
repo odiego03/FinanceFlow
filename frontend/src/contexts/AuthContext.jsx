@@ -17,7 +17,9 @@ export function AuthProvider({ children }) {
     usuarioService
       .buscarUsuarioAtual()
       .then(setUsuario)
-      .catch(() => {
+      .catch((erro) => {
+        // Só 401 é token inválido; queda de rede ou erro 500 não deve deslogar
+        if (erro.response?.status !== 401) return
         localStorage.removeItem(CHAVE_TOKEN)
         setToken(null)
         setUsuario(null)

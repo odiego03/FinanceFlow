@@ -1,7 +1,7 @@
 .painel {
-  background: #ffffff;
+  background: var(--superficie);
   border-radius: 14px;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--borda);
   padding: 20px;
 }
 
@@ -18,18 +18,18 @@
   margin: 0;
   font-size: 1.1rem;
   font-weight: 700;
-  color: #111827;
+  color: var(--texto-forte);
 }
 
 .base {
   font-size: 0.8rem;
-  color: #9ca3af;
+  color: var(--texto-fraco);
 }
 
 .vazio {
   margin: 0;
   font-size: 0.92rem;
-  color: #6b7280;
+  color: var(--texto-suave);
 }
 
 .lista {
@@ -47,7 +47,7 @@
   gap: 6px;
   padding: 14px;
   border-radius: 12px;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--borda);
   border-left-width: 4px;
 }
 
@@ -55,14 +55,14 @@
   margin: 0;
   font-size: 0.98rem;
   font-weight: 700;
-  color: #111827;
+  color: var(--texto-forte);
 }
 
 .item p {
   margin: 0;
   font-size: 0.88rem;
   line-height: 1.5;
-  color: #374151;
+  color: var(--texto-2);
 }
 
 .selo {
@@ -77,33 +77,33 @@
 }
 
 .alerta {
-  border-left-color: #b91c1c;
+  border-left-color: var(--erro-texto);
   background: rgba(220, 38, 38, 0.04);
 }
 
 .alerta .selo {
   background: rgba(220, 38, 38, 0.12);
-  color: #b91c1c;
+  color: var(--erro-texto);
 }
 
 .atencao {
-  border-left-color: #a16207;
+  border-left-color: var(--atencao-texto);
   background: rgba(234, 179, 8, 0.05);
 }
 
 .atencao .selo {
   background: rgba(234, 179, 8, 0.16);
-  color: #a16207;
+  color: var(--atencao-texto);
 }
 
 .dica {
-  border-left-color: #1d4ed8;
+  border-left-color: var(--primaria-forte);
   background: rgba(37, 99, 235, 0.04);
 }
 
 .dica .selo {
   background: rgba(37, 99, 235, 0.1);
-  color: #1d4ed8;
+  color: var(--primaria-forte);
 }
 
 .itens {
@@ -113,7 +113,7 @@
   margin: 2px 0 0;
   padding: 8px 0 0;
   list-style: none;
-  border-top: 1px solid rgba(0, 0, 0, 0.06);
+  border-top: 1px solid var(--sobreposicao);
   font-size: 0.85rem;
 }
 
@@ -121,11 +121,11 @@
   display: flex;
   justify-content: space-between;
   gap: 8px;
-  color: #374151;
+  color: var(--texto-2);
 }
 
 .itens strong {
-  color: #111827;
+  color: var(--texto-forte);
   white-space: nowrap;
 }
 
@@ -137,7 +137,7 @@
   margin-top: 4px;
   font-size: 0.85rem;
   font-weight: 700;
-  color: #2563eb;
+  color: var(--primaria);
   text-decoration: none;
 }
 
@@ -152,7 +152,7 @@
   padding: 0;
   font-size: 0.88rem;
   font-weight: 700;
-  color: #2563eb;
+  color: var(--primaria);
   cursor: pointer;
 }
 

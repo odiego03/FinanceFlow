@@ -20,7 +20,7 @@ function RodapeMercado() {
         if (!cancelado) {
           setIndicadores(dados)
         }
-      } catch (erroRequisicao) {
+      } catch {
         // indicadores de mercado são um extra visual — falha silenciosa, rodapé some
       }
     }

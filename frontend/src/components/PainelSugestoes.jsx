@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { usePreferencias } from '../contexts/PreferenciasContext'
+import { Carregando, Esqueleto, EsqueletoTexto } from './Esqueleto'
 import styles from './PainelSugestoes.module.css'
 
 const QUANTIDADE_INICIAL = 4
@@ -29,7 +30,17 @@ function PainelSugestoes({ sugestoes, carregando, erro, rotuloMes }) {
 
   let conteudo
   if (carregando) {
-    conteudo = <p className={styles.vazio}>Analisando suas finanças...</p>
+    conteudo = (
+      <Carregando rotulo="Analisando suas finanças" className={styles.lista}>
+        {[0, 1].map((indice) => (
+          <div key={indice} className={styles.item}>
+            <Esqueleto largura={90} altura={20} raio={999} />
+            <Esqueleto largura="55%" altura={16} />
+            <EsqueletoTexto linhas={2} />
+          </div>
+        ))}
+      </Carregando>
+    )
   } else if (erro) {
     conteudo = <p className={styles.vazio}>Não foi possível carregar as sugestões agora.</p>
   } else if (sugestoes.length === 0) {

@@ -1,9 +1,11 @@
 import IconeCategoria from './IconeCategoria'
 import styles from './SeletorCategoria.module.css'
 
-function SeletorCategoria({ categorias, value, onChange, permitirNenhuma = false }) {
+// compacto: pílulas em linha (ícone + nome), pra caber num formulário sem empurrar o resto pra baixo
+function SeletorCategoria({ categorias, value, onChange, permitirNenhuma = false, compacto = false }) {
+  const tamanhoIcone = compacto ? 22 : 34
   return (
-    <div className={styles.grade} role="listbox">
+    <div className={compacto ? styles.gradeCompacta : styles.grade} role="listbox">
       {permitirNenhuma ? (
         <button
           type="button"
@@ -12,7 +14,7 @@ function SeletorCategoria({ categorias, value, onChange, permitirNenhuma = false
           role="option"
           aria-selected={value === ''}
         >
-          <IconeCategoria icone="slash-circle" cor="#94a3b8" />
+          <IconeCategoria icone="slash-circle" cor="#94a3b8" size={tamanhoIcone} />
           <span className={styles.nome}>Sem categoria</span>
         </button>
       ) : null}
@@ -28,7 +30,7 @@ function SeletorCategoria({ categorias, value, onChange, permitirNenhuma = false
             role="option"
             aria-selected={selecionada}
           >
-            <IconeCategoria icone={categoria.icone} cor={categoria.cor} />
+            <IconeCategoria icone={categoria.icone} cor={categoria.cor} size={tamanhoIcone} />
             <span className={styles.nome}>{categoria.nome}</span>
           </button>
         )

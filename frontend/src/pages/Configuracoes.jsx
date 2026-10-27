@@ -1,10 +1,14 @@
 import { useEffect, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { PREFERENCIAS_PADRAO, usePreferencias } from '../contexts/PreferenciasContext'
 import { mensagemDeErro } from '../services/api'
+import * as categoriaService from '../services/categoriaService'
 import * as exclusaoService from '../services/exclusaoService'
+import * as transacaoService from '../services/transacaoService'
 import * as usuarioService from '../services/usuarioService'
-import styles from './Perfil.module.css'
+import { baixarCsv, CABECALHO_TRANSACOES, linhasDeTransacoes } from '../utils/csv'
+import styles from './Configuracoes.module.css'
 
 // Na exclusão os valores aparecem mesmo com "ocultar valores" ligado: quem vai apagar precisa ver o que apaga
 const formatadorMoeda = new Intl.NumberFormat('pt-BR', {
@@ -15,6 +19,12 @@ const formatadorMoeda = new Intl.NumberFormat('pt-BR', {
 const formatadorData = new Intl.DateTimeFormat('pt-BR')
 
 const PALAVRA_CONFIRMACAO = 'EXCLUIR'
+
+const opcoesTema = [
+  { valor: 'CLARO', texto: 'Claro', icone: 'sun' },
+  { valor: 'ESCURO', texto: 'Escuro', icone: 'moon-stars' },
+  { valor: 'SISTEMA', texto: 'Automático', icone: 'circle-half' },
+]
 
 const opcoesPeriodo = [
   { valor: 'ESTE_MES', texto: 'Este mês' },
@@ -107,6 +117,11 @@ function SecaoConta() {
           <input type="email" value={usuario?.email ?? ''} disabled />
           <small>O e-mail é o seu login e não pode ser alterado.</small>
         </label>
+        {usuario?.criadoEm ? (
+          <p className={styles.descricao}>
+            Conta criada em {formatadorData.format(new Date(usuario.criadoEm))}.
+          </p>
+        ) : null}
         <Aviso tipo={mensagem.tipo}>{mensagem.texto}</Aviso>
         <div className={styles.acoes}>
           <button type="submit" className={styles.botaoPrimario} disabled={salvando || nome.trim() === usuario?.nome}>
@@ -192,23 +207,82 @@ function SecaoSenha() {
   )
 }
 
-function SecaoPreferencias() {
+// Tema e "ocultar valores" valem na hora, sem botão de salvar: cada clique já grava na conta
+function SecaoAparencia() {
+  const { preferencias, salvar, ocultarValores, alternarOcultarValores } = usePreferencias()
+  const [mensagem, setMensagem] = useState({ tipo: '', texto: '' })
+
+  const trocarTema = async (tema) => {
+    setMensagem({ tipo: '', texto: '' })
+    try {
+      await salvar({ ...preferencias, tema })
+    } catch (erro) {
+      setMensagem({ tipo: 'erro', texto: mensagemDeErro(erro, 'Não foi possível trocar o tema.') })
+    }
+  }
+
+  return (
+    <>
+      <section className={styles.secao}>
+        <h2>Tema</h2>
+        <p className={styles.descricao}>Muda na hora e fica salvo na sua conta.</p>
+        <div className={styles.segmentado} role="radiogroup" aria-label="Tema">
+          {opcoesTema.map((opcao) => (
+            <button
+              key={opcao.valor}
+              type="button"
+              role="radio"
+              aria-checked={preferencias.tema === opcao.valor}
+              className={preferencias.tema === opcao.valor ? styles.segmentoAtivo : ''}
+              onClick={() => trocarTema(opcao.valor)}
+            >
+              <i className={`bi bi-${opcao.icone}`} aria-hidden="true" /> {opcao.texto}
+            </button>
+          ))}
+        </div>
+        <small className={styles.descricao}>Automático segue o modo claro ou escuro do seu sistema operacional.</small>
+        <Aviso tipo={mensagem.tipo}>{mensagem.texto}</Aviso>
+      </section>
+
+      <section className={styles.secao}>
+        <h2>Privacidade</h2>
+        <label className={styles.alternador}>
+          <input type="checkbox" checked={ocultarValores} onChange={alternarOcultarValores} />
+          <span>
+            Ocultar valores em R$
+            <small>
+              Dashboard, Transações e Metas mostram "R$ •••••". Útil quando alguém está olhando a tela. Também dá pra
+              alternar pelo olho na barra superior.
+            </small>
+          </span>
+        </label>
+      </section>
+    </>
+  )
+}
+
+function SecaoFinancas() {
   const { preferencias, salvar } = usePreferencias()
   const [rascunho, setRascunho] = useState(preferencias)
+  const [editado, setEditado] = useState(false)
   const [mensagem, setMensagem] = useState({ tipo: '', texto: '' })
   const [salvando, setSalvando] = useState(false)
 
-  // O olho da barra superior também muda "ocultarValores": mantém o rascunho em dia
+  // Acompanha o que chega de fora (carregamento) sem apagar o que o usuário está editando
   useEffect(() => {
-    setRascunho(preferencias)
-  }, [preferencias])
+    if (!editado) setRascunho(preferencias)
+  }, [preferencias, editado])
 
-  const alterar = (campo, valor) => setRascunho((atual) => ({ ...atual, [campo]: valor }))
+  const alterar = (campo, valor) => {
+    setEditado(true)
+    setRascunho((atual) => ({ ...atual, [campo]: valor }))
+  }
 
   const handleSubmit = async (event) => {
     event.preventDefault()
+    // Parte do que já está salvo (tema, ocultar valores) e troca só os campos desta aba
     const novas = {
-      ocultarValores: rascunho.ocultarValores,
+      ...preferencias,
       limiteEssencial: Number(rascunho.limiteEssencial),
       limiteTotal: Number(rascunho.limiteTotal),
       simuladorPercentualCdi: Number(rascunho.simuladorPercentualCdi),
@@ -221,14 +295,15 @@ function SecaoPreferencias() {
     setSalvando(true)
     try {
       await salvar(novas)
-      setMensagem({ tipo: 'sucesso', texto: 'Preferências salvas.' })
+      setEditado(false)
+      setMensagem({ tipo: 'sucesso', texto: 'Configurações salvas.' })
     } catch (erro) {
       const dados = erro?.response?.data
       // Erro de validação de campo vem como {campo: mensagem}, sem "mensagem"
       const primeiroErroDeCampo = dados && !dados.mensagem ? Object.values(dados)[0] : null
       setMensagem({
         tipo: 'erro',
-        texto: primeiroErroDeCampo || mensagemDeErro(erro, 'Não foi possível salvar as preferências.'),
+        texto: primeiroErroDeCampo || mensagemDeErro(erro, 'Não foi possível salvar as configurações.'),
       })
     } finally {
       setSalvando(false)
@@ -236,6 +311,7 @@ function SecaoPreferencias() {
   }
 
   const restaurarLimites = () => {
+    setEditado(true)
     setRascunho((atual) => ({
       ...atual,
       limiteEssencial: PREFERENCIAS_PADRAO.limiteEssencial,
@@ -245,27 +321,9 @@ function SecaoPreferencias() {
 
   return (
     <section className={styles.secao}>
-      <h2>Preferências</h2>
-      <p className={styles.descricao}>Ficam salvas na sua conta e valem em qualquer computador em que você entrar.</p>
+      <h2>Alertas e simulador</h2>
+      <p className={styles.descricao}>Ficam salvos na sua conta e valem em qualquer computador em que você entrar.</p>
       <form onSubmit={handleSubmit} className={styles.formulario}>
-        <fieldset className={styles.grupo}>
-          <legend>Privacidade</legend>
-          <label className={styles.alternador}>
-            <input
-              type="checkbox"
-              checked={rascunho.ocultarValores}
-              onChange={(event) => alterar('ocultarValores', event.target.checked)}
-            />
-            <span>
-              Ocultar valores em R$
-              <small>
-                Dashboard, Transações e Metas mostram "R$ •••••". Dá pra alternar a qualquer momento pelo olho na barra
-                superior.
-              </small>
-            </span>
-          </label>
-        </fieldset>
-
         <fieldset className={styles.grupo}>
           <legend>Alerta de comprometimento de renda</legend>
           <p className={styles.descricao}>
@@ -303,6 +361,7 @@ function SecaoPreferencias() {
 
         <fieldset className={styles.grupo}>
           <legend>Simulador de Investimentos</legend>
+          <p className={styles.descricao}>Valores que o simulador já traz preenchidos ao abrir.</p>
           <div className={styles.linha}>
             <label className={styles.campo}>
               <span>Prazo padrão (meses)</span>
@@ -331,8 +390,8 @@ function SecaoPreferencias() {
 
         <Aviso tipo={mensagem.tipo}>{mensagem.texto}</Aviso>
         <div className={styles.acoes}>
-          <button type="submit" className={styles.botaoPrimario} disabled={salvando}>
-            Salvar preferências
+          <button type="submit" className={styles.botaoPrimario} disabled={salvando || !editado}>
+            Salvar
           </button>
         </div>
       </form>
@@ -505,18 +564,201 @@ function SecaoExclusao() {
   )
 }
 
-function Perfil() {
+function SecaoExportar() {
+  const [mensagem, setMensagem] = useState({ tipo: '', texto: '' })
+  const [exportando, setExportando] = useState(false)
+
+  const exportar = async () => {
+    setExportando(true)
+    setMensagem({ tipo: '', texto: '' })
+    try {
+      const transacoes = await transacaoService.listar()
+      if (transacoes.length === 0) {
+        setMensagem({ tipo: 'erro', texto: 'Você ainda não tem transações para exportar.' })
+        return
+      }
+      baixarCsv(`financeflow-transacoes-${dataIso(new Date())}.csv`, [
+        CABECALHO_TRANSACOES,
+        ...linhasDeTransacoes(transacoes),
+      ])
+      setMensagem({ tipo: 'sucesso', texto: `${transacoes.length} transação(ões) exportada(s).` })
+    } catch (erro) {
+      setMensagem({ tipo: 'erro', texto: mensagemDeErro(erro, 'Não foi possível exportar as transações.') })
+    } finally {
+      setExportando(false)
+    }
+  }
+
+  return (
+    <section className={styles.secao}>
+      <h2>Exportar transações</h2>
+      <p className={styles.descricao}>
+        Baixa todo o seu histórico num arquivo CSV que abre no Excel ou no Google Planilhas: data, tipo, categoria,
+        descrição e valor (despesas com sinal negativo). Os valores saem completos mesmo com "ocultar valores" ligado.
+      </p>
+      <div className={styles.acoes}>
+        <button type="button" className={styles.botaoSecundario} onClick={exportar} disabled={exportando}>
+          <i className="bi bi-filetype-csv" aria-hidden="true" /> {exportando ? 'Exportando...' : 'Exportar CSV'}
+        </button>
+      </div>
+      <Aviso tipo={mensagem.tipo}>{mensagem.texto}</Aviso>
+    </section>
+  )
+}
+
+function SecaoCategoriasPadrao() {
+  const [mensagem, setMensagem] = useState({ tipo: '', texto: '' })
+  const [restaurando, setRestaurando] = useState(false)
+
+  const restaurar = async () => {
+    setRestaurando(true)
+    setMensagem({ tipo: '', texto: '' })
+    try {
+      const adicionadas = await categoriaService.adicionarPredefinidas()
+      setMensagem({
+        tipo: 'sucesso',
+        texto:
+          adicionadas.length === 0
+            ? 'Você já tem todas as categorias padrão.'
+            : `${adicionadas.length} categoria(s) adicionada(s): ${adicionadas.map((c) => c.nome).join(', ')}.`,
+      })
+    } catch (erro) {
+      setMensagem({ tipo: 'erro', texto: mensagemDeErro(erro, 'Não foi possível restaurar as categorias.') })
+    } finally {
+      setRestaurando(false)
+    }
+  }
+
+  return (
+    <section className={styles.secao}>
+      <h2>Categorias padrão</h2>
+      <p className={styles.descricao}>
+        Apagou sem querer alguma das categorias que vieram com a conta (Salário, Alimentação, Moradia...)? Isto recria as
+        que estiverem faltando. As suas categorias e as que você editou continuam como estão.
+      </p>
+      <div className={styles.acoes}>
+        <button type="button" className={styles.botaoSecundario} onClick={restaurar} disabled={restaurando}>
+          <i className="bi bi-arrow-counterclockwise" aria-hidden="true" /> Restaurar categorias padrão
+        </button>
+      </div>
+      <Aviso tipo={mensagem.tipo}>{mensagem.texto}</Aviso>
+    </section>
+  )
+}
+
+function SecaoAjuda() {
+  const { abrirTutorial } = usePreferencias()
+
+  return (
+    <>
+      <section className={styles.secao}>
+        <h2>Tutorial</h2>
+        <p className={styles.descricao}>O passo a passo do primeiro acesso, com o que cada tela do FinanceFlow faz.</p>
+        <div className={styles.acoes}>
+          <button type="button" className={styles.botaoPrimario} onClick={abrirTutorial}>
+            <i className="bi bi-play-circle" aria-hidden="true" /> Rever tutorial
+          </button>
+        </div>
+      </section>
+
+      <section className={styles.secao}>
+        <h2>Perguntas frequentes</h2>
+        <dl className={styles.perguntas}>
+          <dt>Por que não consigo editar uma parcela?</dt>
+          <dd>
+            As parcelas precisam somar o valor total da compra. Para corrigir, exclua o parcelamento em Transações e lance
+            de novo.
+          </dd>
+          <dt>O que conta como despesa essencial?</dt>
+          <dd>
+            Você decide, marcando a categoria como essencial em Categorias (moradia, saúde e contas costumam ser). É isso
+            que o alerta de comprometimento usa.
+          </dd>
+          <dt>Importei um extrato e veio uma linha repetida.</dt>
+          <dd>
+            Na prévia da importação, as linhas que já existem vêm marcadas como duplicadas e desmarcadas. Se mesmo assim
+            entrou repetida, é só excluir a transação.
+          </dd>
+          <dt>De onde vêm as taxas do simulador?</dt>
+          <dd>
+            Selic, CDI e poupança vêm da API pública do Banco Central e são atualizadas a cada hora. O Ibovespa do rodapé
+            vem do Yahoo Finance.
+          </dd>
+        </dl>
+      </section>
+
+      <section className={styles.secao}>
+        <h2>Sobre</h2>
+        <p className={styles.descricao}>
+          FinanceFlow 0.1.0 · Projeto do curso de Análise e Desenvolvimento de Sistemas da Fatec Ipiranga (2026).
+        </p>
+      </section>
+    </>
+  )
+}
+
+const abas = [
+  { id: 'perfil', rotulo: 'Meu perfil', icone: 'person-circle' },
+  { id: 'aparencia', rotulo: 'Aparência e privacidade', icone: 'palette' },
+  { id: 'financas', rotulo: 'Alertas e simulador', icone: 'sliders' },
+  { id: 'dados', rotulo: 'Dados', icone: 'database' },
+  { id: 'ajuda', rotulo: 'Ajuda', icone: 'question-circle' },
+]
+
+function Configuracoes() {
+  const { sair } = useAuth()
+  const [parametros, setParametros] = useSearchParams()
+  // A aba fica na URL (?aba=), pra dar pra linkar direto e o voltar do navegador funcionar
+  const abaAtual = abas.some((aba) => aba.id === parametros.get('aba')) ? parametros.get('aba') : 'perfil'
+
   return (
     <div className={styles.pagina}>
-      <h1>Meu Perfil</h1>
-      <div className={styles.colunas}>
-        <SecaoConta />
-        <SecaoSenha />
+      <h1>Configurações</h1>
+      <div className={styles.estrutura}>
+        <nav className={styles.abas} aria-label="Seções das configurações">
+          {abas.map((aba) => (
+            <button
+              key={aba.id}
+              type="button"
+              className={aba.id === abaAtual ? styles.abaAtiva : styles.aba}
+              aria-current={aba.id === abaAtual ? 'page' : undefined}
+              onClick={() => setParametros({ aba: aba.id })}
+            >
+              <i className={`bi bi-${aba.icone}`} aria-hidden="true" /> {aba.rotulo}
+            </button>
+          ))}
+        </nav>
+
+        <div className={styles.conteudoAba}>
+          {abaAtual === 'perfil' ? (
+            <>
+              <SecaoConta />
+              <SecaoSenha />
+              <section className={styles.secao}>
+                <h2>Sessão</h2>
+                <p className={styles.descricao}>Sai desta conta neste navegador.</p>
+                <div className={styles.acoes}>
+                  <button type="button" className={styles.botaoSecundario} onClick={sair}>
+                    <i className="bi bi-box-arrow-right" aria-hidden="true" /> Sair da conta
+                  </button>
+                </div>
+              </section>
+            </>
+          ) : null}
+          {abaAtual === 'aparencia' ? <SecaoAparencia /> : null}
+          {abaAtual === 'financas' ? <SecaoFinancas /> : null}
+          {abaAtual === 'dados' ? (
+            <>
+              <SecaoExportar />
+              <SecaoCategoriasPadrao />
+              <SecaoExclusao />
+            </>
+          ) : null}
+          {abaAtual === 'ajuda' ? <SecaoAjuda /> : null}
+        </div>
       </div>
-      <SecaoPreferencias />
-      <SecaoExclusao />
     </div>
   )
 }
 
-export default Perfil
+export default Configuracoes

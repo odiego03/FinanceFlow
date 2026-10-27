@@ -33,3 +33,8 @@ export async function salvarPreferencias(preferencias) {
   const { data } = await api.put('/usuarios/me/preferencias', preferencias)
   return data
 }
+
+export async function marcarTutorial(concluido) {
+  const { data } = await api.put('/usuarios/me/preferencias/tutorial', { concluido })
+  return data
+}
