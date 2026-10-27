@@ -1,11 +1,25 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
+import { CHAVE_SESSAO_EXPIRADA, mensagemDeErro } from '../services/api'
 import * as usuarioService from '../services/usuarioService'
 import styles from './Login.module.css'
 
 const ABA_LOGIN = 'login'
 const ABA_CADASTRO = 'cadastro'
+
+// Aviso deixado pelo interceptor do axios quando o token expira (lido uma vez só)
+function lerAvisoSessaoExpirada() {
+  try {
+    if (sessionStorage.getItem(CHAVE_SESSAO_EXPIRADA)) {
+      sessionStorage.removeItem(CHAVE_SESSAO_EXPIRADA)
+      return 'Sua sessão expirou. Entre de novo.'
+    }
+  } catch {
+    // sem sessionStorage, segue sem o aviso
+  }
+  return ''
+}
 
 function Login() {
   const { entrar } = useAuth()
@@ -14,7 +28,7 @@ function Login() {
   const [nome, setNome] = useState('')
   const [email, setEmail] = useState('')
   const [senha, setSenha] = useState('')
-  const [erro, setErro] = useState('')
+  const [erro, setErro] = useState(lerAvisoSessaoExpirada)
   const [carregando, setCarregando] = useState(false)
 
   const trocarAba = (novaAba) => {
@@ -34,11 +48,13 @@ function Login() {
       await entrar(email, senha)
       navigate('/dashboard', { replace: true })
     } catch (erroRequisicao) {
-      setErro(
-        aba === ABA_LOGIN
-          ? 'Email ou senha inválidos.'
-          : 'Não foi possível criar a conta. Verifique os dados.',
-      )
+      // No login só repassa a mensagem do backend no bloqueio por tentativas (429); senha errada fica genérica
+      const bloqueado = erroRequisicao.response?.status === 429
+      if (aba === ABA_LOGIN) {
+        setErro(bloqueado ? mensagemDeErro(erroRequisicao, 'Muitas tentativas. Tente mais tarde.') : 'Email ou senha inválidos.')
+      } else {
+        setErro(mensagemDeErro(erroRequisicao, 'Não foi possível criar a conta. Verifique os dados.'))
+      }
     } finally {
       setCarregando(false)
     }
@@ -83,6 +99,7 @@ function Login() {
                 className={styles.input}
                 value={nome}
                 onChange={(event) => setNome(event.target.value)}
+                maxLength={100}
                 required
               />
             </>
@@ -119,7 +136,7 @@ function Login() {
           ) : null}
 
           <button type="submit" className={styles.submitButton} disabled={carregando}>
-            <span aria-hidden="true">→</span>{' '}
+            <i className="bi bi-arrow-right" aria-hidden="true" />{' '}
             {aba === ABA_LOGIN
               ? carregando
                 ? 'Entrando...'

@@ -1,15 +1,18 @@
 package com.financeflow.config;
 
 import com.financeflow.security.FiltroAutenticacaoJwt;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.HttpStatusEntryPoint;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
@@ -22,20 +25,26 @@ import java.util.List;
 public class ConfiguracaoSeguranca {
 
     private final FiltroAutenticacaoJwt filtroAutenticacaoJwt;
+    private final List<String> origensPermitidas;
 
-    public ConfiguracaoSeguranca(FiltroAutenticacaoJwt filtroAutenticacaoJwt) {
+    public ConfiguracaoSeguranca(FiltroAutenticacaoJwt filtroAutenticacaoJwt,
+                                 @Value("${cors.origens-permitidas}") List<String> origensPermitidas) {
         this.filtroAutenticacaoJwt = filtroAutenticacaoJwt;
+        this.origensPermitidas = origensPermitidas;
     }
 
     @Bean
     public SecurityFilterChain cadeiaFiltros(HttpSecurity http) throws Exception {
         http
                 .csrf(csrf -> csrf.disable())
-                .cors(cors -> cors.configurationSource(origensPermitidas()))
+                .cors(cors -> cors.configurationSource(configuracaoCors()))
                 .sessionManagement(sessao -> sessao.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(requisicoes -> requisicoes
                         .requestMatchers(HttpMethod.POST, "/usuarios", "/login").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/actuator/health").permitAll()
                         .anyRequest().authenticated())
+                // Sem isso o Spring responde 403 pra token ausente/expirado; 401 é o que o frontend usa pra deslogar
+                .exceptionHandling(excecoes -> excecoes.authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED)))
                 .addFilterBefore(filtroAutenticacaoJwt, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
@@ -46,9 +55,9 @@ public class ConfiguracaoSeguranca {
         return new BCryptPasswordEncoder();
     }
 
-    private CorsConfigurationSource origensPermitidas() {
+    private CorsConfigurationSource configuracaoCors() {
         CorsConfiguration configuracao = new CorsConfiguration();
-        configuracao.setAllowedOrigins(List.of("http://localhost:5173", "http://localhost:4173", "http://localhost:3000"));
+        configuracao.setAllowedOrigins(origensPermitidas);
         configuracao.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         configuracao.setAllowedHeaders(List.of("Authorization", "Content-Type"));
 

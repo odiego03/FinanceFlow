@@ -1,8 +1,10 @@
 package com.financeflow.exception;
 
-public class CredenciaisInvalidasException extends RuntimeException {
+import org.springframework.http.HttpStatus;
+
+public class CredenciaisInvalidasException extends NegocioException {
 
     public CredenciaisInvalidasException() {
-        super("email ou senha inválidos");
+        super("email ou senha inválidos", HttpStatus.UNAUTHORIZED);
     }
 }

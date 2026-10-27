@@ -1,0 +1,296 @@
+.pagina {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.cabecalho {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.cabecalho h1 {
+  margin: 0;
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: var(--texto-forte);
+}
+
+.acoesCabecalho {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.botaoPrimario,
+.botaoSecundario {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: none;
+  border-radius: 10px;
+  font-weight: 700;
+  font-size: 0.92rem;
+  padding: 10px 16px;
+  cursor: pointer;
+}
+
+.botaoPrimario {
+  background: var(--primaria);
+  color: #ffffff;
+}
+
+.botaoPrimario:hover:not(:disabled) {
+  background: var(--primaria-hover);
+}
+
+.botaoSecundario {
+  background: var(--superficie);
+  color: var(--texto-2);
+  border: 1px solid var(--borda);
+}
+
+.botaoSecundario:hover:not(:disabled) {
+  background: var(--superficie-3);
+}
+
+.botaoPrimario:disabled,
+.botaoSecundario:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.controles {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 14px;
+}
+
+.segmentado {
+  display: inline-flex;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 12px;
+  background: var(--superficie-3);
+}
+
+.segmentado button {
+  border: none;
+  background: transparent;
+  color: var(--texto-2);
+  font-weight: 600;
+  font-size: 0.9rem;
+  padding: 8px 16px;
+  border-radius: 9px;
+  cursor: pointer;
+}
+
+.segmentado .segmentoAtivo {
+  background: var(--superficie);
+  color: var(--primaria);
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.15);
+}
+
+.seletor {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--texto-suave);
+}
+
+.seletor select {
+  min-width: 190px;
+  border: 1.5px solid var(--borda);
+  border-radius: 10px;
+  padding: 9px 12px;
+  font-size: 0.95rem;
+  color: var(--texto);
+  background: var(--superficie);
+  text-transform: capitalize;
+}
+
+.titulo {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.titulo h2 {
+  margin: 0;
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--texto-forte);
+}
+
+.titulo span {
+  font-size: 0.82rem;
+  color: var(--texto-suave);
+}
+
+.resumo {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 14px;
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  background: var(--superficie);
+  border: 1px solid var(--borda);
+  border-radius: 14px;
+  padding: 18px;
+}
+
+.card h3 {
+  margin: 0 0 6px;
+  font-size: 1.02rem;
+  font-weight: 700;
+  color: var(--texto-forte);
+}
+
+.card strong {
+  font-size: 1.4rem;
+  font-weight: 800;
+  color: var(--texto-forte);
+}
+
+.rotuloResumo {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--texto-suave);
+}
+
+.variacaoBoa,
+.variacaoRuim,
+.variacaoNeutra {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.variacaoBoa {
+  color: var(--sucesso-texto);
+}
+
+.variacaoRuim {
+  color: var(--erro-texto);
+}
+
+.variacaoNeutra {
+  font-weight: 600;
+  color: var(--texto-fraco);
+}
+
+.tabelaWrapper {
+  overflow-x: auto;
+}
+
+.tabela {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.tabela th {
+  padding: 8px 10px;
+  text-align: left;
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  color: var(--texto-suave);
+  border-bottom: 1px solid var(--borda);
+  white-space: nowrap;
+}
+
+.tabela td {
+  padding: 9px 10px;
+  color: var(--texto);
+  border-bottom: 1px solid var(--superficie-3);
+}
+
+.tabela tfoot td {
+  font-weight: 800;
+  color: var(--texto-forte);
+  border-top: 1px solid var(--borda);
+  border-bottom: none;
+}
+
+.tabela .numero {
+  text-align: right;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.negativo {
+  color: var(--erro-texto);
+}
+
+.marcador {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  margin-right: 8px;
+  border-radius: 50%;
+  vertical-align: middle;
+}
+
+.vazio {
+  margin: 0;
+  color: var(--texto-suave);
+}
+
+.erro {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  font-size: 0.92rem;
+  background: rgba(239, 68, 68, 0.08);
+  color: var(--erro-texto);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+}
+
+@media print {
+  .acoesCabecalho,
+  .controles {
+    display: none;
+  }
+
+  .card {
+    break-inside: avoid;
+    border-color: #d1d5db;
+  }
+
+  /* Cores de marcação somem na impressão sem isso */
+  .marcador {
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+}
+
+.esqueleto {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.esqueletoLinha {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--superficie-3);
+}
