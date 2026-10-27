@@ -1,6 +1,5 @@
 package com.financeflow.controller;
 
-import com.financeflow.dto.CategoriaPredefinidaResposta;
 import com.financeflow.dto.CategoriaRequisicao;
 import com.financeflow.dto.CategoriaResposta;
 import com.financeflow.service.CategoriaService;
@@ -44,16 +43,6 @@ public class CategoriaController {
     @GetMapping("/{id}")
     public CategoriaResposta buscarPorId(@PathVariable Long id, Authentication autenticacao) {
         return categoriaService.buscarPorId(id, autenticacao.getName());
-    }
-
-    @GetMapping("/predefinidas")
-    public List<CategoriaPredefinidaResposta> listarPredefinidas() {
-        return categoriaService.listarPredefinidas();
-    }
-
-    @PostMapping("/predefinidas")
-    public List<CategoriaResposta> adicionarPredefinidas(Authentication autenticacao) {
-        return categoriaService.adicionarPredefinidasFaltantes(autenticacao.getName());
     }
 
     @PutMapping("/{id}")

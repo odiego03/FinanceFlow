@@ -46,18 +46,6 @@ public class Transacao {
     @Column(name = "criado_em", nullable = false, updatable = false)
     private LocalDateTime criadoEm;
 
-    // Id do lançamento no extrato do banco (o Nubank manda um UUID por linha); null em lançamento manual
-    @Column(name = "identificador_externo")
-    private String identificadorExterno;
-
-    // Preenchidos só nas parcelas geradas por um Parcelamento (RN004)
-    @ManyToOne
-    @JoinColumn(name = "parcelamento_id")
-    private Parcelamento parcelamento;
-
-    @Column(name = "numero_parcela")
-    private Integer numeroParcela;
-
     public Long getId() {
         return id;
     }
@@ -120,29 +108,5 @@ public class Transacao {
 
     public void setCriadoEm(LocalDateTime criadoEm) {
         this.criadoEm = criadoEm;
-    }
-
-    public String getIdentificadorExterno() {
-        return identificadorExterno;
-    }
-
-    public void setIdentificadorExterno(String identificadorExterno) {
-        this.identificadorExterno = identificadorExterno;
-    }
-
-    public Parcelamento getParcelamento() {
-        return parcelamento;
-    }
-
-    public void setParcelamento(Parcelamento parcelamento) {
-        this.parcelamento = parcelamento;
-    }
-
-    public Integer getNumeroParcela() {
-        return numeroParcela;
-    }
-
-    public void setNumeroParcela(Integer numeroParcela) {
-        this.numeroParcela = numeroParcela;
     }
 }

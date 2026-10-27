@@ -1,6 +1,5 @@
 package com.financeflow.dto;
 
-import com.financeflow.model.Parcelamento;
 import com.financeflow.model.TipoMovimentacao;
 import com.financeflow.model.Transacao;
 
@@ -16,15 +15,10 @@ public record TransacaoResposta(
         BigDecimal valor,
         String descricao,
         LocalDate data,
-        LocalDateTime criadoEm,
-        BigDecimal valorContribuidoMetas,
-        Long parcelamentoId,
-        Integer numeroParcela,
-        Integer quantidadeParcelas
+        LocalDateTime criadoEm
 ) {
 
-    public static TransacaoResposta de(Transacao transacao, BigDecimal valorContribuidoMetas) {
-        Parcelamento parcelamento = transacao.getParcelamento();
+    public static TransacaoResposta de(Transacao transacao) {
         return new TransacaoResposta(
                 transacao.getId(),
                 transacao.getCategoria().getId(),
@@ -33,11 +27,7 @@ public record TransacaoResposta(
                 transacao.getValor(),
                 transacao.getDescricao(),
                 transacao.getData(),
-                transacao.getCriadoEm(),
-                valorContribuidoMetas,
-                parcelamento != null ? parcelamento.getId() : null,
-                transacao.getNumeroParcela(),
-                parcelamento != null ? parcelamento.getQuantidadeParcelas() : null
+                transacao.getCriadoEm()
         );
     }
 }

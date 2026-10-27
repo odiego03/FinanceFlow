@@ -1,10 +1,8 @@
 package com.financeflow.exception;
 
-import org.springframework.http.HttpStatus;
-
-public class TipoIncompativelException extends NegocioException {
+public class TipoIncompativelException extends RuntimeException {
 
     public TipoIncompativelException() {
-        super("o tipo da transação deve ser igual ao tipo da categoria vinculada", HttpStatus.BAD_REQUEST);
+        super("o tipo da transação deve ser igual ao tipo da categoria vinculada");
     }
 }

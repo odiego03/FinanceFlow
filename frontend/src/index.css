@@ -1,87 +1,3 @@
-/*
- * Cores do app em variáveis, uma por papel. O tema escuro troca só os valores
- * (data-tema="escuro" no <html>, aplicado pelo PreferenciasContext).
- * Verde/vermelho de receita/despesa e os tons translúcidos (rgba) servem aos dois temas.
- */
-:root {
-  color-scheme: light;
-  --fundo: #eef2f5;
-  --fundo-login: linear-gradient(135deg, #dfe6fb 0%, #eef1fc 55%, #f7f8fd 100%);
-  --superficie: #ffffff;
-  --superficie-2: #f8fafc;
-  --superficie-3: #f1f5f9;
-  --borda: #e5e7eb;
-  --borda-forte: #d1d5db;
-  --texto-forte: #111827;
-  --texto: #1f2937;
-  --texto-2: #374151;
-  --texto-3: #4b5563;
-  --texto-suave: #6b7280;
-  --texto-fraco: #9ca3af;
-  --texto-desabilitado: #b8bfca;
-  --primaria: #2563eb;
-  --primaria-forte: #1d4ed8;
-  --primaria-hover: #1d4ed8;
-  --perigo-hover: #b91c1c;
-  --erro-texto: #b91c1c;
-  --sucesso-texto: #15803d;
-  --atencao-texto: #a16207;
-  --destaque-suave: #eef2ff;
-  --sobreposicao: rgba(0, 0, 0, 0.05);
-  --sobreposicao-forte: rgba(0, 0, 0, 0.1);
-  /* Séries dos gráficos (paleta categórica validada pra daltonismo; passo escuro no tema escuro) */
-  --serie-1: #2a78d6;
-  --serie-2: #eb6834;
-  --serie-3: #1baf7a;
-  --serie-neutra: #9ca3af;
-  --esqueleto: #e6ebf1;
-  --esqueleto-brilho: #f3f6f9;
-  /* Marca: o dourado fica fixo e o fundo do símbolo segue o tema (preto no claro, branco no escuro) */
-  --marca-fundo: #111827;
-  --marca-ouro: #d4a52c;
-  --marca-ouro-texto: #a67c00;
-}
-
-/* Só na tela: impresso, o relatório sai sempre claro */
-@media screen {
-  :root[data-tema='escuro'] {
-    color-scheme: dark;
-    --fundo: #0f172a;
-    --fundo-login: linear-gradient(135deg, #0b1224 0%, #111b33 55%, #0f172a 100%);
-    --superficie: #1e293b;
-    --superficie-2: #1a2436;
-    --superficie-3: #273449;
-    --borda: #334155;
-    --borda-forte: #475569;
-    --texto-forte: #f1f5f9;
-    --texto: #e2e8f0;
-    --texto-2: #cbd5e1;
-    --texto-3: #b4c0cf;
-    --texto-suave: #94a3b8;
-    --texto-fraco: #7d8ba0;
-    --texto-desabilitado: #56657a;
-    --primaria: #3b82f6;
-    --primaria-forte: #60a5fa;
-    --primaria-hover: #2563eb;
-    --perigo-hover: #b91c1c;
-    --erro-texto: #f87171;
-    --sucesso-texto: #4ade80;
-    --atencao-texto: #facc15;
-    --destaque-suave: rgba(59, 130, 246, 0.18);
-    --sobreposicao: rgba(255, 255, 255, 0.06);
-    --sobreposicao-forte: rgba(255, 255, 255, 0.12);
-    --serie-1: #3987e5;
-    --serie-2: #d95926;
-    --serie-3: #199e70;
-    --serie-neutra: #64748b;
-    --esqueleto: #273449;
-    --esqueleto-brilho: #334155;
-    --marca-fundo: #f8fafc;
-    --marca-ouro: #c9971c;
-    --marca-ouro-texto: #e6c25a;
-  }
-}
-
 * {
   box-sizing: border-box;
 }
@@ -92,12 +8,11 @@ body,
   margin: 0;
   min-height: 100vh;
   width: 100%;
-  background: var(--fundo);
+  background: #eef2f5;
 }
 
 body {
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-  color: var(--texto);
 }
 
 button,
