@@ -1,8 +1,10 @@
 package com.financeflow.exception;
 
-public class ParcelamentoInvalidoException extends RuntimeException {
+import org.springframework.http.HttpStatus;
+
+public class ParcelamentoInvalidoException extends NegocioException {
 
     public ParcelamentoInvalidoException(String mensagem) {
-        super(mensagem);
+        super(mensagem, HttpStatus.BAD_REQUEST);
     }
 }

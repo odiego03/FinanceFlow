@@ -47,7 +47,7 @@ public class CategoriaService {
         categoria.setIcone(requisicao.icone());
         categoria.setCor(requisicao.cor());
         categoria.setEssencial(essencialDaRequisicao(requisicao, categoria));
-        categoria.setUsuario(buscarUsuarioPorEmail(emailUsuario));
+        categoria.setUsuario(repositorioUsuario.buscarDoToken(emailUsuario));
 
         repositorioCategoria.save(categoria);
 
@@ -68,7 +68,7 @@ public class CategoriaService {
     }
 
     public List<CategoriaResposta> adicionarPredefinidasFaltantes(String emailUsuario) {
-        Usuario usuario = buscarUsuarioPorEmail(emailUsuario);
+        Usuario usuario = repositorioUsuario.buscarDoToken(emailUsuario);
         Set<String> existentes = repositorioCategoria.findByUsuarioId(usuario.getId()).stream()
                 .map(categoria -> categoria.getNome() + "|" + categoria.getTipo())
                 .collect(Collectors.toSet());
@@ -95,7 +95,7 @@ public class CategoriaService {
     }
 
     public List<CategoriaResposta> listar(String emailUsuario) {
-        Long usuarioId = buscarUsuarioPorEmail(emailUsuario).getId();
+        Long usuarioId = repositorioUsuario.buscarDoToken(emailUsuario).getId();
         return repositorioCategoria.findByUsuarioId(usuarioId).stream()
                 .map(CategoriaResposta::de)
                 .toList();
@@ -107,6 +107,14 @@ public class CategoriaService {
 
     public CategoriaResposta atualizar(Long id, CategoriaRequisicao requisicao, String emailUsuario) {
         Categoria categoria = buscarEntidadePorId(id, emailUsuario);
+        // Trocar o tipo deixaria as transações com tipo diferente da categoria (RN003) e a meta numa despesa (RN007)
+        if (requisicao.tipo() != categoria.getTipo()) {
+            long quantidadeTransacoes = repositorioTransacao.countByCategoriaId(categoria.getId());
+            long quantidadeMetas = repositorioMeta.countByCategoriaId(categoria.getId());
+            if (quantidadeTransacoes > 0 || quantidadeMetas > 0) {
+                throw new CategoriaEmUsoException("mudar o tipo", quantidadeTransacoes, quantidadeMetas);
+            }
+        }
         categoria.setNome(requisicao.nome());
         categoria.setTipo(requisicao.tipo());
         categoria.setIcone(requisicao.icone());
@@ -125,7 +133,7 @@ public class CategoriaService {
         long quantidadeTransacoes = repositorioTransacao.countByCategoriaId(categoria.getId());
         long quantidadeMetas = repositorioMeta.countByCategoriaId(categoria.getId());
         if (quantidadeTransacoes > 0 || quantidadeMetas > 0) {
-            throw new CategoriaEmUsoException(quantidadeTransacoes, quantidadeMetas);
+            throw new CategoriaEmUsoException("excluir", quantidadeTransacoes, quantidadeMetas);
         }
         repositorioRegra.deleteByCategoriaId(categoria.getId());
         repositorioCategoria.delete(categoria);
@@ -140,13 +148,8 @@ public class CategoriaService {
     }
 
     private Categoria buscarEntidadePorId(Long id, String emailUsuario) {
-        Long usuarioId = buscarUsuarioPorEmail(emailUsuario).getId();
+        Long usuarioId = repositorioUsuario.buscarDoToken(emailUsuario).getId();
         return repositorioCategoria.findByIdAndUsuarioId(id, usuarioId)
                 .orElseThrow(() -> new CategoriaNaoEncontradaException(id));
-    }
-
-    private Usuario buscarUsuarioPorEmail(String email) {
-        return repositorioUsuario.findByEmail(email)
-                .orElseThrow(() -> new IllegalStateException("usuário do token não existe mais: " + email));
     }
 }

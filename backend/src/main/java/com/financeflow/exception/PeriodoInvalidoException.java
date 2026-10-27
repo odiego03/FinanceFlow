@@ -1,8 +1,10 @@
 package com.financeflow.exception;
 
-public class PeriodoInvalidoException extends RuntimeException {
+import org.springframework.http.HttpStatus;
+
+public class PeriodoInvalidoException extends NegocioException {
 
     public PeriodoInvalidoException(String mensagem) {
-        super(mensagem);
+        super(mensagem, HttpStatus.BAD_REQUEST);
     }
 }

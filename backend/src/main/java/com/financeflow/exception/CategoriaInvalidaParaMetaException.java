@@ -1,8 +1,10 @@
 package com.financeflow.exception;
 
-public class CategoriaInvalidaParaMetaException extends RuntimeException {
+import org.springframework.http.HttpStatus;
+
+public class CategoriaInvalidaParaMetaException extends NegocioException {
 
     public CategoriaInvalidaParaMetaException() {
-        super("a categoria vinculada a uma meta financeira deve ser do tipo RECEITA");
+        super("a categoria vinculada a uma meta financeira deve ser do tipo RECEITA", HttpStatus.BAD_REQUEST);
     }
 }

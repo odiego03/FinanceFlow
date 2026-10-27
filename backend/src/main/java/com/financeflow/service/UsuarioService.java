@@ -10,8 +10,10 @@ import com.financeflow.model.Usuario;
 import com.financeflow.repository.UsuarioRepository;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.Locale;
 
 @Service
 public class UsuarioService {
@@ -27,14 +29,17 @@ public class UsuarioService {
         this.categoriaService = categoriaService;
     }
 
+    // Transacional: se a semeadura das categorias falhar, o usuário não fica gravado pela metade
+    @Transactional
     public UsuarioResposta cadastrar(UsuarioCadastroRequisicao requisicao) {
-        if (repositorioUsuario.existsByEmail(requisicao.email())) {
-            throw new EmailJaCadastradoException(requisicao.email());
+        String email = normalizarEmail(requisicao.email());
+        if (repositorioUsuario.existsByEmailIgnoreCase(email)) {
+            throw new EmailJaCadastradoException(email);
         }
 
         Usuario usuario = new Usuario();
-        usuario.setNome(requisicao.nome());
-        usuario.setEmail(requisicao.email());
+        usuario.setNome(requisicao.nome().trim());
+        usuario.setEmail(email);
         usuario.setSenhaHash(codificadorSenha.encode(requisicao.senha()));
         usuario.setCriadoEm(LocalDateTime.now());
 
@@ -45,18 +50,18 @@ public class UsuarioService {
     }
 
     public UsuarioResposta buscarPorEmail(String email) {
-        return UsuarioResposta.de(buscarEntidadePorEmail(email));
+        return UsuarioResposta.de(repositorioUsuario.buscarDoToken(email));
     }
 
     public UsuarioResposta atualizar(UsuarioAtualizacaoRequisicao requisicao, String email) {
-        Usuario usuario = buscarEntidadePorEmail(email);
+        Usuario usuario = repositorioUsuario.buscarDoToken(email);
         usuario.setNome(requisicao.nome().trim());
         repositorioUsuario.save(usuario);
         return UsuarioResposta.de(usuario);
     }
 
     public void trocarSenha(TrocaSenhaRequisicao requisicao, String email) {
-        Usuario usuario = buscarEntidadePorEmail(email);
+        Usuario usuario = repositorioUsuario.buscarDoToken(email);
         if (!codificadorSenha.matches(requisicao.senhaAtual(), usuario.getSenhaHash())) {
             throw new SenhaAtualIncorretaException();
         }
@@ -64,8 +69,8 @@ public class UsuarioService {
         repositorioUsuario.save(usuario);
     }
 
-    private Usuario buscarEntidadePorEmail(String email) {
-        return repositorioUsuario.findByEmail(email)
-                .orElseThrow(() -> new IllegalStateException("usuário do token não existe mais: " + email));
+    // Email não diferencia maiúsculas: "Diego@x.com" e "diego@x.com" são a mesma conta
+    public static String normalizarEmail(String email) {
+        return email.trim().toLowerCase(Locale.ROOT);
     }
 }

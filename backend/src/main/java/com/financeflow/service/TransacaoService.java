@@ -53,7 +53,7 @@ public class TransacaoService {
     }
 
     public TransacaoResposta cadastrar(TransacaoRequisicao requisicao, String emailUsuario) {
-        Usuario usuario = buscarUsuarioPorEmail(emailUsuario);
+        Usuario usuario = repositorioUsuario.buscarDoToken(emailUsuario);
         Categoria categoria = buscarCategoriaDoUsuario(requisicao.categoriaId(), usuario.getId());
         validarTipoCompativel(requisicao.tipo(), categoria);
 
@@ -72,7 +72,7 @@ public class TransacaoService {
     }
 
     public List<TransacaoResposta> listar(String emailUsuario) {
-        Long usuarioId = buscarUsuarioPorEmail(emailUsuario).getId();
+        Long usuarioId = repositorioUsuario.buscarDoToken(emailUsuario).getId();
 
         Map<Long, BigDecimal> contribuidoPorTransacao = new HashMap<>();
         for (Object[] linha : repositorioContribuicao.somarPorTransacaoDoUsuario(usuarioId)) {
@@ -158,11 +158,9 @@ public class TransacaoService {
         if (inicio != null && fim != null && inicio.isAfter(fim)) {
             throw new PeriodoInvalidoException("a data inicial não pode ser depois da data final");
         }
-        Long usuarioId = buscarUsuarioPorEmail(emailUsuario).getId();
+        Long usuarioId = repositorioUsuario.buscarDoToken(emailUsuario).getId();
 
-        List<Transacao> doPeriodo = repositorioTransacao.findByUsuarioId(usuarioId).stream()
-                .filter(t -> (inicio == null || !t.getData().isBefore(inicio)) && (fim == null || !t.getData().isAfter(fim)))
-                .toList();
+        List<Transacao> doPeriodo = repositorioTransacao.buscarDoPeriodo(usuarioId, inicio, fim);
         List<Transacao> transacoes = doPeriodo.stream().filter(t -> t.getParcelamento() == null).toList();
         int parcelasMantidas = doPeriodo.size() - transacoes.size();
 
@@ -192,12 +190,13 @@ public class TransacaoService {
     }
 
     public List<EvolucaoMensalResposta> evolucaoMensal(String emailUsuario, int quantidadeMeses) {
-        Long usuarioId = buscarUsuarioPorEmail(emailUsuario).getId();
-        List<Transacao> transacoes = repositorioTransacao.findByUsuarioId(usuarioId);
+        Long usuarioId = repositorioUsuario.buscarDoToken(emailUsuario).getId();
         int meses = Math.max(1, Math.min(MAXIMO_MESES_EVOLUCAO, quantidadeMeses));
+        YearMonth mesAtual = YearMonth.now();
+        List<Transacao> transacoes = repositorioTransacao.findByUsuarioIdAndDataBetween(usuarioId,
+                mesAtual.minusMonths(meses - 1).atDay(1), mesAtual.atEndOfMonth());
 
         List<EvolucaoMensalResposta> resultado = new ArrayList<>();
-        YearMonth mesAtual = YearMonth.now();
 
         for (int i = meses - 1; i >= 0; i--) {
             YearMonth mes = mesAtual.minusMonths(i);
@@ -211,10 +210,12 @@ public class TransacaoService {
 
     // mes == null significa todo o período
     public List<TotalPorCategoriaResposta> totaisPorCategoria(String emailUsuario, TipoMovimentacao tipo, YearMonth mes) {
-        Long usuarioId = buscarUsuarioPorEmail(emailUsuario).getId();
+        Long usuarioId = repositorioUsuario.buscarDoToken(emailUsuario).getId();
 
-        List<Transacao> filtradas = repositorioTransacao.findByUsuarioId(usuarioId).stream()
-                .filter(t -> t.getTipo() == tipo && (mes == null || YearMonth.from(t.getData()).equals(mes)))
+        List<Transacao> doPeriodo = mes == null ? repositorioTransacao.findByUsuarioId(usuarioId)
+                : repositorioTransacao.findByUsuarioIdAndDataBetween(usuarioId, mes.atDay(1), mes.atEndOfMonth());
+        List<Transacao> filtradas = doPeriodo.stream()
+                .filter(t -> t.getTipo() == tipo)
                 .toList();
         Map<Long, Categoria> categoriasPorId = filtradas.stream()
                 .collect(Collectors.toMap(t -> t.getCategoria().getId(), Transacao::getCategoria, (a, b) -> a));
@@ -258,13 +259,8 @@ public class TransacaoService {
     }
 
     private Transacao buscarEntidadePorId(Long id, String emailUsuario) {
-        Long usuarioId = buscarUsuarioPorEmail(emailUsuario).getId();
+        Long usuarioId = repositorioUsuario.buscarDoToken(emailUsuario).getId();
         return repositorioTransacao.findByIdAndUsuarioId(id, usuarioId)
                 .orElseThrow(() -> new TransacaoNaoEncontradaException(id));
-    }
-
-    private Usuario buscarUsuarioPorEmail(String email) {
-        return repositorioUsuario.findByEmail(email)
-                .orElseThrow(() -> new IllegalStateException("usuário do token não existe mais: " + email));
     }
 }

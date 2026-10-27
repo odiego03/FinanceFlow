@@ -85,7 +85,7 @@ class RegrasSugestaoTest {
     void sobraComProjecaoDoMelhorCenario() {
         CenarioSimulacaoResposta cdb = new CenarioSimulacaoResposta(TipoInvestimento.CDB, "CDB 100% do CDI", true,
                 new BigDecimal("13.65"), false, new BigDecimal("25500"), new BigDecimal("1500"),
-                new BigDecimal("300"), new BigDecimal("25200"), new BigDecimal("1200"));
+                new BigDecimal("300"), new BigDecimal("25200"), new BigDecimal("1200"), null, null);
 
         SugestaoResposta sugestao = RegrasSugestao.investirSobra(indicador("5000", "2000", "1000"), cdb).orElseThrow();
 

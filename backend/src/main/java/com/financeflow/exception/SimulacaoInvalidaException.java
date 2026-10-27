@@ -1,8 +1,10 @@
 package com.financeflow.exception;
 
-public class SimulacaoInvalidaException extends RuntimeException {
+import org.springframework.http.HttpStatus;
+
+public class SimulacaoInvalidaException extends NegocioException {
 
     public SimulacaoInvalidaException(String mensagem) {
-        super(mensagem);
+        super(mensagem, HttpStatus.BAD_REQUEST);
     }
 }

@@ -47,7 +47,7 @@ public class ParcelamentoService {
 
     @Transactional
     public ParcelamentoResposta cadastrar(ParcelamentoRequisicao requisicao, String emailUsuario) {
-        Usuario usuario = buscarUsuarioPorEmail(emailUsuario);
+        Usuario usuario = repositorioUsuario.buscarDoToken(emailUsuario);
         Categoria categoria = repositorioCategoria.findByIdAndUsuarioId(requisicao.categoriaId(), usuario.getId())
                 .orElseThrow(() -> new CategoriaNaoEncontradaException(requisicao.categoriaId()));
         if (categoria.getTipo() != TipoMovimentacao.DESPESA) {
@@ -93,7 +93,7 @@ public class ParcelamentoService {
     }
 
     public List<ParcelamentoResposta> listar(String emailUsuario) {
-        Long usuarioId = buscarUsuarioPorEmail(emailUsuario).getId();
+        Long usuarioId = repositorioUsuario.buscarDoToken(emailUsuario).getId();
         LocalDate hoje = LocalDate.now();
         return repositorioParcelamento.findByUsuarioIdOrderByDataPrimeiraParcelaDesc(usuarioId).stream()
                 .map(parcelamento -> ParcelamentoResposta.de(parcelamento, hoje))
@@ -133,12 +133,13 @@ public class ParcelamentoService {
      * (o mês mais carregado a partir da primeira parcela nova), e parcelamento já encerrado não pesa mais.
      */
     public SugestaoParcelamentoResposta sugerir(String emailUsuario, BigDecimal valorTotal, LocalDate dataPrimeiraParcela) {
-        Long usuarioId = buscarUsuarioPorEmail(emailUsuario).getId();
-        List<Transacao> transacoes = repositorioTransacao.findByUsuarioId(usuarioId);
-
+        Long usuarioId = repositorioUsuario.buscarDoToken(emailUsuario).getId();
         YearMonth mesAtual = YearMonth.now();
         YearMonth inicioJanela = mesAtual.minusMonths(MESES_ANALISADOS);
         YearMonth mesPrimeiraParcela = YearMonth.from(dataPrimeiraParcela);
+        // A janela das médias e as parcelas a partir da primeira nova; o histórico mais antigo não interessa
+        YearMonth inicioBusca = inicioJanela.isBefore(mesPrimeiraParcela) ? inicioJanela : mesPrimeiraParcela;
+        List<Transacao> transacoes = repositorioTransacao.buscarDoPeriodo(usuarioId, inicioBusca.atDay(1), null);
 
         BigDecimal renda = BigDecimal.ZERO;
         BigDecimal despesas = BigDecimal.ZERO;
@@ -169,13 +170,8 @@ public class ParcelamentoService {
     }
 
     private Parcelamento buscarEntidadePorId(Long id, String emailUsuario) {
-        Long usuarioId = buscarUsuarioPorEmail(emailUsuario).getId();
+        Long usuarioId = repositorioUsuario.buscarDoToken(emailUsuario).getId();
         return repositorioParcelamento.findByIdAndUsuarioId(id, usuarioId)
                 .orElseThrow(() -> new ParcelamentoNaoEncontradoException(id));
-    }
-
-    private Usuario buscarUsuarioPorEmail(String email) {
-        return repositorioUsuario.findByEmail(email)
-                .orElseThrow(() -> new IllegalStateException("usuário do token não existe mais: " + email));
     }
 }

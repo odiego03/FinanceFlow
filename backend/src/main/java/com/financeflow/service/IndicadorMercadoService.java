@@ -2,6 +2,7 @@ package com.financeflow.service;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.financeflow.dto.IndicadorMercadoResposta;
 import com.financeflow.dto.TaxasInvestimentoResposta;
 import org.slf4j.Logger;
@@ -25,17 +26,21 @@ public class IndicadorMercadoService {
     // CDI anualizado (base 252) e rentabilidade mensal da poupança nova (depósitos a partir de 04/05/2012)
     private static final String URL_SGS_CDI = "https://api.bcb.gov.br/dados/serie/bcdata.sgs.4389/dados/ultimos/1?formato=json";
     private static final String URL_SGS_POUPANCA = "https://api.bcb.gov.br/dados/serie/bcdata.sgs.195/dados/ultimos/1?formato=json";
+    // IPCA acumulado em 12 meses (% a.a.), usado pra mostrar os resultados em dinheiro de hoje
+    private static final String URL_SGS_IPCA_12_MESES = "https://api.bcb.gov.br/dados/serie/bcdata.sgs.13522/dados/ultimos/1?formato=json";
     private static final String HOST_YAHOO = "query1.finance.yahoo.com";
     private static final String SIMBOLO_IBOVESPA = "^BVSP";
 
     private final RestClient restClient;
+    private final ObjectMapper objectMapper;
 
     private volatile IndicadorMercadoResposta cache;
     private volatile LocalDateTime cacheEm;
     private volatile TaxasInvestimentoResposta cacheTaxas;
 
-    public IndicadorMercadoService(RestClient restClient) {
+    public IndicadorMercadoService(RestClient restClient, ObjectMapper objectMapper) {
         this.restClient = restClient;
+        this.objectMapper = objectMapper;
     }
 
     public synchronized IndicadorMercadoResposta obterIndicadores() {
@@ -62,7 +67,7 @@ public class IndicadorMercadoService {
     public synchronized TaxasInvestimentoResposta obterTaxasInvestimento() {
         // Com alguma taxa faltando, tenta de novo na próxima chamada em vez de esperar 1 hora
         boolean cacheCompleto = cacheTaxas != null && cacheTaxas.selic() != null && cacheTaxas.cdi() != null
-                && cacheTaxas.poupancaMensal() != null;
+                && cacheTaxas.poupancaMensal() != null && cacheTaxas.ipca12Meses() != null;
         if (cacheCompleto && Duration.between(cacheTaxas.atualizadoEm(), LocalDateTime.now()).compareTo(DURACAO_CACHE_TAXAS) < 0) {
             return cacheTaxas;
         }
@@ -70,12 +75,14 @@ public class IndicadorMercadoService {
         BigDecimal selic = buscarSerieSgs(URL_SGS_SELIC, "Selic");
         BigDecimal cdi = buscarSerieSgs(URL_SGS_CDI, "CDI");
         BigDecimal poupanca = buscarSerieSgs(URL_SGS_POUPANCA, "Poupança");
+        BigDecimal ipca = buscarSerieSgs(URL_SGS_IPCA_12_MESES, "IPCA");
 
         TaxasInvestimentoResposta anterior = cacheTaxas;
         cacheTaxas = new TaxasInvestimentoResposta(
                 selic != null || anterior == null ? selic : anterior.selic(),
                 cdi != null || anterior == null ? cdi : anterior.cdi(),
                 poupanca != null || anterior == null ? poupanca : anterior.poupancaMensal(),
+                ipca != null || anterior == null ? ipca : anterior.ipca12Meses(),
                 LocalDateTime.now()
         );
         return cacheTaxas;
@@ -83,7 +90,9 @@ public class IndicadorMercadoService {
 
     private BigDecimal buscarSerieSgs(String url, String nomeIndicador) {
         try {
-            ItemSgs[] itens = restClient.get().uri(url).retrieve().body(ItemSgs[].class);
+            // Lido como texto: o BCB às vezes manda o JSON com Content-Type text/html, e aí o conversor do Spring recusa
+            String corpo = restClient.get().uri(url).retrieve().body(String.class);
+            ItemSgs[] itens = corpo == null ? null : objectMapper.readValue(corpo, ItemSgs[].class);
             if (itens == null || itens.length == 0) {
                 return null;
             }

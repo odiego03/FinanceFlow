@@ -10,8 +10,10 @@ import jakarta.validation.constraints.PositiveOrZero;
 import java.math.BigDecimal;
 
 public record SimulacaoRequisicao(
-        @NotNull(message = "valorInicial é obrigatório") @PositiveOrZero(message = "valorInicial não pode ser negativo") BigDecimal valorInicial,
-        @PositiveOrZero(message = "aporteMensal não pode ser negativo") BigDecimal aporteMensal,
+        @NotNull(message = "valorInicial é obrigatório") @PositiveOrZero(message = "valorInicial não pode ser negativo")
+        @DecimalMax(value = "99999999.99", message = "valorInicial não pode passar de 99.999.999,99") BigDecimal valorInicial,
+        @PositiveOrZero(message = "aporteMensal não pode ser negativo")
+        @DecimalMax(value = "99999999.99", message = "aporteMensal não pode passar de 99.999.999,99") BigDecimal aporteMensal,
         @NotNull(message = "prazoMeses é obrigatório")
         @Min(value = 1, message = "prazoMeses deve ser no mínimo 1")
         @Max(value = 360, message = "prazoMeses deve ser no máximo 360") Integer prazoMeses,

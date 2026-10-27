@@ -28,12 +28,10 @@ public class IndicadorComprometimentoService {
     }
 
     public IndicadorComprometimentoResposta calcular(String emailUsuario, YearMonth mes) {
-        Usuario usuario = repositorioUsuario.findByEmail(emailUsuario)
-                .orElseThrow(() -> new IllegalStateException("usuário do token não existe mais: " + emailUsuario));
+        Usuario usuario = repositorioUsuario.buscarDoToken(emailUsuario);
 
-        List<Transacao> doMes = repositorioTransacao.findByUsuarioId(usuario.getId()).stream()
-                .filter(transacao -> YearMonth.from(transacao.getData()).equals(mes))
-                .toList();
+        List<Transacao> doMes = repositorioTransacao.findByUsuarioIdAndDataBetween(usuario.getId(), mes.atDay(1),
+                mes.atEndOfMonth());
 
         BigDecimal renda = BigDecimal.ZERO;
         BigDecimal essenciais = BigDecimal.ZERO;

@@ -2,6 +2,8 @@ package com.financeflow.model;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -38,6 +40,14 @@ public class PreferenciasUsuario {
 
     @Column(name = "simulador_prazo_meses", nullable = false)
     private Integer simuladorPrazoMeses;
+
+    // Nullable porque entrou depois da tabela: linhas antigas ficam null e valem o padrão (CLARO)
+    @Enumerated(EnumType.STRING)
+    private Tema tema;
+
+    // Nullable pelo mesmo motivo do tema; null = ainda não viu o tutorial
+    @Column(name = "tutorial_concluido")
+    private Boolean tutorialConcluido;
 
     public Long getId() {
         return id;
@@ -93,5 +103,21 @@ public class PreferenciasUsuario {
 
     public void setSimuladorPrazoMeses(Integer simuladorPrazoMeses) {
         this.simuladorPrazoMeses = simuladorPrazoMeses;
+    }
+
+    public Tema getTema() {
+        return tema;
+    }
+
+    public void setTema(Tema tema) {
+        this.tema = tema;
+    }
+
+    public Boolean getTutorialConcluido() {
+        return tutorialConcluido;
+    }
+
+    public void setTutorialConcluido(Boolean tutorialConcluido) {
+        this.tutorialConcluido = tutorialConcluido;
     }
 }

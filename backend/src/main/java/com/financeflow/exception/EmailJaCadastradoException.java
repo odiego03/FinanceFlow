@@ -1,8 +1,10 @@
 package com.financeflow.exception;
 
-public class EmailJaCadastradoException extends RuntimeException {
+import org.springframework.http.HttpStatus;
+
+public class EmailJaCadastradoException extends NegocioException {
 
     public EmailJaCadastradoException(String email) {
-        super("já existe um usuário cadastrado com o email: " + email);
+        super("já existe um usuário cadastrado com o email: " + email, HttpStatus.CONFLICT);
     }
 }

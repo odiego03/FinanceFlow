@@ -1,8 +1,10 @@
 package com.financeflow.exception;
 
-public class PreferenciasInvalidasException extends RuntimeException {
+import org.springframework.http.HttpStatus;
+
+public class PreferenciasInvalidasException extends NegocioException {
 
     public PreferenciasInvalidasException(String mensagem) {
-        super(mensagem);
+        super(mensagem, HttpStatus.BAD_REQUEST);
     }
 }

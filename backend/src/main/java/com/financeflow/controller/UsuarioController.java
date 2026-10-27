@@ -3,6 +3,7 @@ package com.financeflow.controller;
 import com.financeflow.dto.PreferenciasRequisicao;
 import com.financeflow.dto.PreferenciasResposta;
 import com.financeflow.dto.TrocaSenhaRequisicao;
+import com.financeflow.dto.TutorialRequisicao;
 import com.financeflow.dto.UsuarioAtualizacaoRequisicao;
 import com.financeflow.dto.UsuarioCadastroRequisicao;
 import com.financeflow.dto.UsuarioResposta;
@@ -64,5 +65,11 @@ public class UsuarioController {
     public PreferenciasResposta atualizarPreferencias(@Valid @RequestBody PreferenciasRequisicao requisicao,
                                                       Authentication autenticacao) {
         return preferenciasService.atualizar(requisicao, autenticacao.getName());
+    }
+
+    @PutMapping("/me/preferencias/tutorial")
+    public PreferenciasResposta marcarTutorial(@Valid @RequestBody TutorialRequisicao requisicao,
+                                               Authentication autenticacao) {
+        return preferenciasService.marcarTutorial(requisicao.concluido(), autenticacao.getName());
     }
 }

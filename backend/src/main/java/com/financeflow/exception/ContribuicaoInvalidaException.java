@@ -1,8 +1,10 @@
 package com.financeflow.exception;
 
-public class ContribuicaoInvalidaException extends RuntimeException {
+import org.springframework.http.HttpStatus;
+
+public class ContribuicaoInvalidaException extends NegocioException {
 
     public ContribuicaoInvalidaException(String mensagem) {
-        super(mensagem);
+        super(mensagem, HttpStatus.BAD_REQUEST);
     }
 }

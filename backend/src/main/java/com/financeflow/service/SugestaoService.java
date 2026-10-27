@@ -48,13 +48,11 @@ public class SugestaoService {
 
     // As regras do mês (comprometimento e sobra) usam `mes`; metas e parcelas olham pra frente a partir de hoje
     public List<SugestaoResposta> listar(String emailUsuario, YearMonth mes) {
-        Usuario usuario = repositorioUsuario.findByEmail(emailUsuario)
-                .orElseThrow(() -> new IllegalStateException("usuário do token não existe mais: " + emailUsuario));
+        Usuario usuario = repositorioUsuario.buscarDoToken(emailUsuario);
         LocalDate hoje = LocalDate.now();
 
-        List<Transacao> doMes = repositorioTransacao.findByUsuarioId(usuario.getId()).stream()
-                .filter(transacao -> YearMonth.from(transacao.getData()).equals(mes))
-                .toList();
+        List<Transacao> doMes = repositorioTransacao.findByUsuarioIdAndDataBetween(usuario.getId(), mes.atDay(1),
+                mes.atEndOfMonth());
         List<Transacao> despesas = doMes.stream().filter(t -> t.getTipo() == TipoMovimentacao.DESPESA).toList();
         List<TotalPorCategoriaResposta> essenciais = totaisPorCategoria(despesas, true);
         List<TotalPorCategoriaResposta> naoEssenciais = totaisPorCategoria(despesas, false);

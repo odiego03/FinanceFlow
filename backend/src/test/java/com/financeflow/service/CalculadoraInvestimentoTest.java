@@ -65,4 +65,56 @@ class CalculadoraInvestimentoTest {
                 .isCloseTo(0.009489, within(0.000001));
         assertThat(CalculadoraInvestimento.percentualAnualDeMensal(UM_POR_CENTO)).isEqualByComparingTo("12.68");
     }
+
+    @Test
+    void dinheiroDeHojeDescontaAInflacaoDoPrazo() {
+        // 1100 daqui a 1 ano com 10% de inflação compra o que 1000 compram hoje
+        assertThat(CalculadoraInvestimento.emDinheiroDeHoje(new BigDecimal("1100"), 12, new BigDecimal("10")))
+                .isEqualByComparingTo("1000.00");
+        assertThat(CalculadoraInvestimento.emDinheiroDeHoje(new BigDecimal("1210"), 24, new BigDecimal("10")))
+                .isEqualByComparingTo("1000.00");
+    }
+
+    @Test
+    void investidoEmDinheiroDeHojeDescontaCadaAporteNoMesEmQueEntra() {
+        // Sem inflação nada muda; com inflação, os aportes valem menos que o nominal e o valor inicial não muda
+        assertThat(CalculadoraInvestimento.investidoEmDinheiroDeHoje(new BigDecimal("1000"), new BigDecimal("100"), 12,
+                BigDecimal.ZERO)).isEqualByComparingTo("2200.00");
+        BigDecimal comInflacao = CalculadoraInvestimento.investidoEmDinheiroDeHoje(new BigDecimal("1000"),
+                new BigDecimal("100"), 12, new BigDecimal("10"));
+        assertThat(comInflacao).isLessThan(new BigDecimal("2200")).isGreaterThan(new BigDecimal("2100"));
+    }
+
+    @Test
+    void aporteNecessarioSemJurosEhODivididoPeloPrazo() {
+        assertThat(CalculadoraInvestimento.aporteNecessario(BigDecimal.ZERO, new BigDecimal("1200"), 12,
+                BigDecimal.ZERO, true)).isEqualByComparingTo("100.00");
+    }
+
+    @Test
+    void aporteNecessarioEhOMenorQueChegaNoObjetivo() {
+        // Aportando 100/mês a 1% sem IR chega em 1268,25 (ver aporteNoFimDeCadaMes); o mínimo pra esse objetivo é 100
+        BigDecimal objetivo = CalculadoraInvestimento.simular(BigDecimal.ZERO, new BigDecimal("100"), 12, UM_POR_CENTO, true)
+                .valorLiquido();
+
+        assertThat(CalculadoraInvestimento.aporteNecessario(BigDecimal.ZERO, objetivo, 12, UM_POR_CENTO, true))
+                .isEqualByComparingTo("100.00");
+    }
+
+    @Test
+    void aporteNecessarioComIrChegaNoObjetivoLiquidoEUmCentavoAMenosNaoChega() {
+        BigDecimal objetivo = new BigDecimal("20000");
+        BigDecimal aporte = CalculadoraInvestimento.aporteNecessario(new BigDecimal("1000"), objetivo, 24, UM_POR_CENTO, false);
+
+        assertThat(CalculadoraInvestimento.simular(new BigDecimal("1000"), aporte, 24, UM_POR_CENTO, false).valorLiquido())
+                .isGreaterThanOrEqualTo(objetivo);
+        assertThat(CalculadoraInvestimento.simular(new BigDecimal("1000"), aporte.subtract(UM_POR_CENTO), 24, UM_POR_CENTO,
+                false).valorLiquido()).isLessThan(objetivo);
+    }
+
+    @Test
+    void valorInicialQueJaChegaNoObjetivoDispensaAporte() {
+        assertThat(CalculadoraInvestimento.aporteNecessario(new BigDecimal("5000"), new BigDecimal("5000"), 12,
+                UM_POR_CENTO, false)).isEqualByComparingTo("0");
+    }
 }

@@ -41,6 +41,9 @@ import java.util.Set;
 @Service
 public class ImportacaoExtratoService {
 
+    // O mesmo limite do @Size de LinhaImportacaoConfirmacaoRequisicao.descricao
+    private static final int TAMANHO_MAXIMO_DESCRICAO = 200;
+
     private final NubankExtratoParser parserNubank;
     private final ItauExtratoParser parserItau;
     private final SugestorCategoria sugestorCategoria;
@@ -63,7 +66,7 @@ public class ImportacaoExtratoService {
     }
 
     public List<LinhaImportacaoResposta> prever(MultipartFile arquivo, BancoExtrato banco, String emailUsuario) {
-        Usuario usuario = buscarUsuarioPorEmail(emailUsuario);
+        Usuario usuario = repositorioUsuario.buscarDoToken(emailUsuario);
         ExtratoParser parser = escolherParser(banco);
 
         List<LinhaExtratoBruta> linhasBrutas;
@@ -76,6 +79,8 @@ public class ImportacaoExtratoService {
         if (linhasBrutas.isEmpty()) {
             throw new ArquivoExtratoInvalidoException("nenhum lançamento encontrado no arquivo");
         }
+        // Corta já aqui (não só na hora de gravar) pra a detecção de duplicata comparar com o que fica no banco
+        linhasBrutas = linhasBrutas.stream().map(ImportacaoExtratoService::limitarDescricao).toList();
 
         List<String> chaves = linhasBrutas.stream()
                 .map(linha -> sugestorCategoria.chaveDe(linha.descricao()))
@@ -121,14 +126,29 @@ public class ImportacaoExtratoService {
         }).toList();
     }
 
+    // Categorias e regras carregadas de uma vez e tudo gravado em lote: antes eram ~3 idas ao banco por linha
     @Transactional
     public ImportacaoResultadoResposta confirmar(List<LinhaImportacaoConfirmacaoRequisicao> linhas, String emailUsuario) {
-        Usuario usuario = buscarUsuarioPorEmail(emailUsuario);
-        List<TransacaoResposta> criadas = new ArrayList<>();
+        Usuario usuario = repositorioUsuario.buscarDoToken(emailUsuario);
 
+        Map<Long, Categoria> categoriasPorId = new HashMap<>();
+        for (Categoria categoria : repositorioCategoria.findByUsuarioId(usuario.getId())) {
+            categoriasPorId.put(categoria.getId(), categoria);
+        }
+
+        List<String> chaves = linhas.stream().map(linha -> sugestorCategoria.chaveDe(linha.descricao())).distinct().toList();
+        Map<String, RegraCategorizacao> regrasPorChave = new HashMap<>();
+        for (RegraCategorizacao regra : repositorioRegra.findByUsuarioIdAndDescricaoNormalizadaIn(usuario.getId(), chaves)) {
+            regrasPorChave.put(regra.getDescricaoNormalizada(), regra);
+        }
+
+        LocalDateTime agora = LocalDateTime.now();
+        List<Transacao> transacoes = new ArrayList<>();
         for (LinhaImportacaoConfirmacaoRequisicao linha : linhas) {
-            Categoria categoria = repositorioCategoria.findByIdAndUsuarioId(linha.categoriaId(), usuario.getId())
-                    .orElseThrow(() -> new CategoriaNaoEncontradaException(linha.categoriaId()));
+            Categoria categoria = categoriasPorId.get(linha.categoriaId());
+            if (categoria == null) {
+                throw new CategoriaNaoEncontradaException(linha.categoriaId());
+            }
             if (categoria.getTipo() != linha.tipo()) {
                 throw new TipoIncompativelException();
             }
@@ -141,13 +161,26 @@ public class ImportacaoExtratoService {
             transacao.setDescricao(linha.descricao());
             transacao.setData(linha.data());
             transacao.setIdentificadorExterno(linha.identificador());
-            transacao.setCriadoEm(LocalDateTime.now());
-            repositorioTransacao.save(transacao);
-            criadas.add(TransacaoResposta.de(transacao, BigDecimal.ZERO));
+            transacao.setCriadoEm(agora);
+            transacoes.add(transacao);
 
-            aprenderRegra(usuario, linha.descricao(), categoria);
+            // Upsert da regra: a última linha com a mesma chave é a que vale
+            String chave = sugestorCategoria.chaveDe(linha.descricao());
+            RegraCategorizacao regra = regrasPorChave.computeIfAbsent(chave, ignorada -> {
+                RegraCategorizacao nova = new RegraCategorizacao();
+                nova.setUsuario(usuario);
+                nova.setDescricaoNormalizada(chave);
+                return nova;
+            });
+            regra.setCategoria(categoria);
         }
 
+        repositorioTransacao.saveAll(transacoes);
+        repositorioRegra.saveAll(regrasPorChave.values());
+
+        List<TransacaoResposta> criadas = transacoes.stream()
+                .map(transacao -> TransacaoResposta.de(transacao, BigDecimal.ZERO))
+                .toList();
         return new ImportacaoResultadoResposta(criadas.size(), criadas);
     }
 
@@ -195,14 +228,12 @@ public class ImportacaoExtratoService {
         return data + "|" + valor.stripTrailingZeros().toPlainString() + "|" + descricao;
     }
 
-    private void aprenderRegra(Usuario usuario, String descricao, Categoria categoria) {
-        String chave = sugestorCategoria.chaveDe(descricao);
-        RegraCategorizacao regra = repositorioRegra.findByUsuarioIdAndDescricaoNormalizada(usuario.getId(), chave)
-                .orElseGet(RegraCategorizacao::new);
-        regra.setUsuario(usuario);
-        regra.setDescricaoNormalizada(chave);
-        regra.setCategoria(categoria);
-        repositorioRegra.save(regra);
+    private static LinhaExtratoBruta limitarDescricao(LinhaExtratoBruta linha) {
+        if (linha.descricao().length() <= TAMANHO_MAXIMO_DESCRICAO) {
+            return linha;
+        }
+        return new LinhaExtratoBruta(linha.data(), linha.descricao().substring(0, TAMANHO_MAXIMO_DESCRICAO),
+                linha.valorComSinal(), linha.identificador());
     }
 
     private String chaveCategoria(String nome, TipoMovimentacao tipo) {
@@ -214,10 +245,5 @@ public class ImportacaoExtratoService {
             case NUBANK -> parserNubank;
             case ITAU -> parserItau;
         };
-    }
-
-    private Usuario buscarUsuarioPorEmail(String email) {
-        return repositorioUsuario.findByEmail(email)
-                .orElseThrow(() -> new IllegalStateException("usuário do token não existe mais: " + email));
     }
 }

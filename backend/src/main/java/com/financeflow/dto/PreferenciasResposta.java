@@ -1,5 +1,7 @@
 package com.financeflow.dto;
 
+import com.financeflow.model.Tema;
+
 import java.math.BigDecimal;
 
 public record PreferenciasResposta(
@@ -7,6 +9,8 @@ public record PreferenciasResposta(
         BigDecimal limiteEssencial,
         BigDecimal limiteTotal,
         BigDecimal simuladorPercentualCdi,
-        Integer simuladorPrazoMeses
+        Integer simuladorPrazoMeses,
+        Tema tema,
+        boolean tutorialConcluido
 ) {
 }

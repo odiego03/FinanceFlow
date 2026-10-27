@@ -1,5 +1,6 @@
 package com.financeflow.dto;
 
+import com.financeflow.model.Tema;
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Max;
@@ -22,6 +23,7 @@ public record PreferenciasRequisicao(
         @DecimalMax(value = "200", message = "simuladorPercentualCdi deve ser no máximo 200") BigDecimal simuladorPercentualCdi,
         @NotNull(message = "simuladorPrazoMeses é obrigatório")
         @Min(value = 1, message = "simuladorPrazoMeses deve ser no mínimo 1")
-        @Max(value = 360, message = "simuladorPrazoMeses deve ser no máximo 360") Integer simuladorPrazoMeses
+        @Max(value = 360, message = "simuladorPrazoMeses deve ser no máximo 360") Integer simuladorPrazoMeses,
+        @NotNull(message = "tema é obrigatório") Tema tema
 ) {
 }

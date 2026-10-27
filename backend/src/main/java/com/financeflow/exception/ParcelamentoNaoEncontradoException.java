@@ -1,8 +1,10 @@
 package com.financeflow.exception;
 
-public class ParcelamentoNaoEncontradoException extends RuntimeException {
+import org.springframework.http.HttpStatus;
+
+public class ParcelamentoNaoEncontradoException extends NegocioException {
 
     public ParcelamentoNaoEncontradoException(Long id) {
-        super("parcelamento não encontrado: " + id);
+        super("parcelamento não encontrado: " + id, HttpStatus.NOT_FOUND);
     }
 }
