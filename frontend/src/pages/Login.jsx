@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { CHAVE_SESSAO_EXPIRADA, mensagemDeErro } from '../services/api'
 import * as usuarioService from '../services/usuarioService'
+import CampoSenha from '../components/CampoSenha'
 import RequisitosSenha from '../components/RequisitosSenha'
 import ConfirmacaoPendente from '../components/ConfirmacaoPendente'
 import RedefinirSenha from '../components/RedefinirSenha'
@@ -181,10 +182,9 @@ function Login() {
           <label className={styles.label} htmlFor="senha">
             Senha
           </label>
-          <input
+          <CampoSenha
+            key={aba}
             id="senha"
-            type="password"
-            className={styles.input}
             value={senha}
             onChange={(event) => setSenha(event.target.value)}
             autoComplete={aba === ABA_CADASTRO ? 'new-password' : 'current-password'}

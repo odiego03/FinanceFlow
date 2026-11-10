@@ -3,6 +3,7 @@ import { mensagemDeErro } from '../services/api'
 import * as usuarioService from '../services/usuarioService'
 import { formatarContagem, useEsperaReenvio } from '../utils/useEsperaReenvio'
 import { MENSAGEM_EMAIL, MENSAGEM_SENHA, emailValido, senhaForte } from '../utils/validacao'
+import CampoSenha from './CampoSenha'
 import RequisitosSenha from './RequisitosSenha'
 import styles from '../pages/Login.module.css'
 
@@ -197,11 +198,9 @@ function RedefinirSenha({ emailInicial, codigoJaEnviado = false, rotuloVoltar = 
           <label className={styles.label} htmlFor="nova-senha-redefinicao">
             Nova senha
           </label>
-          <input
+          <CampoSenha
             id="nova-senha-redefinicao"
-            type="password"
             autoComplete="new-password"
-            className={styles.input}
             value={novaSenha}
             onChange={(event) => setNovaSenha(event.target.value)}
             aria-describedby="requisitos-redefinicao"
@@ -211,11 +210,9 @@ function RedefinirSenha({ emailInicial, codigoJaEnviado = false, rotuloVoltar = 
           <label className={styles.label} htmlFor="confirmacao-redefinicao">
             Confirme a nova senha
           </label>
-          <input
+          <CampoSenha
             id="confirmacao-redefinicao"
-            type="password"
             autoComplete="new-password"
-            className={styles.input}
             value={confirmacao}
             onChange={(event) => setConfirmacao(event.target.value)}
             required
