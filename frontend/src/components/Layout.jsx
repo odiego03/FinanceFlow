@@ -112,7 +112,8 @@ function MenuUsuario() {
 function Layout() {
   const { preferencias, salvar, ocultarValores, alternarOcultarValores } = usePreferencias()
   const { pathname } = useLocation()
-  const [sidebarAberta, setSidebarAberta] = useState(true)
+  // No celular o menu vira gaveta sobre o conteúdo: tem que nascer fechada (no computador, aberta)
+  const [sidebarAberta, setSidebarAberta] = useState(() => !window.matchMedia('(max-width: 860px)').matches)
 
   const paginaAtual = itensAtivos.find((item) => pathname.startsWith(item.rota))
   // No "Automático" o atalho considera o tema que o sistema está mostrando

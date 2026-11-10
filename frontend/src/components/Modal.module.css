@@ -15,6 +15,7 @@
   width: 100%;
   max-width: 520px;
   max-height: calc(100vh - 32px);
+  max-height: calc(100dvh - 32px);
   border-radius: 18px;
   background: var(--superficie);
   box-shadow: 0 24px 60px rgba(0, 0, 0, 0.28);
@@ -96,6 +97,7 @@
   .caixa {
     max-width: none;
     max-height: 92vh;
+    max-height: 92dvh;
     border-radius: 18px 18px 0 0;
   }
 }

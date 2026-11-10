@@ -51,7 +51,7 @@
 
 .grade {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(300px, 100%), 1fr));
   gap: 16px;
 }
 
@@ -147,3 +147,17 @@
   font-size: 1.05rem;
 }
 
+
+/* Celular: botões de editar/excluir com área de toque confortável e botão "Nova meta" na largura toda */
+@media (pointer: coarse) {
+  .acoesCard button {
+    width: 40px;
+    height: 40px;
+  }
+}
+
+@media (max-width: 480px) {
+  .botaoNova {
+    width: 100%;
+  }
+}
