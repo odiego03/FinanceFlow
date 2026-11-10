@@ -34,7 +34,7 @@
 
 .formulario {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(190px, 100%), 1fr));
   gap: 16px;
   align-items: start;
   background: var(--superficie);
@@ -134,7 +134,7 @@
 
 .cenarios {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(240px, 100%), 1fr));
   gap: 16px;
 }
 
@@ -267,7 +267,7 @@
 
 .modos {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(240px, 100%), 1fr));
   gap: 12px;
 }
 
@@ -442,4 +442,20 @@
 
 .botaoLink:hover {
   text-decoration: underline;
+}
+
+@media (max-width: 480px) {
+  .formulario,
+  .cardGrafico,
+  .cenario {
+    padding: 14px;
+  }
+
+  .botaoSimular {
+    width: 100%;
+  }
+
+  .valorLiquido {
+    font-size: 1.3rem;
+  }
 }

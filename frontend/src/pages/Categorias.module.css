@@ -47,12 +47,13 @@
 
 .colunas {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 1fr));
   gap: 16px;
   align-items: start;
 }
 
 .coluna {
+  container-type: inline-size;
   background: var(--superficie);
   border: 1px solid var(--borda);
   border-radius: 14px;
@@ -83,8 +84,15 @@
   margin: 0;
 }
 
+/*
+ * Linha: ícone | nome | selo "Essencial" | botões. O selo fica ao lado dos botões, à direita, quando há espaço;
+ * em coluna estreita (container query na .coluna, abaixo) ele desce pra baixo do nome. Áreas nomeadas pra cada
+ * peça ficar na sua coluna mesmo quando a categoria não tem selo.
+ */
 .itemCategoria {
-  display: flex;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  grid-template-areas: 'icone nome selo acoes';
   align-items: center;
   gap: 10px;
   padding: 12px;
@@ -92,14 +100,19 @@
   border-radius: 10px;
 }
 
+.itemCategoria > :first-child {
+  grid-area: icone;
+}
+
 .nomeCategoria {
-  flex: 1;
+  grid-area: nome;
+  overflow-wrap: anywhere;
   font-weight: 600;
   color: var(--texto);
 }
 
 .badgeEssencial {
-  flex-shrink: 0;
+  grid-area: selo;
   padding: 2px 8px;
   border-radius: 999px;
   font-size: 0.72rem;
@@ -108,7 +121,22 @@
   color: var(--primaria-forte);
 }
 
+@container (max-width: 400px) {
+  .itemCategoria {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-areas:
+      'icone nome acoes'
+      'icone selo acoes';
+    row-gap: 4px;
+  }
+
+  .badgeEssencial {
+    justify-self: start;
+  }
+}
+
 .acoesItem {
+  grid-area: acoes;
   display: flex;
   gap: 6px;
   flex-shrink: 0;
@@ -126,4 +154,18 @@
 
 .acoesItem button:hover {
   background: var(--sobreposicao-forte);
+}
+
+/* Celular: botões de editar/excluir com área de toque confortável e botão "Nova categoria" na largura toda */
+@media (pointer: coarse) {
+  .acoesItem button {
+    width: 40px;
+    height: 40px;
+  }
+}
+
+@media (max-width: 480px) {
+  .botaoNova {
+    width: 100%;
+  }
 }
