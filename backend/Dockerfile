@@ -15,4 +15,5 @@ WORKDIR /app
 COPY --from=build /app/target/*.jar app.jar
 USER financeflow
 EXPOSE 8080
-ENTRYPOINT ["java", "-jar", "app.jar"]
+# O plano grátis do Render tem 512 MB: a heap usa até 75% disso e o coletor serial gasta menos memória
+ENTRYPOINT ["java", "-XX:MaxRAMPercentage=75", "-XX:+UseSerialGC", "-jar", "app.jar"]

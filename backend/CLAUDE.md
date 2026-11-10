@@ -651,7 +651,7 @@ Testes em `RegrasSugestaoTest`.
 - `PUT /usuarios/me` muda só o `nome`. O e-mail é o login e o
   `subject` do JWT, então não muda.
 - `PUT /usuarios/me/senha` confere a `senhaAtual` com o BCrypt e exige
-  pelo menos 6 caracteres na nova. Senha atual errada dá **400**
+  a mesma senha forte do cadastro na nova (ver 10.2). Senha atual errada dá **400**
   (`SenhaAtualIncorretaException`), **não 401**: o frontend trata
   qualquer `401` de rota autenticada como sessão expirada e desloga.
 
@@ -815,9 +815,45 @@ batem com o banco (`ddl-auto=validate`) e não cria mais nada.
 - **Email** é gravado em minúsculas e comparado sem diferenciar caixa
   (cadastro e login). Contas antigas com maiúscula continuam entrando:
   o login procura ignorando a caixa e, se houver mais de uma, vale a da
-  senha certa. **Senha não tem tamanho mínimo no cadastro** (decisão do
-  grupo, pra criar usuários de teste fácil); a troca de senha continua
-  exigindo 6.
+  senha certa.
+- **Senha forte** (cadastro e troca de senha): pelo menos 6 caracteres,
+  uma letra maiúscula (acentuada vale) e um número, no máximo 72 (o
+  BCrypt ignora o que passa de 72 bytes). As regras ficam em
+  `dto/RegrasValidacao`, repetidas no frontend em `utils/validacao.js`.
+  O login não confere a força, então contas antigas com senha fraca
+  continuam entrando. Isso substitui a decisão anterior de não exigir
+  mínimo no cadastro.
+- **Formato do e-mail** no cadastro: além do `@Email`, exige domínio
+  com extensão (`nome@dominio.com`), porque o `@Email` sozinho aceita
+  `fulano@gmail`. É só o formato: nenhum e-mail é enviado pra confirmar
+  que a caixa existe.
+- **Esqueci minha senha** (`RedefinicaoSenhaService`, rotas públicas
+  `POST /senha/esqueci` e `POST /senha/redefinir`, migração `V4`):
+  - Código de 6 dígitos (`SecureRandom`), guardado só como hash BCrypt
+    em `codigos_redefinicao_senha`. Vale 15 minutos e aceita 5
+    tentativas erradas. Só o último vale, e um pedido novo apaga os
+    anteriores.
+  - Um pedido por minuto por conta. Fora disso, o pedido é ignorado
+    sem avisar.
+  - `/senha/esqueci` responde `204` sempre, exista a conta ou não. O
+    hash é calculado nos dois casos e o e-mail sai em `@Async`, pra o
+    tempo de resposta também não revelar quem tem conta.
+  - `/senha/redefinir` dá o mesmo `400` pra qualquer falha (email sem
+    conta, código errado, expirado ou esgotado). A tentativa errada
+    fica gravada (`noRollbackFor`).
+  - Com sucesso: grava a senha nova (mesma regra de senha forte),
+    apaga os códigos e libera o bloqueio de login do email.
+  - **Envio** (`EnvioEmailService`), pelo primeiro canal configurado:
+    API HTTP do Brevo (`BREVO_API_KEY` + `MAIL_REMETENTE` verificado no
+    Brevo), usada em produção porque o Render grátis bloqueia SMTP;
+    SMTP (`MAIL_HOST`, `MAIL_PORTA`, `MAIL_USUARIO`, `MAIL_SENHA`), pra
+    rodar local ou no Docker; sem nenhum dos dois, o código vai pro log
+    (`WARN`), só pra desenvolvimento.
+    Nos testes, `EnvioEmailService` é `@MockBean` e o teste lê o código
+    do mock. O health do mail está desligado, pra SMTP fora do ar não
+    derrubar o healthcheck.
+  - O token JWT já emitido continua valendo até expirar (mesma
+    limitação da troca de senha).
 - **Login**: 5 erros seguidos no mesmo email bloqueiam por 15 minutos
   (`LimitadorTentativasLogin`, em memória, `429`).
 - **Categoria em uso não muda de tipo** (`409`), pelo mesmo motivo de

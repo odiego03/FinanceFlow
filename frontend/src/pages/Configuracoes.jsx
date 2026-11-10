@@ -8,6 +8,8 @@ import * as exclusaoService from '../services/exclusaoService'
 import * as transacaoService from '../services/transacaoService'
 import * as usuarioService from '../services/usuarioService'
 import { baixarCsv, CABECALHO_TRANSACOES, linhasDeTransacoes } from '../utils/csv'
+import { MENSAGEM_SENHA, senhaForte } from '../utils/validacao'
+import RequisitosSenha from '../components/RequisitosSenha'
 import styles from './Configuracoes.module.css'
 
 // Na exclusão os valores aparecem mesmo com "ocultar valores" ligado: quem vai apagar precisa ver o que apaga
@@ -142,8 +144,8 @@ function SecaoSenha() {
 
   const handleSubmit = async (event) => {
     event.preventDefault()
-    if (novaSenha.length < 6) {
-      setMensagem({ tipo: 'erro', texto: 'A nova senha precisa ter pelo menos 6 caracteres.' })
+    if (!senhaForte(novaSenha)) {
+      setMensagem({ tipo: 'erro', texto: MENSAGEM_SENHA })
       return
     }
     if (novaSenha !== confirmacao) {
@@ -184,8 +186,9 @@ function SecaoSenha() {
             autoComplete="new-password"
             value={novaSenha}
             onChange={(event) => setNovaSenha(event.target.value)}
+            aria-describedby="requisitos-nova-senha"
           />
-          <small>Pelo menos 6 caracteres.</small>
+          <RequisitosSenha senha={novaSenha} id="requisitos-nova-senha" />
         </label>
         <label className={styles.campo}>
           <span>Confirme a nova senha</span>
