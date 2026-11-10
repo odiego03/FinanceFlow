@@ -406,18 +406,33 @@ parsers pra não duplicar essa lógica em cada banco).
   separador. `Identificador` é um UUID único por lançamento, ainda não
   usado (candidato a substituir a detecção de duplicata por
   data+valor+descrição). Testes em `NubankExtratoParserTest`.
-- `ItauExtratoParser`: CSV separado por `;`, pode ter linhas de
-  metadados antes da tabela real (localizadas heuristicamente
-  procurando a primeira linha com "data" e "valor"), colunas
-  `data`/`lançamento`/`valor`, data `DD/MM/AAAA`, decimal com vírgula.
+- `NubankExtratoParser` também lê a **fatura do cartão de crédito**
+  (cabeçalho `date,title,amount`, data ISO, valor `"1.016,13"`): positivo =
+  compra (vira despesa), negativo = crédito (`"- 25,00"`, vira receita).
+  Ignora "Pagamento recebido" (pagamento da fatura, já sai da conta
+  corrente) e lançamentos de valor zero. O layout é detectado pelo
+  cabeçalho; sem identificador, a duplicata segue por data+valor+descrição.
+- `ItauExtratoParser`: aceita **OFX** (recomendado, o "Salvar em OFX" do
+  internet banking) e CSV. O formato é detectado pelo conteúdo (`<OFX>`).
+  - OFX (SGML 1.x ou XML 2.x): lê cada `<STMTTRN>` — `DTPOSTED` (só
+    AAAAMMDD), `TRNAMT` (valor com sinal, ponto decimal) e `MEMO`
+    (cai pra `NAME`/`TRNTYPE`). Saldos não vêm como `STMTTRN`, então não
+    entram. Charset lido do cabeçalho (`CHARSET:1252`); sem declaração,
+    tenta UTF-8 e cai pra Windows-1252. O `FITID` **não** é usado como
+    identificador (não sabemos se é estável entre exportações): a duplicata
+    segue por data+valor+descrição.
+  - CSV separado por `;`, pode ter linhas de metadados antes da tabela real
+    (localizadas procurando a primeira linha com "data" e "valor"), colunas
+    `data`/`lançamento`/`valor`, data `DD/MM/AAAA`, decimal com vírgula.
+    Linhas sem valor (SALDO ANTERIOR etc.) são ignoradas.
+  - O `.xls`/`.xlsx` do Itaú é **recusado** com mensagem pedindo OFX
+    (assinatura binária do Excel ou HTML disfarçado de .xls).
 
-> **Risco conhecido (só Itaú)**: o layout do Itaú (nomes de coluna,
-> separador, encoding) foi implementado com base no formato mais comum
-> conhecido, não a partir de um arquivo real exportado.
-> Se um usuário real tiver erro ao importar, o primeiro passo é
-> comparar o CSV dele com o que os parsers esperam — ver
-> `NubankExtratoParser`/`ItauExtratoParser` (comentário no topo de
-> cada classe documenta o layout assumido).
+> **Risco conhecido (só Itaú)**: os layouts OFX e CSV do Itaú foram
+> implementados a partir do formato padrão do OFX e de um print do extrato,
+> não de um arquivo real exportado. Se um usuário real tiver erro ao
+> importar, o primeiro passo é comparar o arquivo dele com o que o parser
+> espera — ver o comentário no topo de `ItauExtratoParser`.
 
 ### 7.2 Categorização aprendida — `RegraCategorizacao`
 
