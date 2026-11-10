@@ -77,6 +77,22 @@ toda requisição.
   token se a resposta for `401`. Queda de rede ou `500` não deslogam.
 - O login mostra a mensagem do backend só no bloqueio por tentativas
   (`429`); senha errada continua com o texto genérico.
+- **Senha forte e e-mail** (`utils/validacao.js`, as mesmas regras do
+  backend): o cadastro e a troca de senha exigem pelo menos 6
+  caracteres, uma maiúscula e um número. `components/RequisitosSenha`
+  mostra cada requisito marcado (ícone + texto) enquanto a pessoa
+  digita. O cadastro também confere o formato `nome@dominio.com` antes
+  de enviar. A aba de login não valida nada disso, pra conta antiga com
+  senha fraca continuar entrando.
+- **Esqueci minha senha** (`components/RedefinirSenha.jsx`, aberto pelo
+  link abaixo da senha na aba Login; usa os estilos de
+  `Login.module.css`): etapa 1 pede o e-mail (`POST /senha/esqueci`) e
+  mostra um texto que não diz se a conta existe; etapa 2 pede o código
+  de 6 números, a nova senha (com `RequisitosSenha`) e a confirmação
+  (`POST /senha/redefinir`). "Mandar outro código" pede de novo. Ao
+  concluir, volta pro login com o e-mail preenchido e um aviso verde.
+- `mensagemDeErro` também junta os motivos de um `400` de validação
+  (`{"campo": "motivo"}`), que não vem em `mensagem`.
 - **Mensagens de erro**: `mensagemDeErro(erro, padrao)` em
   `services/api.js` devolve o `mensagem` que o backend manda (ex: o
   motivo do `409` ao excluir categoria em uso) ou o texto padrão da

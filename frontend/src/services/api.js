@@ -35,9 +35,21 @@ api.interceptors.response.use(
   },
 )
 
-// Mensagem que o backend manda em {"mensagem": "..."}, ou o texto padrão da tela
+// Mensagem que o backend manda em {"mensagem": "..."}; num 400 de validação vem {"campo": "motivo"}, e aí junta os
+// motivos. Sem nada disso, o texto padrão da tela
 export function mensagemDeErro(erro, padrao) {
-  return erro?.response?.data?.mensagem || padrao
+  const dados = erro?.response?.data
+  if (dados?.mensagem) {
+    return dados.mensagem
+  }
+  if (erro?.response?.status === 400 && dados && typeof dados === 'object') {
+    const motivos = Object.values(dados).filter((motivo) => typeof motivo === 'string')
+    if (motivos.length > 0) {
+      const texto = motivos.join('; ')
+      return texto.charAt(0).toUpperCase() + texto.slice(1)
+    }
+  }
+  return padrao
 }
 
 export default api

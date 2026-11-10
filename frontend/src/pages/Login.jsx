@@ -3,6 +3,9 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { CHAVE_SESSAO_EXPIRADA, mensagemDeErro } from '../services/api'
 import * as usuarioService from '../services/usuarioService'
+import RequisitosSenha from '../components/RequisitosSenha'
+import RedefinirSenha from '../components/RedefinirSenha'
+import { MENSAGEM_EMAIL, MENSAGEM_SENHA, emailValido, senhaForte } from '../utils/validacao'
 import styles from './Login.module.css'
 
 const ABA_LOGIN = 'login'
@@ -30,15 +33,38 @@ function Login() {
   const [senha, setSenha] = useState('')
   const [erro, setErro] = useState(lerAvisoSessaoExpirada)
   const [carregando, setCarregando] = useState(false)
+  const [redefinindo, setRedefinindo] = useState(false)
+  const [sucesso, setSucesso] = useState('')
 
   const trocarAba = (novaAba) => {
     setAba(novaAba)
     setErro('')
+    setSucesso('')
+  }
+
+  const concluirRedefinicao = (emailRedefinido) => {
+    setRedefinindo(false)
+    setAba(ABA_LOGIN)
+    setEmail(emailRedefinido)
+    setSenha('')
+    setErro('')
+    setSucesso('Senha redefinida. Entre com a senha nova.')
   }
 
   const handleSubmit = async (event) => {
     event.preventDefault()
     setErro('')
+    // Só no cadastro: no login, conta antiga com senha fraca ainda precisa conseguir entrar
+    if (aba === ABA_CADASTRO) {
+      if (!emailValido(email)) {
+        setErro(MENSAGEM_EMAIL)
+        return
+      }
+      if (!senhaForte(senha)) {
+        setErro(MENSAGEM_SENHA)
+        return
+      }
+    }
     setCarregando(true)
 
     try {
@@ -66,6 +92,17 @@ function Login() {
         <h1 className={styles.titulo}>FinanceFlow</h1>
         <p className={styles.subtitulo}>Gestão financeira inteligente</p>
 
+        {redefinindo ? (
+          <RedefinirSenha
+            emailInicial={email}
+            onConcluir={concluirRedefinicao}
+            onVoltar={() => {
+              setRedefinindo(false)
+              setErro('')
+            }}
+          />
+        ) : (
+        <>
         <div className={styles.toggleGroup} role="tablist">
           <button
             type="button"
@@ -126,8 +163,31 @@ function Login() {
             className={styles.input}
             value={senha}
             onChange={(event) => setSenha(event.target.value)}
+            autoComplete={aba === ABA_CADASTRO ? 'new-password' : 'current-password'}
+            aria-describedby={aba === ABA_CADASTRO ? 'requisitos-senha' : undefined}
             required
           />
+          {aba === ABA_CADASTRO ? (
+            <RequisitosSenha senha={senha} id="requisitos-senha" />
+          ) : (
+            <button
+              type="button"
+              className={`${styles.link} ${styles.linkEsqueci}`}
+              onClick={() => {
+                setRedefinindo(true)
+                setErro('')
+                setSucesso('')
+              }}
+            >
+              Esqueci minha senha
+            </button>
+          )}
+
+          {sucesso ? (
+            <p className={styles.avisoSucesso} aria-live="polite">
+              <i className="bi bi-check-circle-fill" aria-hidden="true" /> {sucesso}
+            </p>
+          ) : null}
 
           {erro ? (
             <p className={styles.errorMessage} aria-live="polite">
@@ -164,6 +224,8 @@ function Login() {
             </>
           )}
         </p>
+        </>
+        )}
       </div>
     </main>
   )

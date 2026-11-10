@@ -162,3 +162,39 @@
 .link:hover {
   text-decoration: underline;
 }
+
+/* Esqueci minha senha (components/RedefinirSenha.jsx usa estes estilos também) */
+.linkEsqueci {
+  align-self: flex-end;
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+
+.tituloSecao {
+  margin: 0 0 4px;
+  font-size: 1.15rem;
+  color: var(--texto);
+}
+
+.explicacao {
+  margin: 0;
+  font-size: 0.92rem;
+  color: var(--texto-suave);
+}
+
+.avisoSucesso {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  font-size: 0.92rem;
+  font-weight: 500;
+  background: rgba(34, 197, 94, 0.08);
+  color: var(--sucesso-texto);
+  border: 1px solid rgba(34, 197, 94, 0.25);
+}
+
+.inputCodigo {
+  letter-spacing: 0.4em;
+  font-size: 1.2rem;
+  font-variant-numeric: tabular-nums;
+}

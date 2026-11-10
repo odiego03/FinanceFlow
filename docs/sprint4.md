@@ -80,6 +80,7 @@ seguida da correção de tudo o que ela apontou e de um redesenho das telas mais
   do simulador.
 - **Relatórios** mensal e anual: resumo com taxa de poupança, comparação com o período anterior, despesas e receitas
   por categoria, maiores despesas, evolução mês a mês (anual), exportação CSV e impressão/PDF.
+- **Esqueci minha senha:** na tela de login, a pessoa recebe por e-mail um código de 6 números e cria uma senha nova.
 - **Tema escuro**, aplicado antes de a página montar (sem "piscar" claro).
 - **Tutorial de primeiro acesso:** 7 passos explicando cada tela; aparece uma vez por conta (guardado no backend) e
   pode ser revisto em Configurações → Ajuda.
@@ -100,9 +101,14 @@ foram tratados, exceto os registrados em "Limitações conhecidas" (seção 9).
 | E-mail diferenciando maiúsculas ("Diego@" e "diego@" viravam contas diferentes) | E-mail gravado em minúsculas e comparado sem diferenciar; contas antigas continuam entrando |
 | Dependência do frontend com vulnerabilidade alta (`follow-redirects`) | Atualizada (`npm audit` sem vulnerabilidades) |
 | Containers Docker rodando como root | Usuário sem privilégio no backend e nginx sem root no frontend |
+| Cadastro aceitava qualquer senha, até de 1 caractere | **Senha forte** no cadastro e na troca: pelo menos 6 caracteres, uma letra maiúscula e um número (no máximo 72, o limite do BCrypt). A tela mostra cada requisito sendo atendido enquanto a pessoa digita. Contas antigas continuam entrando |
+| `@Email` aceitava endereço sem extensão (`fulano@gmail`) | E-mail precisa ter o formato `nome@dominio.com`, no backend e na tela de cadastro |
 
-Decisão do grupo: **o cadastro não exige tamanho mínimo de senha**, para facilitar a criação de contas de teste. A
-troca de senha continua exigindo 6 caracteres.
+| Não havia como recuperar a conta ao esquecer a senha | **Esqueci minha senha**: código de 6 números por e-mail (SMTP), guardado só como hash, válido por 15 minutos, com 5 tentativas e um pedido por minuto. A resposta não revela se o e-mail tem conta |
+
+A princípio, o grupo tinha decidido não exigir tamanho mínimo no cadastro, para facilitar as contas de teste. No
+fechamento da sprint, essa decisão foi revista em favor da senha forte. A verificação do e-mail é só de formato:
+nenhum e-mail de confirmação é enviado.
 
 ### 4.2 Regras de negócio e consistência
 
@@ -147,8 +153,8 @@ troca de senha continua exigindo 6 caracteres.
 | Tipo | O que cobre | Quantidade |
 |---|---|---|
 | Unitários (classes puras) | Cálculos de parcelamento, investimento (IR, inflação, aporte necessário), comprometimento, relatórios, regras de sugestão, parsers de extrato (Nubank e Itaú), sugestão de categoria | 67 |
-| Integração da API | Sobe a aplicação inteira com banco H2 em modo PostgreSQL, rodando as mesmas migrações do Flyway: isolamento entre usuários, 401/404, troca de tipo de categoria, limites de valor, saldo de contribuição, bloqueio de login, tutorial | 8 |
-| **Total** | `./mvnw test`, sem precisar do banco real | **75** |
+| Integração da API | Sobe a aplicação inteira com banco H2 em modo PostgreSQL, rodando as mesmas migrações do Flyway: isolamento entre usuários, 401/404, troca de tipo de categoria, limites de valor, saldo de contribuição, bloqueio de login, tutorial, senha forte, formato de e-mail e redefinição de senha | 13 |
+| **Total** | `./mvnw test`, sem precisar do banco real | **80** |
 
 Além disso, as telas redesenhadas foram verificadas com um roteiro automatizado no navegador (criar despesa e
 receita, destinar à meta, parcelar, editar, excluir, validação, paginação), com capturas de tela nos temas claro e
@@ -187,6 +193,7 @@ escuro e no tamanho de celular.
 | `POST /simulacoes/aporte-necessario` | Modo meta do simulador |
 | `GET /sugestoes?mes=AAAA-MM` | Sugestões (RN006) |
 | `PUT /usuarios/me`, `PUT /usuarios/me/senha` | Perfil e troca de senha |
+| `POST /senha/esqueci`, `POST /senha/redefinir` | Esqueci minha senha (código por e-mail) |
 | `GET/PUT /usuarios/me/preferencias`, `PUT /usuarios/me/preferencias/tutorial` | Preferências e tutorial |
 | `GET /transacoes/exclusao-em-massa/previa`, `DELETE /transacoes/exclusao-em-massa` | Exclusão por período |
 | `GET /relatorios?tipo=MENSAL\|ANUAL&referencia=` | Relatórios |
@@ -198,6 +205,8 @@ escuro e no tamanho de celular.
 
 - `application-local.properties` precisa de `jwt.chave-secreta=...` (qualquer texto com 32+ caracteres).
 - No Docker, `JWT_SECRET` é obrigatório no `.env`; o frontend só sobe depois do healthcheck do backend.
+- Para o "esqueci minha senha" mandar e-mail: `MAIL_HOST`, `MAIL_USUARIO` e `MAIL_SENHA` no `.env` (no Gmail, uma senha de app). Sem eles, o código aparece só no log do backend.
+- A migração `V4` cria a tabela dos códigos de redefinição; ela roda sozinha ao subir o backend novo.
 - Mudança de esquema do banco = novo arquivo `V<n>__descricao.sql` em `db/migration` (nunca editar um que já rodou).
 
 ---
@@ -224,4 +233,4 @@ escuro e no tamanho de celular.
 5. Simulador: poupança perdendo da inflação; modo meta com uma das metas; "usar minha sobra".
 6. Relatório anual e exportação em PDF/CSV.
 7. Tema escuro e ocultar valores.
-8. Qualidade: `./mvnw test` com 75 testes passando; migrações do Flyway.
+8. Qualidade: `./mvnw test` com 80 testes passando; migrações do Flyway.
