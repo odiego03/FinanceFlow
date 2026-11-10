@@ -1,22 +1,42 @@
+import { useState } from 'react'
+import Modal from './Modal'
 import styles from './ModalConfirmacao.module.css'
 
-function ModalConfirmacao({ titulo, mensagem, onConfirmar, onCancelar }) {
-  return (
-    <div className={styles.backdrop} onClick={onCancelar}>
-      <div className={styles.modal} onClick={(event) => event.stopPropagation()}>
-        <h2>{titulo}</h2>
-        <p className={styles.mensagem}>{mensagem}</p>
+function ModalConfirmacao({ titulo, mensagem, textoConfirmar = 'Excluir', onConfirmar, onCancelar }) {
+  const [confirmando, setConfirmando] = useState(false)
 
-        <div className={styles.acoes}>
-          <button type="button" className={styles.cancelar} onClick={onCancelar}>
+  // Trava o botão enquanto a exclusão roda: dois cliques não mandam duas requisições
+  const confirmar = async () => {
+    setConfirmando(true)
+    try {
+      await onConfirmar()
+    } finally {
+      setConfirmando(false)
+    }
+  }
+
+  return (
+    <Modal
+      titulo={titulo}
+      onFechar={onCancelar}
+      rodape={
+        <>
+          <button type="button" className={styles.cancelar} onClick={onCancelar} data-autofoco>
             Cancelar
           </button>
-          <button type="button" className={styles.excluir} onClick={onConfirmar}>
-            Excluir
+          <button type="button" className={styles.excluir} onClick={confirmar} disabled={confirmando}>
+            {confirmando ? 'Excluindo...' : textoConfirmar}
           </button>
-        </div>
+        </>
+      }
+    >
+      <div className={styles.conteudo}>
+        <span className={styles.icone} aria-hidden="true">
+          <i className="bi bi-exclamation-triangle" />
+        </span>
+        <p className={styles.mensagem}>{mensagem}</p>
       </div>
-    </div>
+    </Modal>
   )
 }
 

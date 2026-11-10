@@ -1,0 +1,77 @@
+.grade {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+  gap: 10px;
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  border: 1.5px solid var(--borda);
+  background: var(--superficie-2);
+  border-radius: 12px;
+  padding: 12px 8px;
+  cursor: pointer;
+  text-align: center;
+}
+
+.card:hover {
+  border-color: var(--borda-forte);
+}
+
+.cardSelecionado {
+  border-color: var(--primaria);
+  background: var(--destaque-suave);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+
+.nome {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--texto-2);
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
+.vazio {
+  grid-column: 1 / -1;
+  color: var(--texto-fraco);
+  font-size: 0.9rem;
+  margin: 0;
+}
+
+@media (max-width: 480px) {
+  .grade {
+    grid-template-columns: repeat(auto-fill, minmax(84px, 1fr));
+    gap: 8px;
+  }
+
+  .nome {
+    font-size: 0.76rem;
+  }
+}
+
+.gradeCompacta {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(132px, 1fr));
+  gap: 8px;
+}
+
+.gradeCompacta .card {
+  flex-direction: row;
+  justify-content: flex-start;
+  gap: 8px;
+  padding: 7px 10px;
+  border-radius: 999px;
+  text-align: left;
+}
+
+.gradeCompacta .nome {
+  font-size: 0.84rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  overflow-wrap: normal;
+}

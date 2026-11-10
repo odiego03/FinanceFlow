@@ -1,12 +1,14 @@
 import { useEffect, useMemo, useState } from 'react'
+import { Carregando, Esqueleto } from '../components/Esqueleto'
+import IconeCategoria from '../components/IconeCategoria'
 import ModalCategoria from '../components/ModalCategoria'
 import ModalConfirmacao from '../components/ModalConfirmacao'
+import { mensagemDeErro } from '../services/api'
 import * as categoriaService from '../services/categoriaService'
 import styles from './Categorias.module.css'
 
 function ColunaCategorias({ titulo, tipo, categorias, onEditar, onExcluir }) {
   const classeTitulo = tipo === 'RECEITA' ? styles.tituloReceita : styles.tituloDespesa
-  const classeBolinha = tipo === 'RECEITA' ? styles.bolinhaReceita : styles.bolinhaDespesa
 
   return (
     <div className={styles.coluna}>
@@ -17,14 +19,19 @@ function ColunaCategorias({ titulo, tipo, categorias, onEditar, onExcluir }) {
       ) : (
         categorias.map((categoria) => (
           <div key={categoria.id} className={styles.itemCategoria}>
-            <span className={`${styles.bolinha} ${classeBolinha}`} />
+            <IconeCategoria icone={categoria.icone} cor={categoria.cor} size={28} />
             <span className={styles.nomeCategoria}>{categoria.nome}</span>
+            {categoria.essencial ? (
+              <span className={styles.badgeEssencial} title="Conta no limite de 50% do indicador de comprometimento">
+                Essencial
+              </span>
+            ) : null}
             <div className={styles.acoesItem}>
               <button type="button" onClick={() => onEditar(categoria)} aria-label={`Editar ${categoria.nome}`}>
-                ✎
+                <i className="bi bi-pencil" aria-hidden="true" />
               </button>
               <button type="button" onClick={() => onExcluir(categoria)} aria-label={`Excluir ${categoria.nome}`}>
-                🗑
+                <i className="bi bi-trash3" aria-hidden="true" />
               </button>
             </div>
           </div>
@@ -46,7 +53,7 @@ function Categorias() {
     try {
       const dados = await categoriaService.listar()
       setCategorias(dados)
-    } catch (erroRequisicao) {
+    } catch {
       setErro('Não foi possível carregar as categorias.')
     } finally {
       setCarregando(false)
@@ -54,7 +61,15 @@ function Categorias() {
   }
 
   useEffect(() => {
-    carregarCategorias()
+    const carregarComPredefinidas = async () => {
+      try {
+        await categoriaService.adicionarPredefinidas()
+      } catch {
+        // usuário mantém só as categorias que já tinha se essa chamada falhar
+      }
+      await carregarCategorias()
+    }
+    carregarComPredefinidas()
   }, [])
 
   const categoriasReceita = useMemo(() => categorias.filter((c) => c.tipo === 'RECEITA'), [categorias])
@@ -75,11 +90,11 @@ function Categorias() {
     setCategoriaEmEdicao(null)
   }
 
-  const handleSalvar = async ({ nome, tipo }) => {
+  const handleSalvar = async ({ nome, tipo, icone, cor }) => {
     if (categoriaEmEdicao) {
-      await categoriaService.atualizar(categoriaEmEdicao.id, { nome, tipo })
+      await categoriaService.atualizar(categoriaEmEdicao.id, { nome, tipo, icone, cor })
     } else {
-      await categoriaService.criar({ nome, tipo })
+      await categoriaService.criar({ nome, tipo, icone, cor })
     }
     fecharModal()
     setErro('')
@@ -92,7 +107,7 @@ function Categorias() {
       await carregarCategorias()
       setCategoriaParaExcluir(null)
     } catch (erroRequisicao) {
-      setErro('Não foi possível excluir a categoria.')
+      setErro(mensagemDeErro(erroRequisicao, 'Não foi possível excluir a categoria.'))
       setCategoriaParaExcluir(null)
     }
   }
@@ -113,7 +128,19 @@ function Categorias() {
       ) : null}
 
       {carregando ? (
-        <p>Carregando...</p>
+        <Carregando rotulo="Carregando categorias" className={styles.colunas}>
+          {['Categorias de Receita', 'Categorias de Despesa'].map((titulo, coluna) => (
+            <div key={titulo} className={styles.coluna}>
+              <h2 className={coluna === 0 ? styles.tituloReceita : styles.tituloDespesa}>{titulo}</h2>
+              {[55, 40, 62, 48, 35].map((largura) => (
+                <div key={largura} className={styles.itemCategoria}>
+                  <Esqueleto circulo altura={28} />
+                  <Esqueleto largura={`${largura}%`} />
+                </div>
+              ))}
+            </div>
+          ))}
+        </Carregando>
       ) : (
         <div className={styles.colunas}>
           <ColunaCategorias

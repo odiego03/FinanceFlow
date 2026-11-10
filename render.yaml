@@ -1,0 +1,39 @@
+# Blueprint do Render: o backend como Web Service Docker. Passo a passo em docs/deploy.md
+# As variáveis com "sync: false" são preenchidas no painel do Render ao criar o Blueprint (nunca aqui)
+services:
+  - type: web
+    name: financeflow-backend
+    runtime: docker
+    plan: free
+    # Mesma região do banco no Neon (us-east-2), pra cada consulta não atravessar o país
+    region: ohio
+    # Caminhos a partir da raiz do repositório (sem rootDir, que muda a referência deles)
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    # Só publica de novo quando o backend muda
+    buildFilter:
+      paths:
+        - backend/**
+    healthCheckPath: /actuator/health
+    autoDeploy: true
+    branch: main
+    envVars:
+      - key: PGHOST
+        sync: false
+      - key: PGDATABASE
+        sync: false
+      - key: PGUSER
+        sync: false
+      - key: PGPASSWORD
+        sync: false
+      # Gerada pelo próprio Render (aleatória, com mais de 32 caracteres)
+      - key: JWT_SECRET
+        generateValue: true
+      # Endereço do frontend na Vercel, ex: https://financeflow.vercel.app
+      - key: CORS_ORIGENS
+        sync: false
+      # E-mail do "esqueci minha senha" pela API do Brevo (o Render grátis bloqueia SMTP)
+      - key: BREVO_API_KEY
+        sync: false
+      - key: MAIL_REMETENTE
+        sync: false

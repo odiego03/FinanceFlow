@@ -1,0 +1,33 @@
+.lista {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  font-size: 0.85rem;
+}
+
+.lista li {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.pendente {
+  color: var(--texto-suave);
+}
+
+.atendido {
+  color: var(--sucesso-texto);
+  font-weight: 600;
+}
+
+.somenteLeitor {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}

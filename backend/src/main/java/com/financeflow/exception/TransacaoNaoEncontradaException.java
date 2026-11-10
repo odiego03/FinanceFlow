@@ -1,8 +1,10 @@
 package com.financeflow.exception;
 
-public class TransacaoNaoEncontradaException extends RuntimeException {
+import org.springframework.http.HttpStatus;
+
+public class TransacaoNaoEncontradaException extends NegocioException {
 
     public TransacaoNaoEncontradaException(Long id) {
-        super("transação não encontrada: " + id);
+        super("transação não encontrada: " + id, HttpStatus.NOT_FOUND);
     }
 }
