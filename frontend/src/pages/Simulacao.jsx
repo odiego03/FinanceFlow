@@ -172,9 +172,11 @@ function SeloInflacao({ cenario }) {
 function Simulacao() {
   const { preferencias, formatarMoeda } = usePreferencias()
   const [modo, setModo] = useState(MODO_RESULTADO)
-  const [valorInicial, setValorInicial] = useState('1000')
-  const [aporteMensal, setAporteMensal] = useState('200')
-  const [valorObjetivo, setValorObjetivo] = useState('20000')
+  // Valores em branco (só o placeholder aparece): quem decide quanto investir é o usuário. Prazo e % do CDI já vêm
+  // das preferências dele
+  const [valorInicial, setValorInicial] = useState('')
+  const [aporteMensal, setAporteMensal] = useState('')
+  const [valorObjetivo, setValorObjetivo] = useState('')
   const [prazoMeses, setPrazoMeses] = useState(String(preferencias.simuladorPrazoMeses))
   const [percentualCdi, setPercentualCdi] = useState(String(preferencias.simuladorPercentualCdi))
   const [editado, setEditado] = useState(false)
@@ -212,22 +214,21 @@ function Simulacao() {
     }
   }, [])
 
-  // A página já abre com uma simulação; se as preferências chegarem depois (reload direto aqui) e o usuário ainda
-  // não mexeu em nada, refaz com o prazo e o % do CDI dele
+  // Se as preferências chegarem depois (reload direto aqui) e o usuário ainda não mexeu em nada, usa o prazo e o %
+  // do CDI dele. Não simula sozinho: a página abre sem resultado até o usuário preencher e clicar em Simular
   useEffect(() => {
     if (editado) return
     setPrazoMeses(String(preferencias.simuladorPrazoMeses))
     setPercentualCdi(String(preferencias.simuladorPercentualCdi))
-    simularResultado({
-      inicial: 1000,
-      aporte: 200,
-      prazo: preferencias.simuladorPrazoMeses,
-      cdi: preferencias.simuladorPercentualCdi,
-    })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [preferencias.simuladorPrazoMeses, preferencias.simuladorPercentualCdi, simularResultado])
+  }, [preferencias.simuladorPrazoMeses, preferencias.simuladorPercentualCdi])
 
   useEffect(() => {
+    // As taxas do topo (Selic, CDI, poupança, IPCA) aparecem já na abertura, sem precisar simular
+    simulacaoService
+      .taxas()
+      .then(setTaxas)
+      .catch(() => setTaxas(null))
     parcelamentoService
       .sugestao()
       .then(setSobra)
@@ -587,6 +588,10 @@ function Simulacao() {
       ) : null}
 
       {simulando && (modo === MODO_META ? !resultadoMeta : !resultado) ? <CenariosEsqueleto /> : null}
+
+      {!simulando && !erro && (modo === MODO_META ? !resultadoMeta : !resultado) ? (
+        <p className={styles.resumo}>Preencha os campos acima e clique em simular para ver o resultado.</p>
+      ) : null}
 
       {modo === MODO_META && resultadoMeta ? (
         <>
