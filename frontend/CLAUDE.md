@@ -78,19 +78,50 @@ toda requisição.
 - O login mostra a mensagem do backend só no bloqueio por tentativas
   (`429`); senha errada continua com o texto genérico.
 - **Senha forte e e-mail** (`utils/validacao.js`, as mesmas regras do
-  backend): o cadastro e a troca de senha exigem pelo menos 6
+  backend): o cadastro e a redefinição de senha exigem pelo menos 6
   caracteres, uma maiúscula e um número. `components/RequisitosSenha`
   mostra cada requisito marcado (ícone + texto) enquanto a pessoa
   digita. O cadastro também confere o formato `nome@dominio.com` antes
   de enviar. A aba de login não valida nada disso, pra conta antiga com
   senha fraca continuar entrando.
-- **Esqueci minha senha** (`components/RedefinirSenha.jsx`, aberto pelo
-  link abaixo da senha na aba Login; usa os estilos de
-  `Login.module.css`): etapa 1 pede o e-mail (`POST /senha/esqueci`) e
-  mostra um texto que não diz se a conta existe; etapa 2 pede o código
-  de 6 números, a nova senha (com `RequisitosSenha`) e a confirmação
-  (`POST /senha/redefinir`). "Mandar outro código" pede de novo. Ao
-  concluir, volta pro login com o e-mail preenchido e um aviso verde.
+- **Confirmação de e-mail no cadastro:** o cadastro **não faz login
+  automático**. `Login.jsx` abre `components/ConfirmacaoPendente.jsx`
+  ("Confirme seu e-mail", com o e-mail digitado e o botão "Reenviar
+  e-mail de confirmação"), que também aparece quando o login volta
+  `403` (senha certa, conta ainda não confirmada). O botão de reenviar
+  usa a mesma contagem de 1 minuto da redefinição
+  (`utils/useEsperaReenvio.js`): no pós-cadastro já nasce em espera, no
+  `403` fica liberado (o backend ignora pedidos com menos de 1 minuto).
+  O botão "Confirmar conta" do e-mail abre `pages/ConfirmarConta.jsx`
+  (rota pública `/confirmar-conta?token=`), que chama
+  `POST /usuarios/confirmar-email` ao carregar e mostra "Conta
+  confirmada" + "Ir para o login", ou o erro de link inválido/expirado.
+  Um `useRef` evita a segunda chamada do efeito no modo de
+  desenvolvimento do React, que gastaria o token e mostraria erro.
+- **Redefinir senha** (`components/RedefinirSenha.jsx`; usa os estilos
+  de `Login.module.css`), em 3 etapas: 1) e-mail (`POST /senha/esqueci`),
+  com um texto que não diz se a conta existe; 2) **só o código** de 6
+  números, conferido em `POST /senha/verificar`; 3) tela "Nova senha"
+  (com `RequisitosSenha` e confirmação), que chama
+  `POST /senha/redefinir` com o código já digitado. Se o código expirar
+  entre as etapas 2 e 3, volta pra etapa 2 com o erro.
+  - **Reenviar código:** na etapa 2, o botão fica desabilitado por 1
+    minuto a cada pedido, com a contagem regressiva no próprio botão
+    ("Reenviar código (0:45)"). O primeiro envio também conta, porque o
+    backend ignora pedidos com menos de 1 minuto do anterior. A conta
+    usa o relógio (`Date.now`), não a contagem de ticks, pra aba em
+    segundo plano não esticar a espera. Se o reenvio falha, não começa
+    a contar.
+  - Dois pontos de entrada: o link "Esqueci minha senha" da aba Login
+    (dentro do cartão do Login, começa na etapa 1) e o botão "Trocar
+    senha" de Configurações (ver abaixo), que abre
+    `pages/RedefinirSenhaConta.jsx` na rota `/redefinir-senha`
+    (protegida, fora do `Layout`) já na etapa 2, com o código enviado.
+    Props do componente: `codigoJaEnviado`, `rotuloVoltar`,
+    `onConcluir`, `onVoltar`.
+  - Ao concluir pelo Login, volta pro login com o e-mail preenchido e
+    um aviso verde; pelas Configurações, volta pra aba Meu perfil com o
+    aviso "Senha alterada" (via `state` da navegação, limpo em seguida).
 - `mensagemDeErro` também junta os motivos de um `400` de validação
   (`{"campo": "motivo"}`), que não vem em `mensagem`.
 - **Mensagens de erro**: `mensagemDeErro(erro, padrao)` em
@@ -431,8 +462,11 @@ futuras (ver `backend/CLAUDE.md`).
   numa coluna à esquerda; abaixo de 860px viram uma faixa horizontal.
   - **Meu perfil**: edita o nome (o `AuthContext` tem
     `atualizarUsuario` pra saudação mudar na hora), mostra o e-mail
-    desabilitado e a data de criação da conta, troca de senha (atual,
-    nova e confirmação) e botão Sair.
+    desabilitado e a data de criação da conta, a seção **Senha** e o
+    botão Sair. Não há mais troca de senha digitando a senha atual: o
+    botão "Trocar senha" manda um código de 6 números pro e-mail da
+    conta (`POST /senha/esqueci`) e leva pra `/redefinir-senha`, na
+    etapa de digitar o código.
   - **Aparência e privacidade**: tema (Claro / Escuro / Automático) e
     ocultar valores. Os dois salvam no clique, sem botão.
   - **Alertas e simulador**: limites do comprometimento e padrões do

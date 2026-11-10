@@ -1,6 +1,7 @@
 package com.financeflow.service;
 
 import com.financeflow.dto.RedefinirSenhaRequisicao;
+import com.financeflow.dto.VerificarCodigoRequisicao;
 import com.financeflow.exception.CodigoRedefinicaoInvalidoException;
 import com.financeflow.model.CodigoRedefinicaoSenha;
 import com.financeflow.model.Usuario;
@@ -79,10 +80,29 @@ public class RedefinicaoSenhaService {
         envioEmail.enviarCodigoRedefinicao(usuario.getEmail(), usuario.getNome(), codigo, VALIDADE.toMinutes());
     }
 
+    /**
+     * Passo de "confirmar o código" da tela: só confere, não troca a senha nem gasta o código (a troca confere de
+     * novo em {@link #redefinir}). Código errado gasta uma das 5 tentativas, igual na redefinição.
+     */
     // Sem rollback no código errado: a tentativa gasta tem que ficar gravada
     @Transactional(noRollbackFor = CodigoRedefinicaoInvalidoException.class)
+    public void verificar(VerificarCodigoRequisicao requisicao) {
+        localizarUsuarioDoCodigo(requisicao.email(), requisicao.codigo());
+    }
+
+    @Transactional(noRollbackFor = CodigoRedefinicaoInvalidoException.class)
     public void redefinir(RedefinirSenhaRequisicao requisicao) {
-        String email = UsuarioService.normalizarEmail(requisicao.email());
+        Usuario usuario = localizarUsuarioDoCodigo(requisicao.email(), requisicao.codigo());
+
+        usuario.setSenhaHash(codificador.encode(requisicao.novaSenha()));
+        repositorioUsuario.save(usuario);
+        repositorioCodigo.deleteByUsuarioId(usuario.getId());
+        // Quem acabou de provar que é dono do email não deve continuar bloqueado no login
+        limitadorLogin.registrarSucesso(UsuarioService.normalizarEmail(usuario.getEmail()));
+    }
+
+    private Usuario localizarUsuarioDoCodigo(String emailInformado, String codigoInformado) {
+        String email = UsuarioService.normalizarEmail(emailInformado);
         // Lista pelo mesmo motivo do login: contas antigas podem diferir só na caixa do email
         List<Usuario> usuarios = repositorioUsuario.findAllByEmailIgnoreCase(email);
         LocalDateTime agora = LocalDateTime.now();
@@ -95,18 +115,12 @@ public class RedefinicaoSenhaService {
                 continue;
             }
             CodigoRedefinicaoSenha codigo = ativo.get();
-            if (!codificador.matches(requisicao.codigo(), codigo.getCodigoHash())) {
+            if (!codificador.matches(codigoInformado, codigo.getCodigoHash())) {
                 codigo.setTentativas(codigo.getTentativas() + 1);
                 repositorioCodigo.save(codigo);
                 continue;
             }
-
-            usuario.setSenhaHash(codificador.encode(requisicao.novaSenha()));
-            repositorioUsuario.save(usuario);
-            repositorioCodigo.deleteByUsuarioId(usuario.getId());
-            // Quem acabou de provar que é dono do email não deve continuar bloqueado no login
-            limitadorLogin.registrarSucesso(UsuarioService.normalizarEmail(usuario.getEmail()));
-            return;
+            return usuario;
         }
         throw new CodigoRedefinicaoInvalidoException();
     }

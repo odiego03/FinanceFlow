@@ -4,6 +4,7 @@ import com.financeflow.dto.EsqueciSenhaRequisicao;
 import com.financeflow.dto.LoginRequisicao;
 import com.financeflow.dto.LoginResposta;
 import com.financeflow.dto.RedefinirSenhaRequisicao;
+import com.financeflow.dto.VerificarCodigoRequisicao;
 import com.financeflow.service.AutenticacaoService;
 import com.financeflow.service.RedefinicaoSenhaService;
 import jakarta.validation.Valid;
@@ -32,6 +33,13 @@ public class AutenticacaoController {
     @PostMapping("/senha/esqueci")
     public ResponseEntity<Void> esqueciSenha(@Valid @RequestBody EsqueciSenhaRequisicao requisicao) {
         redefinicaoSenhaService.solicitar(requisicao.email());
+        return ResponseEntity.noContent().build();
+    }
+
+    // 204 se o código confere, o mesmo 400 de /senha/redefinir se não; não troca a senha
+    @PostMapping("/senha/verificar")
+    public ResponseEntity<Void> verificarCodigo(@Valid @RequestBody VerificarCodigoRequisicao requisicao) {
+        redefinicaoSenhaService.verificar(requisicao);
         return ResponseEntity.noContent().build();
     }
 

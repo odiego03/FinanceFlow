@@ -29,6 +29,10 @@ public class Usuario {
     @Column(name = "criado_em", nullable = false, updatable = false)
     private LocalDateTime criadoEm;
 
+    // Conta nova só entra depois de confirmar o e-mail (VerificacaoEmailService)
+    @Column(name = "email_verificado", nullable = false)
+    private boolean emailVerificado;
+
     public Long getId() {
         return id;
     }
@@ -67,5 +71,13 @@ public class Usuario {
 
     public void setCriadoEm(LocalDateTime criadoEm) {
         this.criadoEm = criadoEm;
+    }
+
+    public boolean isEmailVerificado() {
+        return emailVerificado;
+    }
+
+    public void setEmailVerificado(boolean emailVerificado) {
+        this.emailVerificado = emailVerificado;
     }
 }

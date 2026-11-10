@@ -20,13 +20,14 @@ export async function atualizarNome(nome) {
   return data
 }
 
-export async function trocarSenha(senhaAtual, novaSenha) {
-  await api.put('/usuarios/me/senha', { senhaAtual, novaSenha })
-}
-
 // Sempre 204, exista a conta ou não: o backend manda o código só se o email tiver conta
 export async function solicitarCodigoRedefinicao(email) {
   await api.post('/senha/esqueci', { email })
+}
+
+// 204 se o código confere; só confere, a senha só muda em redefinirSenha
+export async function verificarCodigoRedefinicao(email, codigo) {
+  await api.post('/senha/verificar', { email, codigo })
 }
 
 export async function redefinirSenha(email, codigo, novaSenha) {
@@ -46,4 +47,14 @@ export async function salvarPreferencias(preferencias) {
 export async function marcarTutorial(concluido) {
   const { data } = await api.put('/usuarios/me/preferencias/tutorial', { concluido })
   return data
+}
+
+// 204 se o link do e-mail é válido; 400 se inválido, expirado ou já usado
+export async function confirmarEmail(token) {
+  await api.post('/usuarios/confirmar-email', { token })
+}
+
+// Sempre 204, exista a conta ou não (e já confirmada ou não): o backend só manda o e-mail se for o caso
+export async function reenviarConfirmacao(email) {
+  await api.post('/usuarios/reenviar-confirmacao', { email })
 }

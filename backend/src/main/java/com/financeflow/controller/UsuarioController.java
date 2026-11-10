@@ -1,14 +1,16 @@
 package com.financeflow.controller;
 
+import com.financeflow.dto.ConfirmarEmailRequisicao;
 import com.financeflow.dto.PreferenciasRequisicao;
 import com.financeflow.dto.PreferenciasResposta;
-import com.financeflow.dto.TrocaSenhaRequisicao;
+import com.financeflow.dto.ReenviarConfirmacaoRequisicao;
 import com.financeflow.dto.TutorialRequisicao;
 import com.financeflow.dto.UsuarioAtualizacaoRequisicao;
 import com.financeflow.dto.UsuarioCadastroRequisicao;
 import com.financeflow.dto.UsuarioResposta;
 import com.financeflow.service.PreferenciasService;
 import com.financeflow.service.UsuarioService;
+import com.financeflow.service.VerificacaoEmailService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -26,16 +28,33 @@ public class UsuarioController {
 
     private final UsuarioService usuarioService;
     private final PreferenciasService preferenciasService;
+    private final VerificacaoEmailService verificacaoEmailService;
 
-    public UsuarioController(UsuarioService usuarioService, PreferenciasService preferenciasService) {
+    public UsuarioController(UsuarioService usuarioService, PreferenciasService preferenciasService,
+                             VerificacaoEmailService verificacaoEmailService) {
         this.usuarioService = usuarioService;
         this.preferenciasService = preferenciasService;
+        this.verificacaoEmailService = verificacaoEmailService;
     }
 
     @PostMapping
     public ResponseEntity<UsuarioResposta> cadastrar(@Valid @RequestBody UsuarioCadastroRequisicao requisicao) {
         UsuarioResposta resposta = usuarioService.cadastrar(requisicao);
         return ResponseEntity.status(HttpStatus.CREATED).body(resposta);
+    }
+
+    // Público: é o botão do e-mail (via página do frontend) que chama. 204 ou 400 de link inválido/expirado/já usado
+    @PostMapping("/confirmar-email")
+    public ResponseEntity<Void> confirmarEmail(@Valid @RequestBody ConfirmarEmailRequisicao requisicao) {
+        verificacaoEmailService.confirmar(requisicao.token());
+        return ResponseEntity.noContent().build();
+    }
+
+    // Público. Sempre 204, exista a conta ou não (e já confirmada ou não): não revela quem está cadastrado
+    @PostMapping("/reenviar-confirmacao")
+    public ResponseEntity<Void> reenviarConfirmacao(@Valid @RequestBody ReenviarConfirmacaoRequisicao requisicao) {
+        verificacaoEmailService.reenviar(requisicao.email());
+        return ResponseEntity.noContent().build();
     }
 
     @GetMapping("/me")
@@ -47,13 +66,6 @@ public class UsuarioController {
     public UsuarioResposta atualizar(@Valid @RequestBody UsuarioAtualizacaoRequisicao requisicao,
                                      Authentication autenticacao) {
         return usuarioService.atualizar(requisicao, autenticacao.getName());
-    }
-
-    @PutMapping("/me/senha")
-    public ResponseEntity<Void> trocarSenha(@Valid @RequestBody TrocaSenhaRequisicao requisicao,
-                                            Authentication autenticacao) {
-        usuarioService.trocarSenha(requisicao, autenticacao.getName());
-        return ResponseEntity.noContent().build();
     }
 
     @GetMapping("/me/preferencias")

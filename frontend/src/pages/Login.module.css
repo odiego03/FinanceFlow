@@ -163,6 +163,14 @@
   text-decoration: underline;
 }
 
+/* Ex.: "Reenviar código (0:45)" enquanto a contagem não termina */
+.link:disabled {
+  color: var(--texto-suave);
+  cursor: not-allowed;
+  text-decoration: none;
+  font-variant-numeric: tabular-nums;
+}
+
 /* Esqueci minha senha (components/RedefinirSenha.jsx usa estes estilos também) */
 .linkEsqueci {
   align-self: flex-end;

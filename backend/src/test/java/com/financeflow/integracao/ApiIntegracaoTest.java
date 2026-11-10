@@ -2,6 +2,10 @@ package com.financeflow.integracao;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.financeflow.model.TokenVerificacaoEmail;
+import com.financeflow.model.Usuario;
+import com.financeflow.repository.TokenVerificacaoEmailRepository;
+import com.financeflow.repository.UsuarioRepository;
 import com.financeflow.service.EnvioEmailService;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -15,6 +19,8 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 
+import java.time.Duration;
+import java.time.LocalDateTime;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -22,6 +28,7 @@ import static org.hamcrest.Matchers.containsString;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -49,7 +56,13 @@ class ApiIntegracaoTest {
     @Autowired
     private ObjectMapper objectMapper;
 
-    // Sem SMTP nos testes: o mock guarda o código que seria mandado por e-mail
+    @Autowired
+    private UsuarioRepository repositorioUsuario;
+
+    @Autowired
+    private TokenVerificacaoEmailRepository repositorioToken;
+
+    // Sem SMTP nos testes: o mock guarda o código (ou o link) que seria mandado por e-mail
     @MockBean
     private EnvioEmailService envioEmail;
 
@@ -191,15 +204,129 @@ class ApiIntegracaoTest {
     }
 
     @Test
-    void trocaDeSenhaTambemExigeSenhaForte() throws Exception {
-        String token = novoUsuario();
-        enviar(put("/usuarios/me/senha"), token, """
-                {"senhaAtual": "%s", "novaSenha": "fraca1"}""".formatted(SENHA_VALIDA))
+    void contaNovaNaoEntraAntesDeConfirmarOEmail() throws Exception {
+        String email = emailAleatorio();
+        cadastrarSemConfirmar(email, SENHA_VALIDA);
+
+        // Senha certa mas e-mail não confirmado: 403, e é por isso que a tela oferece reenviar o e-mail
+        enviar(post("/login"), null, corpoLogin(email, SENHA_VALIDA))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.mensagem").value(containsString("confirme seu e-mail")));
+        // Senha errada continua 401 igual a qualquer conta: não revela que a conta existe nem que não foi confirmada
+        enviar(post("/login"), null, corpoLogin(email, "Errada1")).andExpect(status().isUnauthorized());
+
+        confirmarEmail(tokenDeConfirmacaoEnviadoPara(email));
+        login(email, SENHA_VALIDA);
+    }
+
+    @Test
+    void linkDeConfirmacaoInvalidoOuJaUsadoDa400() throws Exception {
+        String email = emailAleatorio();
+        cadastrarSemConfirmar(email, SENHA_VALIDA);
+        String token = tokenDeConfirmacaoEnviadoPara(email);
+
+        enviar(post("/usuarios/confirmar-email"), null, corpoToken("token-que-nao-existe"))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.novaSenha").exists());
+                .andExpect(jsonPath("$.mensagem").value(containsString("link de confirmação inválido")));
+        confirmarEmail(token);
+        // O link só vale uma vez
+        enviar(post("/usuarios/confirmar-email"), null, corpoToken(token)).andExpect(status().isBadRequest());
+        enviar(post("/usuarios/confirmar-email"), null, "{}").andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void linkDeConfirmacaoExpiradoDa400EOReenvioGeraOutro() throws Exception {
+        String email = emailAleatorio();
+        cadastrarSemConfirmar(email, SENHA_VALIDA);
+        String tokenExpirado = tokenDeConfirmacaoEnviadoPara(email);
+        envelhecerToken(email, Duration.ofHours(24).plusMinutes(1));
+
+        enviar(post("/usuarios/confirmar-email"), null, corpoToken(tokenExpirado)).andExpect(status().isBadRequest());
+
+        // Passou mais de 1 minuto do envio anterior, então o reenvio gera um link novo
+        enviar(post("/usuarios/reenviar-confirmacao"), null, corpoEmail(email)).andExpect(status().isNoContent());
+        verify(envioEmail, times(2)).enviarConfirmacaoConta(eq(email), any(), any(), anyLong());
+        confirmarEmail(tokenDeConfirmacaoEnviadoPara(email));
+        login(email, SENHA_VALIDA);
+    }
+
+    @Test
+    void reenviarConfirmacaoNaoRevelaContaEEsperaUmMinutoEInvalidaOLinkAnterior() throws Exception {
+        // Sem conta: mesma resposta e nenhum e-mail
+        String semConta = emailAleatorio();
+        enviar(post("/usuarios/reenviar-confirmacao"), null, corpoEmail(semConta)).andExpect(status().isNoContent());
+        verify(envioEmail, never()).enviarConfirmacaoConta(eq(semConta), any(), any(), anyLong());
+
+        String email = emailAleatorio();
+        cadastrarSemConfirmar(email, SENHA_VALIDA);
+        String primeiro = tokenDeConfirmacaoEnviadoPara(email);
+
+        // Menos de 1 minuto depois do e-mail do cadastro: ignorado em silêncio
+        enviar(post("/usuarios/reenviar-confirmacao"), null, corpoEmail(email)).andExpect(status().isNoContent());
+        verify(envioEmail, times(1)).enviarConfirmacaoConta(eq(email), any(), any(), anyLong());
+
+        // Passado 1 minuto, sai outro e o anterior deixa de valer
+        envelhecerToken(email, Duration.ofMinutes(2));
+        enviar(post("/usuarios/reenviar-confirmacao"), null, corpoEmail(email)).andExpect(status().isNoContent());
+        verify(envioEmail, times(2)).enviarConfirmacaoConta(eq(email), any(), any(), anyLong());
+        enviar(post("/usuarios/confirmar-email"), null, corpoToken(primeiro)).andExpect(status().isBadRequest());
+        confirmarEmail(tokenDeConfirmacaoEnviadoPara(email));
+
+        // Conta já confirmada: nada é enviado
+        enviar(post("/usuarios/reenviar-confirmacao"), null, corpoEmail(email)).andExpect(status().isNoContent());
+        verify(envioEmail, times(2)).enviarConfirmacaoConta(eq(email), any(), any(), anyLong());
+    }
+
+    @Test
+    void naoExisteTrocaDeSenhaSemCodigoDoEmail() throws Exception {
+        String email = emailAleatorio();
+        cadastrar(email, SENHA_VALIDA);
+        String token = login(email, SENHA_VALIDA);
+
         enviar(put("/usuarios/me/senha"), token, """
                 {"senhaAtual": "%s", "novaSenha": "NovaSenha9"}""".formatted(SENHA_VALIDA))
-                .andExpect(status().is2xxSuccessful());
+                .andExpect(status().isNotFound());
+        login(email, SENHA_VALIDA);
+    }
+
+    @Test
+    void verificarCodigoConfereSemTrocarASenhaNemGastarOCodigo() throws Exception {
+        String email = emailAleatorio();
+        cadastrar(email, SENHA_VALIDA);
+        enviar(post("/senha/esqueci"), null, corpoEmail(email)).andExpect(status().isNoContent());
+        String codigo = codigoEnviadoPara(email);
+
+        enviar(post("/senha/verificar"), null, corpoVerificar(email, codigo)).andExpect(status().isNoContent());
+        enviar(post("/senha/verificar"), null, corpoVerificar(email, codigo)).andExpect(status().isNoContent());
+        // Só conferiu: a senha antiga continua valendo e o código ainda serve pra redefinir
+        login(email, SENHA_VALIDA);
+        enviar(post("/senha/redefinir"), null, corpoRedefinir(email, codigo, "Redefinida7")).andExpect(status().isNoContent());
+        login(email, "Redefinida7");
+    }
+
+    @Test
+    void verificarCodigoErradoGastaTentativasEBloqueiaDepoisDeCinco() throws Exception {
+        String email = emailAleatorio();
+        cadastrar(email, SENHA_VALIDA);
+        enviar(post("/senha/esqueci"), null, corpoEmail(email)).andExpect(status().isNoContent());
+        String codigo = codigoEnviadoPara(email);
+        String errado = codigo.equals("000000") ? "111111" : "000000";
+
+        for (int i = 0; i < 5; i++) {
+            enviar(post("/senha/verificar"), null, corpoVerificar(email, errado))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.mensagem").value(containsString("código inválido")));
+        }
+        // Esgotadas as 5 tentativas, nem o código certo passa
+        enviar(post("/senha/verificar"), null, corpoVerificar(email, codigo)).andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void verificarCodigoDeEmailSemContaDaOMesmoErroDeCodigoErrado() throws Exception {
+        enviar(post("/senha/verificar"), null, corpoVerificar(emailAleatorio(), "123456"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.mensagem").value(containsString("código inválido")));
+        enviar(post("/senha/verificar"), null, corpoVerificar(emailAleatorio(), "12ab56")).andExpect(status().isBadRequest());
     }
 
     @Test
@@ -263,6 +390,11 @@ class ApiIntegracaoTest {
                 {"email": "%s"}""".formatted(email);
     }
 
+    private String corpoVerificar(String email, String codigo) {
+        return """
+                {"email": "%s", "codigo": "%s"}""".formatted(email, codigo);
+    }
+
     private String corpoRedefinir(String email, String codigo, String novaSenha) {
         return """
                 {"email": "%s", "codigo": "%s", "novaSenha": "%s"}""".formatted(email, codigo, novaSenha);
@@ -274,8 +406,43 @@ class ApiIntegracaoTest {
         return login(email, SENHA_VALIDA);
     }
 
+    // Cadastra e já confirma o e-mail, que é o que a maioria dos testes precisa pra conseguir entrar
     private void cadastrar(String email, String senha) throws Exception {
+        cadastrarSemConfirmar(email, senha);
+        confirmarEmail(tokenDeConfirmacaoEnviadoPara(email));
+    }
+
+    private void cadastrarSemConfirmar(String email, String senha) throws Exception {
         enviar(post("/usuarios"), null, corpoCadastro(email, senha)).andExpect(status().isCreated());
+    }
+
+    // O token do último link de confirmação "mandado" pro e-mail (o EnvioEmailService é um mock). O sistema grava e
+    // usa o e-mail em minúsculas, então é assim que o link foi endereçado
+    private String tokenDeConfirmacaoEnviadoPara(String email) {
+        ArgumentCaptor<String> link = ArgumentCaptor.forClass(String.class);
+        verify(envioEmail, atLeastOnce()).enviarConfirmacaoConta(eq(email.toLowerCase()), any(), link.capture(), anyLong());
+        String ultimo = link.getAllValues().get(link.getAllValues().size() - 1);
+        assertThat(ultimo).contains("/confirmar-conta?token=");
+        return ultimo.substring(ultimo.indexOf("token=") + "token=".length());
+    }
+
+    private void confirmarEmail(String token) throws Exception {
+        enviar(post("/usuarios/confirmar-email"), null, corpoToken(token)).andExpect(status().isNoContent());
+    }
+
+    private String corpoToken(String token) {
+        return """
+                {"token": "%s"}""".formatted(token);
+    }
+
+    // Faz o último token da conta parecer criado há `tempo` (e já expirado, se passou de 24 horas), sem esperar de verdade
+    private void envelhecerToken(String email, Duration tempo) {
+        Usuario usuario = repositorioUsuario.findAllByEmailIgnoreCase(email).get(0);
+        TokenVerificacaoEmail token = repositorioToken.findFirstByUsuarioIdOrderByCriadoEmDesc(usuario.getId()).orElseThrow();
+        LocalDateTime criadoEm = LocalDateTime.now().minus(tempo);
+        token.setCriadoEm(criadoEm);
+        token.setExpiraEm(criadoEm.plusHours(24));
+        repositorioToken.save(token);
     }
 
     private String corpoCadastro(String email, String senha) {
