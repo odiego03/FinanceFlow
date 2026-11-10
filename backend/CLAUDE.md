@@ -353,8 +353,8 @@ do rodapé.
 
 ## 7. Sprint#3 — Escopo atual
 
-Foco principal: **importação automática de extrato** (CSV do Nubank ou
-Itaú) pra cadastrar Transações em lote, com uma camada de
+Foco principal: **importação automática de extrato** (CSV do Nubank, da
+conta ou da fatura do cartão; OFX ou CSV do Itaú) pra cadastrar Transações em lote, com uma camada de
 "categorização aprendida" que lembra qual categoria o usuário escolheu
 pra cada descrição de lançamento.
 
@@ -375,9 +375,11 @@ Regras importantes dessa feature:
   gravado sem o usuário confirmar. Sem fuzzy matching (distância de
   texto etc.) — os palpites são só por chave exata ou palavra inteira
   do dicionário, pra serem previsíveis.
-- Bancos suportados: **Nubank** e **Itaú**, cada um com seu parser
+- Bancos suportados: **Nubank** (CSV da conta e CSV da fatura do
+  cartão) e **Itaú** (OFX, recomendado, ou CSV), cada um com seu parser
   dedicado (layout nativo, não um formato CSV genérico) — usuário
-  escolhe o banco ao subir o arquivo.
+  escolhe o banco ao subir o arquivo. O `.xls` do Itaú **não** é lido
+  (o parser recusa e pede OFX).
 - Duplicata é detectada no preview e sinalizada — o frontend desmarca
   essas linhas por padrão, mas o usuário pode re-incluir manualmente.
   Linha **com** identificador (Nubank — coluna `Identificador`, UUID
@@ -853,6 +855,9 @@ batem com o banco (`ddl-auto=validate`) e não cria mais nada.
     de a senha conferir (senha errada continua `401`), pra não revelar
     se a conta existe nem se foi confirmada. Não é `401` porque o
     frontend trata qualquer `401` autenticado como sessão expirada.
+  - Entidade `TokenVerificacaoEmail` (repositório
+    `TokenVerificacaoEmailRepository`) e exceção
+    `TokenVerificacaoInvalidoException` (`400`).
   - O link é `<FRONTEND_URL>/confirmar-conta?token=...`, uma página do
     **frontend**, que chama `POST /usuarios/confirmar-email`. Assim um
     leitor de links de e-mail, que só abre a URL, não confirma a conta

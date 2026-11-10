@@ -26,7 +26,8 @@ Sempre na mesma pasta, nome em `PascalCase`.
 - Se o service do recurso ainda não existir, criar seguindo o
   padrão de `services/api.js` (instância Axios base já com o
   interceptor de token). Serviços atuais: `usuario`, `categoria`,
-  `transacao`, `meta`, `indicadorMercado`, `comprometimento`.
+  `transacao`, `meta`, `indicadorMercado`, `comprometimento`,
+  `parcelamento`, `simulacao`, `sugestao`, `relatorio`, `exclusao`.
 - Nos `catch`, mostrar o erro com `mensagemDeErro(erro, "texto padrão")`
   de `services/api.js` em vez de texto fixo — assim o motivo enviado
   pelo backend (ex: `409`, `400`) aparece para o usuário.
@@ -39,6 +40,11 @@ Sempre na mesma pasta, nome em `PascalCase`.
 - Consumir dados do usuário/token via `AuthContext`, nunca acessando
   `localStorage` diretamente no componente.
 
+## 4.1 Campos de senha
+
+Use `components/CampoSenha` (olho de mostrar/ocultar, nasce oculto) em
+vez de `<input type="password">` solto.
+
 ## 5. Nomenclatura de domínio
 
 Usar os mesmos nomes em português do backend (`usuario`, `categoria`,
@@ -47,8 +53,8 @@ Usar os mesmos nomes em português do backend (`usuario`, `categoria`,
 ## Antes de implementar
 
 Confirme com o usuário se a tela faz parte do escopo da Sprint atual
-(ver `frontend/CLAUDE.md`, seções "Sprint#1/#2/#3 — Telas"; a Sprint#3
-é a atual).
+(ver `frontend/CLAUDE.md`, seções "Sprint#1/#2/#3/#4 — Telas"; a
+Sprint#4 é a atual).
 
 Modais ficam em `src/components/` (`ModalNome.jsx` + `.module.css`) e
 reutilizam `ModalConfirmacao` para confirmações de exclusão.
