@@ -40,7 +40,8 @@ public class ConfiguracaoSeguranca {
                 .cors(cors -> cors.configurationSource(configuracaoCors()))
                 .sessionManagement(sessao -> sessao.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(requisicoes -> requisicoes
-                        .requestMatchers(HttpMethod.POST, "/usuarios", "/login", "/senha/esqueci", "/senha/redefinir").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/usuarios", "/usuarios/confirmar-email", "/usuarios/reenviar-confirmacao", "/login",
+                                "/senha/esqueci", "/senha/verificar", "/senha/redefinir").permitAll()
                         .requestMatchers(HttpMethod.GET, "/actuator/health").permitAll()
                         .anyRequest().authenticated())
                 // Sem isso o Spring responde 403 pra token ausente/expirado; 401 é o que o frontend usa pra deslogar

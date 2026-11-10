@@ -14,6 +14,7 @@ services:
       PGPASSWORD: ${PGPASSWORD}
       JWT_SECRET: ${JWT_SECRET:?defina JWT_SECRET no .env}
       CORS_ORIGENS: ${CORS_ORIGENS:-http://localhost:3000}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
       MAIL_HOST: ${MAIL_HOST:-}
       MAIL_PORTA: ${MAIL_PORTA:-587}
       MAIL_USUARIO: ${MAIL_USUARIO:-}

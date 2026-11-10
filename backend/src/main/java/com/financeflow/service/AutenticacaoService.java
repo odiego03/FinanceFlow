@@ -3,6 +3,7 @@ package com.financeflow.service;
 import com.financeflow.dto.LoginRequisicao;
 import com.financeflow.dto.LoginResposta;
 import com.financeflow.exception.CredenciaisInvalidasException;
+import com.financeflow.exception.EmailNaoVerificadoException;
 import com.financeflow.model.Usuario;
 import com.financeflow.repository.UsuarioRepository;
 import com.financeflow.security.LimitadorTentativasLogin;
@@ -41,6 +42,10 @@ public class AutenticacaoService {
         }
 
         limitadorTentativas.registrarSucesso(email);
+        // Só depois de conferir a senha: quem não sabe a senha não descobre se a conta existe nem se foi confirmada
+        if (!usuario.isEmailVerificado()) {
+            throw new EmailNaoVerificadoException();
+        }
         return new LoginResposta(provedorTokenJwt.gerarToken(usuario.getEmail()));
     }
 }

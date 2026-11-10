@@ -1,11 +1,9 @@
 package com.financeflow.service;
 
-import com.financeflow.dto.TrocaSenhaRequisicao;
 import com.financeflow.dto.UsuarioAtualizacaoRequisicao;
 import com.financeflow.dto.UsuarioCadastroRequisicao;
 import com.financeflow.dto.UsuarioResposta;
 import com.financeflow.exception.EmailJaCadastradoException;
-import com.financeflow.exception.SenhaAtualIncorretaException;
 import com.financeflow.model.Usuario;
 import com.financeflow.repository.UsuarioRepository;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -21,15 +19,18 @@ public class UsuarioService {
     private final UsuarioRepository repositorioUsuario;
     private final PasswordEncoder codificadorSenha;
     private final CategoriaService categoriaService;
+    private final VerificacaoEmailService verificacaoEmailService;
 
     public UsuarioService(UsuarioRepository repositorioUsuario, PasswordEncoder codificadorSenha,
-                           CategoriaService categoriaService) {
+                           CategoriaService categoriaService, VerificacaoEmailService verificacaoEmailService) {
         this.repositorioUsuario = repositorioUsuario;
         this.codificadorSenha = codificadorSenha;
         this.categoriaService = categoriaService;
+        this.verificacaoEmailService = verificacaoEmailService;
     }
 
-    // Transacional: se a semeadura das categorias falhar, o usuário não fica gravado pela metade
+    // Transacional: se a semeadura das categorias ou a criação do link de confirmação falhar, o usuário não fica
+    // gravado pela metade
     @Transactional
     public UsuarioResposta cadastrar(UsuarioCadastroRequisicao requisicao) {
         String email = normalizarEmail(requisicao.email());
@@ -42,9 +43,12 @@ public class UsuarioService {
         usuario.setEmail(email);
         usuario.setSenhaHash(codificadorSenha.encode(requisicao.senha()));
         usuario.setCriadoEm(LocalDateTime.now());
+        // Não entra até clicar no link do e-mail de confirmação
+        usuario.setEmailVerificado(false);
 
         repositorioUsuario.save(usuario);
         categoriaService.semearPredefinidas(usuario);
+        verificacaoEmailService.enviarParaNovoUsuario(usuario);
 
         return UsuarioResposta.de(usuario);
     }
@@ -58,15 +62,6 @@ public class UsuarioService {
         usuario.setNome(requisicao.nome().trim());
         repositorioUsuario.save(usuario);
         return UsuarioResposta.de(usuario);
-    }
-
-    public void trocarSenha(TrocaSenhaRequisicao requisicao, String email) {
-        Usuario usuario = repositorioUsuario.buscarDoToken(email);
-        if (!codificadorSenha.matches(requisicao.senhaAtual(), usuario.getSenhaHash())) {
-            throw new SenhaAtualIncorretaException();
-        }
-        usuario.setSenhaHash(codificadorSenha.encode(requisicao.novaSenha()));
-        repositorioUsuario.save(usuario);
     }
 
     // Email não diferencia maiúsculas: "Diego@x.com" e "diego@x.com" são a mesma conta

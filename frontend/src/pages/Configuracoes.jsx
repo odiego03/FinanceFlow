@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { PREFERENCIAS_PADRAO, usePreferencias } from '../contexts/PreferenciasContext'
 import { mensagemDeErro } from '../services/api'
@@ -8,8 +8,6 @@ import * as exclusaoService from '../services/exclusaoService'
 import * as transacaoService from '../services/transacaoService'
 import * as usuarioService from '../services/usuarioService'
 import { baixarCsv, CABECALHO_TRANSACOES, linhasDeTransacoes } from '../utils/csv'
-import { MENSAGEM_SENHA, senhaForte } from '../utils/validacao'
-import RequisitosSenha from '../components/RequisitosSenha'
 import styles from './Configuracoes.module.css'
 
 // Na exclusão os valores aparecem mesmo com "ocultar valores" ligado: quem vai apagar precisa ver o que apaga
@@ -136,76 +134,49 @@ function SecaoConta() {
 }
 
 function SecaoSenha() {
-  const [senhaAtual, setSenhaAtual] = useState('')
-  const [novaSenha, setNovaSenha] = useState('')
-  const [confirmacao, setConfirmacao] = useState('')
-  const [mensagem, setMensagem] = useState({ tipo: '', texto: '' })
-  const [salvando, setSalvando] = useState(false)
+  const { usuario } = useAuth()
+  const navigate = useNavigate()
+  const location = useLocation()
+  const [mensagem, setMensagem] = useState(
+    location.state?.senhaAlterada
+      ? { tipo: 'sucesso', texto: 'Senha alterada. Use a nova senha no próximo login.' }
+      : { tipo: '', texto: '' },
+  )
+  const [enviando, setEnviando] = useState(false)
 
-  const handleSubmit = async (event) => {
-    event.preventDefault()
-    if (!senhaForte(novaSenha)) {
-      setMensagem({ tipo: 'erro', texto: MENSAGEM_SENHA })
-      return
+  // O aviso veio do state da navegação (tela de redefinição): limpa pra não reaparecer ao recarregar a página
+  useEffect(() => {
+    if (location.state?.senhaAlterada) {
+      navigate(`${location.pathname}${location.search}`, { replace: true, state: null })
     }
-    if (novaSenha !== confirmacao) {
-      setMensagem({ tipo: 'erro', texto: 'A confirmação não bate com a nova senha.' })
-      return
-    }
-    setSalvando(true)
+  }, [location, navigate])
+
+  // Não troca a senha aqui: manda o código pro e-mail da conta e segue pra tela de confirmação do código
+  const trocarSenha = async () => {
+    setMensagem({ tipo: '', texto: '' })
+    setEnviando(true)
     try {
-      await usuarioService.trocarSenha(senhaAtual, novaSenha)
-      setSenhaAtual('')
-      setNovaSenha('')
-      setConfirmacao('')
-      setMensagem({ tipo: 'sucesso', texto: 'Senha alterada. Use a nova senha no próximo login.' })
+      await usuarioService.solicitarCodigoRedefinicao(usuario.email)
+      navigate('/redefinir-senha', { state: { email: usuario.email, codigoEnviado: true } })
     } catch (erro) {
-      setMensagem({ tipo: 'erro', texto: mensagemDeErro(erro, 'Não foi possível trocar a senha.') })
+      setMensagem({ tipo: 'erro', texto: mensagemDeErro(erro, 'Não foi possível enviar o código. Tente de novo.') })
     } finally {
-      setSalvando(false)
+      setEnviando(false)
     }
   }
 
   return (
     <section className={styles.secao}>
-      <h2>Trocar senha</h2>
-      <form onSubmit={handleSubmit} className={styles.formulario}>
-        <label className={styles.campo}>
-          <span>Senha atual</span>
-          <input
-            type="password"
-            autoComplete="current-password"
-            value={senhaAtual}
-            onChange={(event) => setSenhaAtual(event.target.value)}
-          />
-        </label>
-        <label className={styles.campo}>
-          <span>Nova senha</span>
-          <input
-            type="password"
-            autoComplete="new-password"
-            value={novaSenha}
-            onChange={(event) => setNovaSenha(event.target.value)}
-            aria-describedby="requisitos-nova-senha"
-          />
-          <RequisitosSenha senha={novaSenha} id="requisitos-nova-senha" />
-        </label>
-        <label className={styles.campo}>
-          <span>Confirme a nova senha</span>
-          <input
-            type="password"
-            autoComplete="new-password"
-            value={confirmacao}
-            onChange={(event) => setConfirmacao(event.target.value)}
-          />
-        </label>
-        <Aviso tipo={mensagem.tipo}>{mensagem.texto}</Aviso>
-        <div className={styles.acoes}>
-          <button type="submit" className={styles.botaoPrimario} disabled={salvando || !senhaAtual || !novaSenha}>
-            Trocar senha
-          </button>
-        </div>
-      </form>
+      <h2>Senha</h2>
+      <p className={styles.descricao}>
+        Para trocar a senha, enviamos um código de 6 números para <strong>{usuario?.email}</strong>. Ele vale por 15 minutos.
+      </p>
+      <Aviso tipo={mensagem.tipo}>{mensagem.texto}</Aviso>
+      <div className={styles.acoes}>
+        <button type="button" className={styles.botaoPrimario} onClick={trocarSenha} disabled={enviando || !usuario}>
+          <i className="bi bi-envelope" aria-hidden="true" /> {enviando ? 'Enviando código...' : 'Trocar senha'}
+        </button>
+      </div>
     </section>
   )
 }

@@ -46,7 +46,7 @@ Alternativa ao passo a passo manual acima — sobe backend e frontend com um com
 
 Pré-requisito: Docker e Docker Compose instalados.
 
-1. Copie `.env.example` pra `.env` na raiz do projeto e preencha com a connection string do banco compartilhado (Neon) e, pro "esqueci minha senha" mandar e-mail de verdade, com o SMTP (`MAIL_*`; no Gmail, uma senha de app). Sem SMTP, o código aparece só no log do backend (`docker compose logs backend`):
+1. Copie `.env.example` pra `.env` na raiz do projeto e preencha com a connection string do banco compartilhado (Neon) e, pros e-mails do sistema (confirmação de conta e "esqueci minha senha") saírem de verdade, com o SMTP (`MAIL_*`; no Gmail, uma senha de app). Sem SMTP, o código ou o link de confirmação aparece só no log do backend (`docker compose logs backend`). `FRONTEND_URL` é o endereço do frontend que o botão do e-mail de confirmação abre:
    ```bash
    cp .env.example .env
    ```
@@ -201,19 +201,21 @@ O parser (`ItauExtratoParser`) já existe, mas foi escrito com base no layout ma
 
 ## Rotas da API
 
-Todas as rotas abaixo, exceto `POST /usuarios`, `POST /login`, `POST /senha/esqueci` e `POST /senha/redefinir`, exigem o header `Authorization: Bearer <token>` (token JWT obtido no login, expira em 8h); sem token, ou com token inválido ou expirado, a resposta é `401`. Cada usuário só enxerga/edita/exclui os próprios dados — acessar registro de outro usuário retorna `404`.
+Todas as rotas abaixo, exceto `POST /usuarios`, `POST /usuarios/confirmar-email`, `POST /usuarios/reenviar-confirmacao`, `POST /login`, `POST /senha/esqueci`, `POST /senha/verificar` e `POST /senha/redefinir`, exigem o header `Authorization: Bearer <token>` (token JWT obtido no login, expira em 8h); sem token, ou com token inválido ou expirado, a resposta é `401`. Cada usuário só enxerga/edita/exclui os próprios dados — acessar registro de outro usuário retorna `404`.
 
 ### Usuário / Autenticação
 
 | Método | Rota | Body | Resposta |
 |---|---|---|---|
-| POST | `/usuarios` | `{"nome", "email", "senha"}` | `201` dados do usuário (sem senha) · `409` email já cadastrado · `400` validação (email `nome@dominio.com`; senha com mín. 6 caracteres, 1 maiúscula e 1 número) |
-| POST | `/login` | `{"email", "senha"}` | `200` `{"token": "..."}` · `401` credenciais inválidas |
+| POST | `/usuarios` | `{"nome", "email", "senha"}` | `201` dados do usuário (sem senha); a conta nasce **não confirmada** e um e-mail com o botão "Confirmar conta" é enviado · `409` email já cadastrado · `400` validação (email `nome@dominio.com`; senha com mín. 6 caracteres, 1 maiúscula e 1 número) |
+| POST | `/usuarios/confirmar-email` | `{"token"}` | `204` confirma a conta (o token vem no link do e-mail) · `400` link inválido, expirado (24 h) ou já usado |
+| POST | `/usuarios/reenviar-confirmacao` | `{"email"}` | `204` sempre (não revela se a conta existe nem se já foi confirmada); se existir e não estiver confirmada, manda outro e-mail (um por minuto; o link anterior deixa de valer) |
+| POST | `/login` | `{"email", "senha"}` | `200` `{"token": "..."}` · `401` credenciais inválidas · `403` senha certa mas e-mail ainda não confirmado |
 | POST | `/senha/esqueci` | `{"email"}` | `204` sempre (não revela se a conta existe); se existir, manda por e-mail um código de 6 números válido por 15 min (um pedido por minuto) |
+| POST | `/senha/verificar` | `{"email", "codigo"}` | `204` se o código confere (só confere: não troca a senha nem gasta o código) · `400` código inválido, expirado ou com 5 tentativas erradas (código errado gasta uma tentativa) |
 | POST | `/senha/redefinir` | `{"email", "codigo", "novaSenha"}` | `204` · `400` código inválido, expirado, já usado ou com 5 tentativas erradas, ou senha fraca |
 | GET | `/usuarios/me` | — | `200` dados do usuário autenticado |
 | PUT | `/usuarios/me` | `{"nome"}` | `200` usuário atualizado (o e-mail não muda) · `400` validação |
-| PUT | `/usuarios/me/senha` | `{"senhaAtual", "novaSenha"}` | `204` · `400` senha atual incorreta ou nova fraca (mín. 6 caracteres, 1 maiúscula e 1 número) |
 | GET | `/usuarios/me/preferencias` | — | `200` `{"ocultarValores", "limiteEssencial", "limiteTotal", "simuladorPercentualCdi", "simuladorPrazoMeses"}` (padrões se nunca salvou) |
 | PUT | `/usuarios/me/preferencias` | igual à resposta do `GET` | `200` preferências salvas · `400` fora das faixas ou limite essencial ≥ limite total |
 

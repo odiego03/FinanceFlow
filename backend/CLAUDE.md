@@ -650,10 +650,10 @@ Testes em `RegrasSugestaoTest`.
 **Perfil**:
 - `PUT /usuarios/me` muda só o `nome`. O e-mail é o login e o
   `subject` do JWT, então não muda.
-- `PUT /usuarios/me/senha` confere a `senhaAtual` com o BCrypt e exige
-  a mesma senha forte do cadastro na nova (ver 10.2). Senha atual errada dá **400**
-  (`SenhaAtualIncorretaException`), **não 401**: o frontend trata
-  qualquer `401` de rota autenticada como sessão expirada e desloga.
+- **Não há troca de senha sem código.** O antigo `PUT /usuarios/me/senha`
+  (senha atual + nova) foi removido: quem está logado e quer trocar a
+  senha pede o código por e-mail (`POST /senha/esqueci`, com o próprio
+  e-mail) e segue o mesmo fluxo de "Esqueci minha senha" (ver 10.2).
 
 **`PreferenciasUsuario`** (`preferencias_usuarios`, 1:1 com `Usuario`):
 
@@ -816,7 +816,7 @@ batem com o banco (`ddl-auto=validate`) e não cria mais nada.
   (cadastro e login). Contas antigas com maiúscula continuam entrando:
   o login procura ignorando a caixa e, se houver mais de uma, vale a da
   senha certa.
-- **Senha forte** (cadastro e troca de senha): pelo menos 6 caracteres,
+- **Senha forte** (cadastro e redefinição de senha): pelo menos 6 caracteres,
   uma letra maiúscula (acentuada vale) e um número, no máximo 72 (o
   BCrypt ignora o que passa de 72 bytes). As regras ficam em
   `dto/RegrasValidacao`, repetidas no frontend em `utils/validacao.js`.
@@ -825,10 +825,41 @@ batem com o banco (`ddl-auto=validate`) e não cria mais nada.
   mínimo no cadastro.
 - **Formato do e-mail** no cadastro: além do `@Email`, exige domínio
   com extensão (`nome@dominio.com`), porque o `@Email` sozinho aceita
-  `fulano@gmail`. É só o formato: nenhum e-mail é enviado pra confirmar
-  que a caixa existe.
+  `fulano@gmail`. É só o formato; que a caixa existe quem confirma é a
+  confirmação de conta (próximo item).
+- **Confirmação de conta** (`VerificacaoEmailService`, rotas públicas
+  `POST /usuarios/confirmar-email` e `POST /usuarios/reenviar-confirmacao`,
+  migração `V5`):
+  - O cadastro cria a conta com `emailVerificado = false` e manda um
+    e-mail HTML com o botão "Confirmar conta" (`EnvioEmailService`,
+    versão em texto com o link por extenso). **Sem confirmar, o login
+    dá `403`** (`EmailNaoVerificadoException`) e a pessoa não recebe
+    token, então nenhuma função do sistema abre. O `403` só sai depois
+    de a senha conferir (senha errada continua `401`), pra não revelar
+    se a conta existe nem se foi confirmada. Não é `401` porque o
+    frontend trata qualquer `401` autenticado como sessão expirada.
+  - O link é `<FRONTEND_URL>/confirmar-conta?token=...`, uma página do
+    **frontend**, que chama `POST /usuarios/confirmar-email`. Assim um
+    leitor de links de e-mail, que só abre a URL, não confirma a conta
+    sozinho. `FRONTEND_URL` (`app.url-frontend`) tem que ser o endereço
+    do frontend: Vercel em produção, `http://localhost:3000` no
+    docker-compose, `http://localhost:5173` com `npm run dev`.
+  - Token aleatório de 256 bits (`SecureRandom`); no banco
+    (`tokens_verificacao_email`) fica só o hash SHA-256. Vale 24 horas,
+    só vale uma vez e só o último e-mail enviado vale (pedir outro
+    apaga os anteriores). `confirmar-email` dá o mesmo `400` pra token
+    inexistente, expirado ou já usado.
+  - `reenviar-confirmacao` responde `204` sempre, exista a conta ou
+    não, e só manda se a conta existe, não está confirmada e passou 1
+    minuto do último e-mail. Fora disso o pedido é ignorado sem avisar.
+  - **Migração `V5`:** acrescenta `email_verificado` e marca todas as
+    contas que já existiam como confirmadas (senão seriam trancadas
+    pra fora). Só contas criadas depois precisam confirmar.
+  - Nos testes, o `EnvioEmailService` é `@MockBean` e o helper
+    `cadastrar` lê o link do mock e confirma a conta; `cadastrarSemConfirmar`
+    cobre o caso de conta pendente.
 - **Esqueci minha senha** (`RedefinicaoSenhaService`, rotas públicas
-  `POST /senha/esqueci` e `POST /senha/redefinir`, migração `V4`):
+  `POST /senha/esqueci`, `POST /senha/verificar` e `POST /senha/redefinir`, migração `V4`):
   - Código de 6 dígitos (`SecureRandom`), guardado só como hash BCrypt
     em `codigos_redefinicao_senha`. Vale 15 minutos e aceita 5
     tentativas erradas. Só o último vale, e um pedido novo apaga os
@@ -838,9 +869,14 @@ batem com o banco (`ddl-auto=validate`) e não cria mais nada.
   - `/senha/esqueci` responde `204` sempre, exista a conta ou não. O
     hash é calculado nos dois casos e o e-mail sai em `@Async`, pra o
     tempo de resposta também não revelar quem tem conta.
-  - `/senha/redefinir` dá o mesmo `400` pra qualquer falha (email sem
-    conta, código errado, expirado ou esgotado). A tentativa errada
-    fica gravada (`noRollbackFor`).
+  - `/senha/verificar` é o passo "confirmar o código" da tela: só
+    confere, **sem trocar a senha e sem gastar o código** (o frontend
+    guarda o código e o reenvia em `/senha/redefinir`, que confere de
+    novo). Código errado gasta uma das 5 tentativas, igual na
+    redefinição. Os dois usam o mesmo `localizarUsuarioDoCodigo`.
+  - `/senha/redefinir` e `/senha/verificar` dão o mesmo `400` pra
+    qualquer falha (email sem conta, código errado, expirado ou
+    esgotado). A tentativa errada fica gravada (`noRollbackFor`).
   - Com sucesso: grava a senha nova (mesma regra de senha forte),
     apaga os códigos e libera o bloqueio de login do email.
   - **Envio** (`EnvioEmailService`), pelo primeiro canal configurado:
@@ -852,8 +888,8 @@ batem com o banco (`ddl-auto=validate`) e não cria mais nada.
     Nos testes, `EnvioEmailService` é `@MockBean` e o teste lê o código
     do mock. O health do mail está desligado, pra SMTP fora do ar não
     derrubar o healthcheck.
-  - O token JWT já emitido continua valendo até expirar (mesma
-    limitação da troca de senha).
+  - O token JWT já emitido continua valendo até expirar, inclusive
+    depois de uma redefinição.
 - **Login**: 5 erros seguidos no mesmo email bloqueiam por 15 minutos
   (`LimitadorTentativasLogin`, em memória, `429`).
 - **Categoria em uso não muda de tipo** (`409`), pelo mesmo motivo de

@@ -6,7 +6,9 @@ import Categorias from './pages/Categorias'
 import Dashboard from './pages/Dashboard'
 import Login from './pages/Login'
 import Metas from './pages/Metas'
+import ConfirmarConta from './pages/ConfirmarConta'
 import Configuracoes from './pages/Configuracoes'
+import RedefinirSenhaConta from './pages/RedefinirSenhaConta'
 import Relatorios from './pages/Relatorios'
 import Simulacao from './pages/Simulacao'
 import Transacoes from './pages/Transacoes'
@@ -18,7 +20,12 @@ function App() {
     <Routes>
       <Route path="/login" element={autenticado ? <Navigate to="/dashboard" replace /> : <Login />} />
 
+      {/* Aberta pelo botão do e-mail de confirmação de conta; pública, com ou sem login */}
+      <Route path="/confirmar-conta" element={<ConfirmarConta />} />
+
       <Route element={<RotaProtegida />}>
+        {/* Fora do Layout: é o mesmo cartão do Login, aberto por "Trocar senha" em Configurações */}
+        <Route path="/redefinir-senha" element={<RedefinirSenhaConta />} />
         <Route element={<Layout />}>
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/categorias" element={<Categorias />} />

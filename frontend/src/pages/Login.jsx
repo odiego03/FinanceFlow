@@ -4,6 +4,7 @@ import { useAuth } from '../contexts/AuthContext'
 import { CHAVE_SESSAO_EXPIRADA, mensagemDeErro } from '../services/api'
 import * as usuarioService from '../services/usuarioService'
 import RequisitosSenha from '../components/RequisitosSenha'
+import ConfirmacaoPendente from '../components/ConfirmacaoPendente'
 import RedefinirSenha from '../components/RedefinirSenha'
 import { MENSAGEM_EMAIL, MENSAGEM_SENHA, emailValido, senhaForte } from '../utils/validacao'
 import styles from './Login.module.css'
@@ -34,6 +35,8 @@ function Login() {
   const [erro, setErro] = useState(lerAvisoSessaoExpirada)
   const [carregando, setCarregando] = useState(false)
   const [redefinindo, setRedefinindo] = useState(false)
+  // Conta que precisa confirmar o e-mail: { email, recemCadastrado } enquanto o painel de confirmação está aberto
+  const [pendente, setPendente] = useState(null)
   const [sucesso, setSucesso] = useState('')
 
   const trocarAba = (novaAba) => {
@@ -70,10 +73,20 @@ function Login() {
     try {
       if (aba === ABA_CADASTRO) {
         await usuarioService.cadastrar(nome, email, senha)
+        // Sem login automático: a conta só entra depois de clicar no botão do e-mail de confirmação
+        setSenha('')
+        setPendente({ email: email.trim(), recemCadastrado: true })
+        return
       }
       await entrar(email, senha)
       navigate('/dashboard', { replace: true })
     } catch (erroRequisicao) {
+      // Senha certa mas e-mail ainda não confirmado (403): leva pro painel que deixa pedir o e-mail de novo
+      if (aba === ABA_LOGIN && erroRequisicao.response?.status === 403) {
+        setSenha('')
+        setPendente({ email: email.trim(), recemCadastrado: false })
+        return
+      }
       // No login só repassa a mensagem do backend no bloqueio por tentativas (429); senha errada fica genérica
       const bloqueado = erroRequisicao.response?.status === 429
       if (aba === ABA_LOGIN) {
@@ -92,7 +105,18 @@ function Login() {
         <h1 className={styles.titulo}>FinanceFlow</h1>
         <p className={styles.subtitulo}>Gestão financeira inteligente</p>
 
-        {redefinindo ? (
+        {pendente ? (
+          <ConfirmacaoPendente
+            email={pendente.email}
+            recemCadastrado={pendente.recemCadastrado}
+            onVoltar={() => {
+              setPendente(null)
+              setAba(ABA_LOGIN)
+              setErro('')
+              setSucesso('')
+            }}
+          />
+        ) : redefinindo ? (
           <RedefinirSenha
             emailInicial={email}
             onConcluir={concluirRedefinicao}

@@ -32,7 +32,10 @@ services:
       # Endereço do frontend na Vercel, ex: https://financeflow.vercel.app
       - key: CORS_ORIGENS
         sync: false
-      # E-mail do "esqueci minha senha" pela API do Brevo (o Render grátis bloqueia SMTP)
+      # Mesmo endereço do frontend na Vercel: é pra onde o botão do e-mail de confirmação de conta leva
+      - key: FRONTEND_URL
+        sync: false
+      # E-mails do sistema (código de senha e confirmação de conta) pela API do Brevo (o Render grátis bloqueia SMTP)
       - key: BREVO_API_KEY
         sync: false
       - key: MAIL_REMETENTE

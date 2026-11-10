@@ -19,12 +19,12 @@ O deploy é sempre a partir da `main`. Cada merge na `main` publica de novo o ba
 ## Ordem
 
 O backend precisa do endereço do frontend (CORS), e o frontend precisa do endereço do backend (`VITE_API_URL`).
-Por isso a ordem é: Brevo → backend no Render → frontend na Vercel → voltar no Render e preencher o `CORS_ORIGENS`.
+Por isso a ordem é: Brevo → backend no Render → frontend na Vercel → voltar no Render e preencher o `CORS_ORIGENS` e o `FRONTEND_URL`.
 
 ## 1. Brevo (e-mail)
 
 O plano grátis do Render bloqueia as portas de SMTP (25, 465 e 587) desde setembro de 2025. Lá, o Gmail SMTP não
-funciona. Por isso o backend manda o código pela API HTTP do Brevo quando a `BREVO_API_KEY` está preenchida.
+funciona. Por isso o backend manda os e-mails (confirmação de conta e código de redefinição de senha) pela API HTTP do Brevo quando a `BREVO_API_KEY` está preenchida.
 
 1. Crie uma conta em brevo.com.
 2. Em **Senders, Domains & Dedicated IPs → Senders**, adicione o e-mail que vai aparecer como remetente (pode ser um
@@ -43,6 +43,7 @@ Sem domínio próprio, o e-mail pode cair no spam. A tela de redefinição já p
    |---|---|
    | `PGHOST`, `PGDATABASE`, `PGUSER`, `PGPASSWORD` | os mesmos do `.env` (connection string do Neon) |
    | `CORS_ORIGENS` | deixe `http://localhost:5173` por enquanto; troca no passo 4 |
+   | `FRONTEND_URL` | deixe `http://localhost:5173` por enquanto; troca no passo 4 |
    | `BREVO_API_KEY` | a chave do passo 1 |
    | `MAIL_REMETENTE` | o remetente verificado no Brevo |
 
@@ -52,7 +53,8 @@ Sem domínio próprio, o e-mail pode cair no spam. A tela de redefinição já p
    `{"status":"UP"}`.
 
 As migrações do Flyway rodam sozinhas na subida. No Neon, que já tem as tabelas, só as novas são aplicadas (a V4,
-dos códigos de redefinição de senha, na primeira vez).
+dos códigos de redefinição de senha, e a V5, da confirmação de e-mail, na primeira vez). A V5 marca as contas que já
+existem como confirmadas, então ninguém é trancado pra fora.
 
 ## 3. Frontend na Vercel
 
@@ -67,13 +69,16 @@ dos códigos de redefinição de senha, na primeira vez).
 1. No Render, abra `financeflow-backend` → **Environment**.
 2. Troque `CORS_ORIGENS` pelo endereço da Vercel, sem barra no final. Para manter o desenvolvimento local
    funcionando com o mesmo backend, separe por vírgula: `https://financeflow.vercel.app,http://localhost:5173`.
-3. Salve. O Render reinicia o serviço.
+3. Ainda no **Environment**, troque `FRONTEND_URL` pelo mesmo endereço da Vercel (sem barra no final). É para onde o
+   botão "Confirmar conta" do e-mail leva; se ficar em `localhost`, o link do e-mail não abre para quem recebe.
+4. Salve. O Render reinicia o serviço.
 
 ## 5. Conferir
 
-1. Abra o endereço da Vercel e crie uma conta (senha com maiúscula e número).
-2. Faça logout e use "Esqueci minha senha": o código tem que chegar no e-mail.
-3. Atualize a página em `/dashboard` (F5): tem que continuar na tela, sem 404.
+1. Abra o endereço da Vercel e crie uma conta (senha com maiúscula e número). A tela pede para confirmar o e-mail.
+2. Abra o e-mail e clique em **Confirmar conta**: tem que abrir a página "Conta confirmada" na Vercel. Depois entre.
+3. Faça logout e use "Esqueci minha senha": o código tem que chegar no e-mail.
+4. Atualize a página em `/dashboard` (F5): tem que continuar na tela, sem 404.
 
 ## Limitações do plano grátis (para a apresentação)
 
