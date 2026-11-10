@@ -293,9 +293,15 @@
   border-radius: 10px;
   font-size: 0.95rem;
   font-weight: 600;
+  line-height: 1.25;
   color: var(--texto-2);
   text-decoration: none;
-  white-space: nowrap;
+}
+
+/* "Simulador de Investimentos" não cabe numa linha no menu de 264px (fontes maiores no celular, por exemplo): quebra
+   em duas linhas em vez de ser cortado pela borda do menu */
+.navItem i {
+  flex-shrink: 0;
 }
 
 .navItem:hover {
