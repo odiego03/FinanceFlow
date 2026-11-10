@@ -843,9 +843,12 @@ batem com o banco (`ddl-auto=validate`) e não cria mais nada.
     fica gravada (`noRollbackFor`).
   - Com sucesso: grava a senha nova (mesma regra de senha forte),
     apaga os códigos e libera o bloqueio de login do email.
-  - **Envio** (`EnvioEmailService`): SMTP pelas variáveis `MAIL_HOST`,
-    `MAIL_PORTA`, `MAIL_USUARIO`, `MAIL_SENHA` e `MAIL_REMETENTE`. Sem
-    `MAIL_HOST`, o código vai pro log (`WARN`), só pra desenvolvimento.
+  - **Envio** (`EnvioEmailService`), pelo primeiro canal configurado:
+    API HTTP do Brevo (`BREVO_API_KEY` + `MAIL_REMETENTE` verificado no
+    Brevo), usada em produção porque o Render grátis bloqueia SMTP;
+    SMTP (`MAIL_HOST`, `MAIL_PORTA`, `MAIL_USUARIO`, `MAIL_SENHA`), pra
+    rodar local ou no Docker; sem nenhum dos dois, o código vai pro log
+    (`WARN`), só pra desenvolvimento.
     Nos testes, `EnvioEmailService` é `@MockBean` e o teste lê o código
     do mock. O health do mail está desligado, pra SMTP fora do ar não
     derrubar o healthcheck.

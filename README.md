@@ -63,6 +63,10 @@ Pré-requisito: Docker e Docker Compose instalados.
 
 O `.env` nunca é commitado (já está no `.gitignore`). `JWT_SECRET` é obrigatório (o compose não sobe sem ele), e as migrações do Flyway rodam na primeira conexão. O frontend só abre depois que o healthcheck do backend (`/actuator/health`) responde. Os dois containers rodam sem root.
 
+## Deploy (produção)
+
+Backend no Render (Docker, `render.yaml`), frontend na Vercel (`frontend/vercel.json`) e banco no Neon, todos no plano grátis. O passo a passo, as variáveis de cada serviço e as limitações (o backend "dorme" depois de 15 minutos parado) estão em [`docs/deploy.md`](docs/deploy.md).
+
 ## Roadmap
 
 O projeto tem 4 sprints. A Sprint#4 é a última e fecha todos os módulos
@@ -313,4 +317,5 @@ _adicionar nomes dos integrantes_
 ## Documentação
 
 - Regras de negócio e arquitetura: `backend/CLAUDE.md`
+- Deploy: [`docs/deploy.md`](docs/deploy.md)
 - Proposta técnica completa: pasta compartilhada no Teams da equipe
