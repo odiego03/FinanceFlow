@@ -295,7 +295,7 @@ futuras (ver `backend/CLAUDE.md`).
 - **Importar extrato** (`components/ModalImportarExtrato.jsx`): botão
   "Importar extrato" em `pages/Transacoes.jsx`, ao lado de "+ Nova
   Transação". Modal em duas etapas:
-  1. **Upload** — escolhe o banco (Nubank/Itaú) e sobe um `.csv`;
+  1. **Upload** — escolhe o banco (Nubank/Itaú) e sobe o extrato (`.csv` do Nubank, `.ofx` do Itaú; `accept=".csv,.ofx"`);
      chama `transacaoService.importarPreview(banco, arquivo)`
      (`multipart/form-data` via `FormData` — `api.js` não precisou de
      nenhuma mudança, o axios detecta `FormData` sozinho).

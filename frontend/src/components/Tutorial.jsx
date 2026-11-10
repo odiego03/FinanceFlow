@@ -22,7 +22,7 @@ const passos = [
     titulo: 'Transações',
     onde: 'Transações',
     texto:
-      'Lance cada receita e despesa com valor, data e categoria. Compras parceladas viram parcelas mensais automaticamente. Tem extrato do Nubank ou do Itaú em CSV? Importe: o sistema sugere as categorias e aprende com as suas escolhas.',
+      'Lance cada receita e despesa com valor, data e categoria. Compras parceladas viram parcelas mensais automaticamente. Tem extrato do Nubank (CSV) ou do Itaú (OFX)? Importe: o sistema sugere as categorias e aprende com as suas escolhas.',
   },
   {
     icone: 'speedometer2',

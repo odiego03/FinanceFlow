@@ -10,8 +10,8 @@ const formatadorMoeda = new Intl.NumberFormat('pt-BR', { style: 'currency', curr
 const formatadorData = new Intl.DateTimeFormat('pt-BR')
 
 const BANCOS = [
-  { valor: 'NUBANK', texto: 'Nubank', sigla: 'Nu', cor: '#820ad1' },
-  { valor: 'ITAU', texto: 'Itaú', sigla: 'It', cor: '#ec7000' },
+  { valor: 'NUBANK', texto: 'Nubank', sigla: 'Nu', cor: '#820ad1', formato: 'Conta ou fatura do cartão em CSV' },
+  { valor: 'ITAU', texto: 'Itaú', sigla: 'It', cor: '#ec7000', formato: 'Extrato da conta em OFX' },
 ]
 
 const ETAPAS = [
@@ -69,7 +69,7 @@ function ModalImportarExtrato({ categorias, metas, onConcluir, onCancelar }) {
   const handleAnalisar = async (event) => {
     event.preventDefault()
     if (!arquivo) {
-      setErro('Selecione um arquivo CSV.')
+      setErro('Selecione o arquivo do extrato.')
       return
     }
 
@@ -265,7 +265,7 @@ function ModalImportarExtrato({ categorias, metas, onConcluir, onCancelar }) {
                   </span>
                   <span>
                     {opcao.texto}
-                    <small>Extrato da conta em CSV</small>
+                    <small>{opcao.formato}</small>
                   </span>
                 </button>
               ))}
@@ -285,7 +285,7 @@ function ModalImportarExtrato({ categorias, metas, onConcluir, onCancelar }) {
             >
               <input
                 type="file"
-                accept=".csv"
+                accept=".csv,.ofx"
                 className={styles.inputArquivo}
                 onChange={(event) => escolherArquivo(event.target.files[0])}
               />
@@ -298,7 +298,7 @@ function ModalImportarExtrato({ categorias, metas, onConcluir, onCancelar }) {
               ) : (
                 <>
                   <i className="bi bi-cloud-arrow-up" aria-hidden="true" />
-                  <strong>Arraste o arquivo CSV aqui</strong>
+                  <strong>Arraste o arquivo do extrato aqui</strong>
                   <small>ou clique para escolher no computador</small>
                 </>
               )}

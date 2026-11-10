@@ -92,11 +92,60 @@ class NubankExtratoParserTest {
 
     @Test
     void colunaFaltandoViraErroDeArquivo() {
-        String csv = "date,title,amount\n2026-09-02,iFood,15.98\n";
+        String csv = "dia,estabelecimento,total\n2026-09-02,iFood,15.98\n";
 
         assertThatThrownBy(() -> parser.parsear(arquivo(csv)))
                 .isInstanceOf(ArquivoExtratoInvalidoException.class)
                 .hasMessageContaining("coluna não encontrada");
+    }
+
+    private static final String FATURA = """
+            date,title,amount
+            2026-10-10,Multa de atraso do Pix no crédito para FULANO,"1,29"
+            2026-10-10,IOF de atraso do Pix no crédito para FULANO,"0,00"
+            2026-10-10,Pagamento recebido,"- 1.016,13"
+            2026-10-10,Estorno de compra,"- 25,00"
+            2026-10-01,iPhone 13 Jim.Com* Mxa Company - Parcela 10/10,"1.124,98"
+            """;
+
+    @Test
+    void leFaturaDoCartaoComValorBrasileiroEComprasComoDespesa() {
+        List<LinhaExtratoBruta> linhas = parser.parsear(arquivo(FATURA));
+
+        assertThat(linhas).containsExactly(
+                new LinhaExtratoBruta(LocalDate.of(2026, 10, 10), "Multa de atraso do Pix no crédito para FULANO", new BigDecimal("-1.29"), null),
+                new LinhaExtratoBruta(LocalDate.of(2026, 10, 10), "Estorno de compra", new BigDecimal("25.00"), null),
+                new LinhaExtratoBruta(LocalDate.of(2026, 10, 1), "iPhone 13 Jim.Com* Mxa Company - Parcela 10/10", new BigDecimal("-1124.98"), null));
+    }
+
+    @Test
+    void faturaIgnoraPagamentoDaFaturaEValorZero() {
+        assertThat(parser.parsear(arquivo(FATURA)))
+                .extracting(LinhaExtratoBruta::descricao)
+                .doesNotContain("Pagamento recebido")
+                .noneMatch(descricao -> descricao.startsWith("IOF"));
+    }
+
+    @Test
+    void faturaAceitaValorComPontoDecimalSemVirgula() {
+        String csv = """
+                date,title,amount
+                2026-10-02,Compra,12.50
+                """;
+
+        assertThat(parser.parsear(arquivo(csv)).get(0).valorComSinal()).isEqualByComparingTo("-12.50");
+    }
+
+    @Test
+    void faturaComValorInvalidoDaErroComALinha() {
+        String csv = """
+                date,title,amount
+                2026-10-02,Compra,abc
+                """;
+
+        assertThatThrownBy(() -> parser.parsear(arquivo(csv)))
+                .isInstanceOf(ArquivoExtratoInvalidoException.class)
+                .hasMessageContaining("fatura do Nubank");
     }
 
     private InputStream arquivo(String conteudo) {

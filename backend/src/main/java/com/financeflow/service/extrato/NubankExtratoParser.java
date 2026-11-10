@@ -16,14 +16,21 @@ import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
 /**
- * Layout do extrato de conta do Nubank (validado contra um arquivo real
- * exportado): colunas "Data", "Valor", "Identificador", "Descrição", data
- * DD/MM/AAAA, valor decimal com ponto (negativo = saída/despesa), UTF-8.
- * O separador é detectado pela linha de cabeçalho (vírgula, ";" ou tab)
- * porque o arquivo muda de separador quando é aberto e salvo de novo numa
- * planilha. Data ISO (AAAA-MM-DD) também é aceita, por segurança.
+ * Dois layouts do Nubank, detectados pelo cabeçalho:
+ * <ul>
+ *   <li><b>Conta</b> (validado contra um arquivo real exportado): colunas "Data", "Valor", "Identificador",
+ *       "Descrição", data DD/MM/AAAA, valor decimal com ponto (negativo = saída/despesa), UTF-8.</li>
+ *   <li><b>Fatura do cartão de crédito</b> (validado contra um arquivo real): colunas "date", "title", "amount",
+ *       data AAAA-MM-DD e valor com vírgula entre aspas ("1.016,13"). Aqui o sinal é o inverso: positivo é compra
+ *       (despesa) e negativo é crédito ("- 1.016,13", com espaço). "Pagamento recebido" (o pagamento da fatura)
+ *       é ignorado, porque sai da conta corrente e contaria duas vezes, e lançamentos com valor zero também.
+ *       Outros créditos, como estornos, entram como receita.</li>
+ * </ul>
+ * O separador é detectado pela linha de cabeçalho (vírgula, ";" ou tab) porque o arquivo muda de separador quando
+ * é aberto e salvo de novo numa planilha. Data ISO (AAAA-MM-DD) também é aceita no layout da conta.
  */
 @Component
 public class NubankExtratoParser implements ExtratoParser {
@@ -43,9 +50,17 @@ public class NubankExtratoParser implements ExtratoParser {
                 .build();
 
         try (CSVParser parser = formato.parse(new StringReader(conteudo))) {
+            boolean fatura = parser.getHeaderMap().containsKey("title") || parser.getHeaderMap().containsKey("Title");
             List<LinhaExtratoBruta> linhas = new ArrayList<>();
             for (CSVRecord registro : parser) {
-                linhas.add(converterLinha(registro));
+                if (fatura) {
+                    LinhaExtratoBruta linha = converterLinhaFatura(registro);
+                    if (linha != null) {
+                        linhas.add(linha);
+                    }
+                } else {
+                    linhas.add(converterLinha(registro));
+                }
             }
             return linhas;
         } catch (IOException | IllegalArgumentException excecao) {
@@ -65,6 +80,34 @@ public class NubankExtratoParser implements ExtratoParser {
                     + " do extrato do Nubank tem data ou valor inválido (data: \"" + dataTexto
                     + "\", valor: \"" + valorTexto + "\")");
         }
+    }
+
+    // Fatura do cartão: null quando a linha não é um lançamento a importar (pagamento da fatura ou valor zero)
+    private LinhaExtratoBruta converterLinhaFatura(CSVRecord registro) {
+        String dataTexto = campo(registro, "date", "Date");
+        String titulo = campo(registro, "title", "Title");
+        String valorTexto = campo(registro, "amount", "Amount");
+        try {
+            BigDecimal valor = converterValorFatura(valorTexto);
+            if (valor.signum() == 0 || titulo.toLowerCase(Locale.ROOT).startsWith("pagamento recebido")) {
+                return null;
+            }
+            // No CSV da fatura positivo é compra; aqui despesa é negativo
+            return new LinhaExtratoBruta(converterData(dataTexto), titulo, valor.negate(), null);
+        } catch (DateTimeException | NumberFormatException excecao) {
+            throw new ArquivoExtratoInvalidoException("linha " + (registro.getRecordNumber() + 1)
+                    + " da fatura do Nubank tem data ou valor inválido (data: \"" + dataTexto
+                    + "\", valor: \"" + valorTexto + "\")");
+        }
+    }
+
+    // "1.016,13" -> 1016.13; "- 1.016,13" -> -1016.13; sem vírgula ("12.50") é lido como decimal com ponto
+    private BigDecimal converterValorFatura(String valorTexto) {
+        String limpo = valorTexto.replace(" ", "");
+        if (limpo.contains(",")) {
+            limpo = limpo.replace(".", "").replace(",", ".");
+        }
+        return new BigDecimal(limpo);
     }
 
     // Coluna opcional: extrato sem ela continua funcionando, só cai na detecção de duplicata por data+valor+descrição
