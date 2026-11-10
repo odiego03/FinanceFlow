@@ -96,8 +96,8 @@ Módulos do sistema e onde cada um entra:
 
 #### 3.1 Importação automática de extrato
 
-Cadastra Transações em lote a partir do CSV exportado do Nubank ou do
-Itaú, em duas fases: **preview** (lê o arquivo e mostra o que seria
+Cadastra Transações em lote a partir do extrato do Nubank (CSV da conta
+ou da fatura do cartão) ou do Itaú (OFX, ou CSV), em duas fases: **preview** (lê o arquivo e mostra o que seria
 importado, sem gravar nada) e **confirmar** (só aí cria as Transações).
 O arquivo nunca é salvo, nem em disco nem no banco.
 
@@ -108,6 +108,7 @@ O arquivo nunca é salvo, nem em disco nem no banco.
 - [x] Integração com metas: depois de confirmar, se alguma receita importada for da categoria de uma meta, o sistema oferece destinar parte dela à meta (passo opcional, agrupado por meta, com "Completar a meta"). A importação nunca altera o progresso de uma meta sozinha
 - [x] Detecção de duplicata, com a linha desmarcada por padrão na revisão
 - [x] Tela de revisão linha a linha no frontend, responsiva (sem rolagem lateral), com filtros rápidos (pendentes, preenchidas, duplicadas), "Marcar todas" e o botão "Importar só as categorizadas"
+- [x] Fatura do cartão do Nubank (CSV `date,title,amount`, validado com arquivo real): compra vira despesa, crédito vira receita, "Pagamento recebido" e valores zerados são ignorados
 - [x] Parser do Nubank validado com extrato real: data `DD/MM/AAAA`, coluna `Identificador`, BOM UTF-8 e separador detectado automaticamente (vírgula, `;` ou tab)
 - [x] Duplicata pelo `Identificador` do Nubank (único por lançamento): duas compras iguais no mesmo dia não se marcam mais como duplicadas. Transações importadas antes da coluna existir continuam detectadas por data + valor + descrição
 - [x] Preview faz uma consulta só pra checar duplicatas do arquivo inteiro (antes era uma por linha)
@@ -173,10 +174,11 @@ comprometimento e pela Simulação:
 
 #### 4.4 Importação do Itaú
 
-O parser (`ItauExtratoParser`) já existe, mas foi escrito com base no layout mais comum conhecido, sem um arquivo real.
+O parser (`ItauExtratoParser`) lê **OFX** (recomendado: o "Salvar em OFX" do internet banking) e CSV. O extrato `.xls` do Itaú não é lido: o sistema recusa e pede o OFX. Os dois layouts foram escritos a partir do padrão do OFX e de um print do extrato, ainda sem um arquivo real exportado.
 
-- [ ] Validar com um CSV real exportado do Itaú e ajustar o parser (provável encoding ISO-8859-1 e nomes de coluna)
-- [ ] Teste automatizado do parser com um arquivo no layout real, com dados fictícios
+- [x] Leitura de OFX (SGML e XML, charset 1252 ou UTF-8) e linhas de saldo ignoradas no CSV
+- [x] Testes do parser com OFX e CSV fictícios no layout do print
+- [ ] Validar com um OFX real exportado do Itaú e ajustar o parser se preciso
 - [ ] Conferir se as chaves da categorização aprendida e as palavras-chave funcionam com as descrições do Itaú (ex: "PIX TRANSF FULANO 12/09")
 
 #### 4.5 Encerramento
@@ -188,6 +190,16 @@ O parser (`ItauExtratoParser`) já existe, mas foi escrito com base no layout ma
 - [x] Simulador com inflação (IPCA, "dinheiro de hoje"), modo meta (aporte mensal necessário) e uso da sobra real
 - [x] Redesenho de Dashboard, Transações (paginação, lista por dia) e modais; cabeçalho e marca novos; esqueletos de carregamento; Configurações em abas; tutorial de primeiro acesso
 - [x] Registro completo da sprint para a documentação do TCC: [`docs/sprint4.md`](docs/sprint4.md)
+
+### Depois da Sprint#4: melhorias de autenticação, importação e telas
+
+- [x] **Redefinição de senha em 3 etapas** (e-mail, só o código, "Nova senha"), com "Reenviar código" bloqueado por 1 minuto, com contagem regressiva
+- [x] **Troca de senha só com código do e-mail:** a troca digitando a senha atual foi removida; em Configurações, "Trocar senha" envia o código e abre o mesmo fluxo
+- [x] **Confirmação de conta por e-mail:** o cadastro envia um e-mail com o botão "Confirmar conta" (link de 24 h, uso único) e o login dá `403` até a conta ser confirmada. Migração `V5`; contas que já existiam ficam confirmadas. Precisa da variável `FRONTEND_URL`
+- [x] **Mostrar/ocultar senha** (olho) no login, cadastro e redefinição
+- [x] **Importação:** extrato do Itaú em OFX e CSV da fatura do cartão do Nubank
+- [x] **Responsividade no celular:** grades sem rolagem lateral, menu lateral que nasce fechado, rodapé de indicadores visível (`dvh`) e botões com área de toque maior
+- [x] **Simulador** abre com os campos em branco (só placeholders)
 - [x] Tela de Configurações (antes "Meu Perfil"), em abas: perfil e senha, aparência e privacidade, alertas e simulador, dados (exportar CSV, restaurar categorias padrão, excluir por período) e ajuda
 - [x] Tutorial de primeiro acesso, guardado na conta e reaberto em Configurações → Ajuda
 - [x] Preferências salvas na conta: ocultar valores em R$ (também pelo olho da barra superior), limites próprios do alerta de comprometimento (o Indicador e as Sugestões passam a usá-los) e padrões do Simulador
@@ -248,7 +260,7 @@ As preferências incluem `tema`: `CLARO` (padrão), `ESCURO` ou `SISTEMA`.
 | GET | `/transacoes/por-categoria?tipo=DESPESA&mes=AAAA-MM` | — | `200` total por categoria (com cor), do maior pro menor; sem `mes` = todo o período · `400` parâmetro inválido |
 | GET | `/transacoes/exclusao-em-massa/previa?dataInicio=&dataFim=` | — | `200` `{"quantidade", "totalReceitas", "totalDespesas", "contribuicoesMetas", "valorContribuidoMetas", "parcelasMantidas"}` do que seria apagado · `400` início depois do fim |
 | DELETE | `/transacoes/exclusao-em-massa?dataInicio=&dataFim=` | — | `200` mesmo formato, com o que foi apagado (datas vazias = sem limite; parcelas nunca entram) |
-| POST | `/transacoes/importar/preview` | multipart: `arquivo` (CSV) + `banco` = `NUBANK`\|`ITAU` | `200` linhas que seriam importadas, com categoria sugerida e flag de duplicada (não grava nada) · `400` arquivo inválido |
+| POST | `/transacoes/importar/preview` | multipart: `arquivo` (CSV do Nubank, OFX ou CSV do Itaú) + `banco` = `NUBANK`\|`ITAU` | `200` linhas que seriam importadas, com categoria sugerida e flag de duplicada (não grava nada) · `400` arquivo inválido |
 | POST | `/transacoes/importar/confirmar` | `{"linhas": [{"data", "descricao", "valor", "tipo", "categoriaId", "identificador"?}]}` | `200` `{"transacoesCriadas", "transacoes"}` · `400` validação ou tipo incompatível |
 
 Regra de negócio: o `tipo` da transação precisa ser igual ao `tipo` da categoria vinculada (RN003), e a categoria usada precisa pertencer ao mesmo usuário autenticado.

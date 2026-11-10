@@ -136,6 +136,8 @@ nenhum e-mail de confirmação é enviado.
   - V1: esquema existente (no banco já em uso, marcada como *baseline*, sem recriar nada).
   - V2: índices nas chaves estrangeiras (o PostgreSQL não cria sozinho).
   - V3: coluna do tutorial concluído.
+  - V4: tabela dos códigos de redefinição de senha.
+  - V5 (depois da sprint): `usuarios.email_verificado` e a tabela dos tokens de confirmação de conta.
 - O Hibernate passou a só **validar** se as entidades batem com o banco (`ddl-auto=validate`).
 
 ### 4.5 Desempenho
@@ -192,8 +194,8 @@ escuro e no tamanho de celular.
 | `POST /simulacoes`, `GET /simulacoes/taxas` | Simulação (RN005) |
 | `POST /simulacoes/aporte-necessario` | Modo meta do simulador |
 | `GET /sugestoes?mes=AAAA-MM` | Sugestões (RN006) |
-| `PUT /usuarios/me`, `PUT /usuarios/me/senha` | Perfil e troca de senha |
-| `POST /senha/esqueci`, `POST /senha/redefinir` | Esqueci minha senha (código por e-mail) |
+| `PUT /usuarios/me` | Perfil (a troca de senha pela senha atual, `PUT /usuarios/me/senha`, foi removida depois da sprint) |
+| `POST /senha/esqueci`, `POST /senha/verificar`, `POST /senha/redefinir` | Esqueci minha senha / trocar senha (código por e-mail; `verificar` foi acrescentada depois da sprint) |
 | `GET/PUT /usuarios/me/preferencias`, `PUT /usuarios/me/preferencias/tutorial` | Preferências e tutorial |
 | `GET /transacoes/exclusao-em-massa/previa`, `DELETE /transacoes/exclusao-em-massa` | Exclusão por período |
 | `GET /relatorios?tipo=MENSAL\|ANUAL&referencia=` | Relatórios |
@@ -219,7 +221,8 @@ escuro e no tamanho de celular.
 - Na importação, os inserts continuam um por linha (o id é gerado pelo banco com `IDENTITY`).
 - "Dinheiro de hoje" supõe que a inflação dos últimos 12 meses se repete no prazo todo.
 - O Tesouro Selic é simulado sem a taxa de custódia da B3, e o IOF é ignorado (prazo mínimo de 1 mês).
-- O parser do Itaú foi escrito sobre o layout mais comum conhecido, sem um arquivo real exportado.
+- O parser do Itaú foi escrito sobre o layout mais comum conhecido, sem um arquivo real exportado. Depois da sprint
+  passou a ler OFX (recomendado) e recusa o `.xls`; o layout ainda não foi validado com um arquivo real.
 
 ---
 
@@ -233,4 +236,19 @@ escuro e no tamanho de celular.
 5. Simulador: poupança perdendo da inflação; modo meta com uma das metas; "usar minha sobra".
 6. Relatório anual e exportação em PDF/CSV.
 7. Tema escuro e ocultar valores.
-8. Qualidade: `./mvnw test` com 80 testes passando; migrações do Flyway.
+8. Qualidade: `./mvnw test` com 80 testes passando (na época; hoje são 99); migrações do Flyway.
+
+---
+
+## 11. Mudanças depois do fechamento da sprint
+
+Registradas aqui pra este documento continuar batendo com o sistema:
+
+- **Redefinição de senha em 3 etapas** (e-mail, código, nova senha), com "Reenviar código" bloqueado por 1 minuto, e
+  remoção da troca de senha pela senha atual (agora a troca sempre passa por um código no e-mail).
+- **Confirmação de conta por e-mail** no cadastro (migração `V5`, variável `FRONTEND_URL`); login dá `403` até confirmar.
+- **Importação:** extrato do Itaú em OFX e CSV da fatura do cartão do Nubank.
+- **Telas:** olho de mostrar/ocultar senha, ajustes de responsividade para celular, menu lateral fechado no celular e
+  Simulador abrindo com os campos em branco.
+- **Testes:** a suíte automatizada passou de 80 para 99 testes.
+

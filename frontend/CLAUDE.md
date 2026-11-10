@@ -84,6 +84,12 @@ toda requisição.
   digita. O cadastro também confere o formato `nome@dominio.com` antes
   de enviar. A aba de login não valida nada disso, pra conta antiga com
   senha fraca continuar entrando.
+- **Mostrar/ocultar senha:** `components/CampoSenha.jsx` (+ `.module.css`)
+  é o campo de senha com o olho dentro; nasce oculto e recebe as props de
+  um `<input>`. Usado em Senha (login e cadastro; `key={aba}` oculta de
+  novo ao trocar de aba) e em Nova senha / Confirme a nova senha
+  (`RedefinirSenha.jsx`). Todo campo de senha novo deve usá-lo, e não um
+  `<input type="password">` solto.
 - **Confirmação de e-mail no cadastro:** o cadastro **não faz login
   automático**. `Login.jsx` abre `components/ConfirmacaoPendente.jsx`
   ("Confirme seu e-mail", com o e-mail digitado e o botão "Reenviar
@@ -277,7 +283,13 @@ toda requisição.
     Sair; fecha clicando fora ou com `Esc`. Abaixo de 600px fica só o
     avatar.
   - Os itens do menu lateral têm ícone (`icone` em `itensAtivos`, o
-    mesmo usado no nome da tela atual).
+    mesmo usado no nome da tela atual). O texto do item **quebra em
+    duas linhas** quando não cabe ("Simulador de Investimentos"), em vez
+    de ser cortado.
+  - **Menu lateral no celular** (até 860px): vira gaveta sobre o
+    conteúdo e **nasce fechada** (`useState` inicial lê
+    `matchMedia('(max-width: 860px)')`, só na abertura da página). Tocar
+    num item ou fora da gaveta fecha. No computador nasce aberta.
 - **Rodapé de indicadores de mercado**: `components/RodapeMercado.jsx`,
   renderizado em `Layout.jsx` (visível em todas as rotas
   autenticadas), consome `GET /indicadores/mercado` a cada 5 minutos
@@ -409,9 +421,12 @@ futuras (ver `backend/CLAUDE.md`).
     inflação (IPCA 12 meses), com "Fonte: Banco Central".
   - **Dois modos** (cartões no topo): "Quanto vou ter?" (resultado) e
     "Quanto preciso investir?" (meta).
-  - **Abre já simulado**: R$ 1.000 + R$ 200/mês, com o prazo e o % do
-    CDI das preferências. Se as preferências chegarem depois e a pessoa
-    ainda não mexeu em nada, refaz com elas.
+  - **Abre em branco**: valor inicial, aporte e objetivo vazios (só os
+    placeholders) e **sem simulação automática**: aparece "Preencha os
+    campos acima e clique em simular". Só o prazo e o % do CDI vêm das
+    preferências (se elas chegarem depois e a pessoa ainda não mexeu em
+    nada, são aplicados). As taxas do cabeçalho carregam sozinhas por
+    `simulacaoService.taxas()`.
   - **Formulário do resultado**: valor inicial, aporte mensal, prazo (1
     a 360 meses, com atalhos) e "% do CDI" do CDB. Abaixo do aporte, o
     botão **"Usar minha sobra"** preenche com a sobra média real
@@ -558,3 +573,20 @@ futuras (ver `backend/CLAUDE.md`).
 - **Mês inicial do Dashboard**: o "mês mais recente com lançamento"
   agora ignora datas futuras. Sem isso, as parcelas já agendadas faziam
   o Dashboard abrir no mês da última parcela.
+
+- **Responsividade no celular** (revisão depois da Sprint#4; vale pra
+  telas novas):
+  - Grade com `repeat(auto-fit|auto-fill, minmax(Npx, 1fr))` usa
+    `minmax(min(Npx, 100%), 1fr)`, senão a coluna mínima passa da largura
+    da tela (320px) e a página ganha rolagem horizontal.
+  - Altura da janela em `dvh` (com `vh` na linha de cima de reserva):
+    `100vh` conta a barra de endereço do navegador no celular e empurra o
+    rodapé de indicadores pra fora da tela. Vale pra `Layout`, `Login` e
+    `Modal`.
+  - Em tela de toque (`@media (pointer: coarse)`): botões de editar e
+    excluir em 40px e campos com fonte mínima de 16px (o iPhone dá zoom
+    ao focar num campo menor que isso).
+  - Linha com ícone, nome, selo e botões (Categorias) usa grid com áreas
+    e `@container` na coluna: o selo "Essencial" fica ao lado dos botões
+    quando cabe e desce pra baixo do nome quando a coluna é estreita.
+
