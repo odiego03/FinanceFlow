@@ -269,10 +269,10 @@ Regra de negócio: o `tipo` da transação precisa ser igual ao `tipo` da catego
 
 | Método | Rota | Body | Resposta |
 |---|---|---|---|
-| POST | `/metas` | `{"nome", "valorAlvo", "categoriaId", "dataAlvo"?}` | `201` criada · `400` categoria não é de RECEITA |
+| POST | `/metas` | `{"nome", "valorAlvo", "categoriaIds": [..], "dataAlvo"?}` | `201` criada · `400` lista de categorias vazia ou categoria que não é de RECEITA |
 | GET | `/metas` | — | `200` lista das metas, com o progresso calculado |
 | GET | `/metas/{id}` | — | `200` · `404` não encontrada |
-| PUT | `/metas/{id}` | igual ao `POST` | `200` atualizada · `400` `valorAlvo` menor que o já contribuído, ou troca de categoria com contribuições · `404` não encontrada |
+| PUT | `/metas/{id}` | igual ao `POST` | `200` atualizada · `400` `valorAlvo` menor que o já contribuído, ou remoção de uma categoria que já gerou contribuições (adicionar categorias é livre) · `404` não encontrada |
 | DELETE | `/metas/{id}` | — | `204` (apaga junto as contribuições) · `404` não encontrada |
 | POST | `/metas/{id}/contribuicoes` | `{"transacaoId", "valor"}` | `201` contribuição registrada · `400` passa do saldo da transação ou do que falta pra meta |
 

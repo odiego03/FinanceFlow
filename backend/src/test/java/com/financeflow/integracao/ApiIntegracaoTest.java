@@ -21,6 +21,8 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
 
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -145,7 +147,7 @@ class ApiIntegracaoTest {
         long categoriaReceita = categoriaId(token, "RECEITA");
         long receita = criarTransacao(token, categoriaReceita, "RECEITA", "100.00");
         long meta = idDe(enviar(post("/metas"), token, """
-                {"nome": "Viagem", "valorAlvo": 1000, "categoriaId": %d}""".formatted(categoriaReceita))
+                {"nome": "Viagem", "valorAlvo": 1000, "categoriaIds": [%d]}""".formatted(categoriaReceita))
                 .andExpect(status().isCreated()));
 
         enviar(post("/metas/" + meta + "/contribuicoes"), token, """
@@ -154,6 +156,151 @@ class ApiIntegracaoTest {
                 {"transacaoId": %d, "valor": 50}""".formatted(receita)).andExpect(status().isBadRequest());
 
         enviar(get("/metas"), token, null).andExpect(jsonPath("$[0].valorAtual").value(60.0));
+    }
+
+    @Test
+    void metaAceitaVariasCategoriasEContribuiComReceitaDeQualquerUma() throws Exception {
+        String token = novoUsuario();
+        List<Long> receitas = categoriasDoTipo(token, "RECEITA");
+        assertThat(receitas.size()).isGreaterThanOrEqualTo(2);
+        long primeira = receitas.get(0);
+        long segunda = receitas.get(1);
+        long meta = idDe(enviar(post("/metas"), token, """
+                {"nome": "Reserva", "valorAlvo": 1000, "categoriaIds": [%d, %d, %d]}""".formatted(primeira, segunda, primeira))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.categoriaIds.length()").value(2)));
+
+        long receitaDaSegunda = criarTransacao(token, segunda, "RECEITA", "100.00");
+        enviar(post("/metas/" + meta + "/contribuicoes"), token, """
+                {"transacaoId": %d, "valor": 40}""".formatted(receitaDaSegunda)).andExpect(status().isCreated());
+
+        long outraCategoria = receitas.size() > 2 ? receitas.get(2) : primeira;
+        if (outraCategoria != primeira && outraCategoria != segunda) {
+            long receitaForaDaMeta = criarTransacao(token, outraCategoria, "RECEITA", "100.00");
+            enviar(post("/metas/" + meta + "/contribuicoes"), token, """
+                    {"transacaoId": %d, "valor": 10}""".formatted(receitaForaDaMeta)).andExpect(status().isBadRequest());
+        }
+
+        enviar(get("/metas"), token, null)
+                .andExpect(jsonPath("$[0].valorAtual").value(40.0))
+                .andExpect(jsonPath("$[0].categoriaNomes.length()").value(2));
+    }
+
+    @Test
+    void metaPodeGanharCategoriaMasNaoPerderUmaQueJaGerouContribuicao() throws Exception {
+        String token = novoUsuario();
+        List<Long> receitas = categoriasDoTipo(token, "RECEITA");
+        long primeira = receitas.get(0);
+        long segunda = receitas.get(1);
+        long meta = idDe(enviar(post("/metas"), token, """
+                {"nome": "Reserva", "valorAlvo": 1000, "categoriaIds": [%d]}""".formatted(primeira))
+                .andExpect(status().isCreated()));
+        long receita = criarTransacao(token, primeira, "RECEITA", "100.00");
+        enviar(post("/metas/" + meta + "/contribuicoes"), token, """
+                {"transacaoId": %d, "valor": 30}""".formatted(receita)).andExpect(status().isCreated());
+
+        enviar(put("/metas/" + meta), token, """
+                {"nome": "Reserva", "valorAlvo": 1000, "categoriaIds": [%d, %d]}""".formatted(primeira, segunda))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.categoriaIds.length()").value(2));
+
+        enviar(put("/metas/" + meta), token, """
+                {"nome": "Reserva", "valorAlvo": 1000, "categoriaIds": [%d]}""".formatted(segunda))
+                .andExpect(status().isBadRequest());
+
+        enviar(put("/metas/" + meta), token, """
+                {"nome": "Reserva", "valorAlvo": 1000, "categoriaIds": [%d]}""".formatted(primeira))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.categoriaIds.length()").value(1));
+    }
+
+    @Test
+    void metaExigeAoMenosUmaCategoriaETodasDeReceita() throws Exception {
+        String token = novoUsuario();
+        long receita = categoriaId(token, "RECEITA");
+        long despesa = categoriaId(token, "DESPESA");
+
+        enviar(post("/metas"), token, """
+                {"nome": "Sem categoria", "valorAlvo": 100, "categoriaIds": []}""").andExpect(status().isBadRequest());
+        enviar(post("/metas"), token, """
+                {"nome": "Sem campo", "valorAlvo": 100}""").andExpect(status().isBadRequest());
+        enviar(post("/metas"), token, """
+                {"nome": "Mistura", "valorAlvo": 100, "categoriaIds": [%d, %d]}""".formatted(receita, despesa))
+                .andExpect(status().isBadRequest());
+
+        enviar(get("/metas"), token, null).andExpect(jsonPath("$.length()").value(0));
+    }
+
+    @Test
+    void contribuicaoPodeSerEditadaERemovidaDevolvendoOValorALivre() throws Exception {
+        String token = novoUsuario();
+        long categoria = categoriaId(token, "RECEITA");
+        long receita = criarTransacao(token, categoria, "RECEITA", "1000.00");
+        long meta = idDe(enviar(post("/metas"), token, """
+                {"nome": "Viagem", "valorAlvo": 800, "categoriaIds": [%d]}""".formatted(categoria))
+                .andExpect(status().isCreated()));
+        long outraMeta = idDe(enviar(post("/metas"), token, """
+                {"nome": "Reserva", "valorAlvo": 2000, "categoriaIds": [%d]}""".formatted(categoria))
+                .andExpect(status().isCreated()));
+
+        long contribuicao = idDe(enviar(post("/metas/" + meta + "/contribuicoes"), token, """
+                {"transacaoId": %d, "valor": 500}""".formatted(receita)).andExpect(status().isCreated()));
+
+        enviar(get("/metas/" + meta + "/contribuicoes"), token, null)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].valor").value(500.0))
+                .andExpect(jsonPath("$[0].valorTransacao").value(1000.0))
+                .andExpect(jsonPath("$[0].maximo").value(800.0));
+
+        // visto pela receita: mesma contribuição, com o nome da meta e o limite que ela pode ter
+        enviar(get("/metas/contribuicoes?transacaoId=" + receita), token, null)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].metaNome").value("Viagem"))
+                .andExpect(jsonPath("$[0].valor").value(500.0))
+                .andExpect(jsonPath("$[0].maximo").value(800.0));
+
+        // tira 200 dos 500: sobram 300 na meta e 700 livres na receita
+        enviar(put("/metas/" + meta + "/contribuicoes/" + contribuicao), token, """
+                {"valor": 300}""").andExpect(status().isOk()).andExpect(jsonPath("$.valor").value(300.0));
+        enviar(get("/metas"), token, null).andExpect(jsonPath("$[?(@.id==" + meta + ")].valorAtual").value(300.0));
+        enviar(get("/transacoes"), token, null)
+                .andExpect(jsonPath("$[?(@.id==" + receita + ")].valorContribuidoMetas").value(300.0));
+
+        // os 700 livres agora cabem em outra meta; o que passa do saldo da receita ou da meta é recusado
+        enviar(post("/metas/" + outraMeta + "/contribuicoes"), token, """
+                {"transacaoId": %d, "valor": 700}""".formatted(receita)).andExpect(status().isCreated());
+        enviar(put("/metas/" + meta + "/contribuicoes/" + contribuicao), token, """
+                {"valor": 400}""").andExpect(status().isBadRequest());
+        enviar(put("/metas/" + meta + "/contribuicoes/" + contribuicao), token, """
+                {"valor": 0}""").andExpect(status().isBadRequest());
+
+        enviar(delete("/metas/" + meta + "/contribuicoes/" + contribuicao), token, null).andExpect(status().isNoContent());
+        enviar(get("/metas"), token, null).andExpect(jsonPath("$[?(@.id==" + meta + ")].valorAtual").value(0));
+        enviar(get("/metas/" + meta + "/contribuicoes"), token, null).andExpect(jsonPath("$.length()").value(0));
+        enviar(delete("/metas/" + meta + "/contribuicoes/" + contribuicao), token, null).andExpect(status().isNotFound());
+    }
+
+    @Test
+    void contribuicaoDeOutroUsuarioNaoPodeSerMexida() throws Exception {
+        String dono = novoUsuario();
+        long categoria = categoriaId(dono, "RECEITA");
+        long receita = criarTransacao(dono, categoria, "RECEITA", "100.00");
+        long meta = idDe(enviar(post("/metas"), dono, """
+                {"nome": "Viagem", "valorAlvo": 1000, "categoriaIds": [%d]}""".formatted(categoria))
+                .andExpect(status().isCreated()));
+        long contribuicao = idDe(enviar(post("/metas/" + meta + "/contribuicoes"), dono, """
+                {"transacaoId": %d, "valor": 50}""".formatted(receita)).andExpect(status().isCreated()));
+
+        String intruso = novoUsuario();
+        enviar(get("/metas/" + meta + "/contribuicoes"), intruso, null).andExpect(status().isNotFound());
+        enviar(get("/metas/contribuicoes?transacaoId=" + receita), intruso, null).andExpect(status().isNotFound());
+        enviar(put("/metas/" + meta + "/contribuicoes/" + contribuicao), intruso, """
+                {"valor": 10}""").andExpect(status().isNotFound());
+        enviar(delete("/metas/" + meta + "/contribuicoes/" + contribuicao), intruso, null).andExpect(status().isNotFound());
+
+        enviar(get("/metas"), dono, null).andExpect(jsonPath("$[0].valorAtual").value(50.0));
     }
 
     @Test
@@ -464,6 +611,16 @@ class ApiIntegracaoTest {
             }
         }
         throw new AssertionError("usuário sem categoria pré-definida do tipo " + tipo);
+    }
+
+    private List<Long> categoriasDoTipo(String token, String tipo) throws Exception {
+        List<Long> ids = new ArrayList<>();
+        for (JsonNode categoria : listarCategorias(token)) {
+            if (categoria.get("tipo").asText().equals(tipo)) {
+                ids.add(categoria.get("id").asLong());
+            }
+        }
+        return ids;
     }
 
     private long categoriaPorNome(String token, String nome) throws Exception {

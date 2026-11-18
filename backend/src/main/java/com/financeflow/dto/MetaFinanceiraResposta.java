@@ -1,18 +1,21 @@
 package com.financeflow.dto;
 
+import com.financeflow.model.Categoria;
 import com.financeflow.model.MetaFinanceira;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.Comparator;
+import java.util.List;
 
 public record MetaFinanceiraResposta(
         Long id,
         String nome,
         BigDecimal valorAlvo,
-        Long categoriaId,
-        String categoriaNome,
+        List<Long> categoriaIds,
+        List<String> categoriaNomes,
         LocalDate dataAlvo,
         BigDecimal valorAtual,
         BigDecimal percentualConcluido,
@@ -25,12 +28,17 @@ public record MetaFinanceiraResposta(
                 .multiply(BigDecimal.valueOf(100))
                 .min(BigDecimal.valueOf(100));
 
+        // Ordem fixa (por nome) pra tela e o JSON não mudarem de uma consulta pra outra
+        List<Categoria> categorias = meta.getCategorias().stream()
+                .sorted(Comparator.comparing(Categoria::getNome, String.CASE_INSENSITIVE_ORDER).thenComparing(Categoria::getId))
+                .toList();
+
         return new MetaFinanceiraResposta(
                 meta.getId(),
                 meta.getNome(),
                 meta.getValorAlvo(),
-                meta.getCategoria().getId(),
-                meta.getCategoria().getNome(),
+                categorias.stream().map(Categoria::getId).toList(),
+                categorias.stream().map(Categoria::getNome).toList(),
                 meta.getDataAlvo(),
                 valorAtual,
                 percentual,

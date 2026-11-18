@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Carregando, Esqueleto } from '../components/Esqueleto'
 import ModalConfirmacao from '../components/ModalConfirmacao'
+import ModalContribuicoesMeta from '../components/ModalContribuicoesMeta'
 import ModalMeta from '../components/ModalMeta'
 import { mensagemDeErro } from '../services/api'
 import * as categoriaService from '../services/categoriaService'
@@ -19,6 +20,7 @@ function Metas() {
   const [modalMetaAberto, setModalMetaAberto] = useState(false)
   const [metaEmEdicao, setMetaEmEdicao] = useState(null)
   const [metaParaExcluir, setMetaParaExcluir] = useState(null)
+  const [metaContribuicoes, setMetaContribuicoes] = useState(null)
 
   const carregarDados = async () => {
     try {
@@ -118,6 +120,14 @@ function Metas() {
                 <div className={styles.cardTopo}>
                   <h2>{meta.nome}</h2>
                   <div className={styles.acoesCard}>
+                    <button
+                      type="button"
+                      onClick={() => setMetaContribuicoes(meta)}
+                      aria-label={`Ver e editar o que foi guardado em ${meta.nome}`}
+                      title="Ver e editar o que foi guardado"
+                    >
+                      <i className="bi bi-cash-coin" aria-hidden="true" />
+                    </button>
                     <button type="button" onClick={() => abrirEdicao(meta)} aria-label={`Editar ${meta.nome}`}>
                       <i className="bi bi-pencil" aria-hidden="true" />
                     </button>
@@ -128,7 +138,7 @@ function Metas() {
                 </div>
 
                 <div className={styles.metaInfo}>
-                  <span className={styles.badgeCategoria}>Auto: {meta.categoriaNome}</span>
+                  <span className={styles.badgeCategoria}>Auto: {meta.categoriaNomes.join(', ')}</span>
                   {meta.dataAlvo ? (
                     <span className={styles.badgeData}>Até {formatadorData.format(new Date(`${meta.dataAlvo}T00:00:00`))}</span>
                   ) : null}
@@ -154,6 +164,14 @@ function Metas() {
           categoriasReceita={categoriasReceita}
           onSalvar={handleSalvarMeta}
           onCancelar={fecharModalMeta}
+        />
+      ) : null}
+
+      {metaContribuicoes ? (
+        <ModalContribuicoesMeta
+          meta={metaContribuicoes}
+          onAlterado={carregarDados}
+          onFechar={() => setMetaContribuicoes(null)}
         />
       ) : null}
 

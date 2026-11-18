@@ -38,7 +38,7 @@ class RegrasSugestaoTest {
         BigDecimal valorAlvo = new BigDecimal(alvo);
         BigDecimal valorAtual = new BigDecimal(atual);
         BigDecimal percentual = valorAtual.multiply(new BigDecimal("100")).divide(valorAlvo, 4, java.math.RoundingMode.HALF_UP);
-        return new MetaFinanceiraResposta(1L, nome, valorAlvo, 1L, "Salário", dataAlvo, valorAtual, percentual,
+        return new MetaFinanceiraResposta(1L, nome, valorAlvo, List.of(1L), List.of("Salário"), dataAlvo, valorAtual, percentual,
                 criadaEm.atStartOfDay());
     }
 

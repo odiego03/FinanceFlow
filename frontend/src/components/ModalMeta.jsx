@@ -6,9 +6,7 @@ import styles from './ModalMeta.module.css'
 function ModalMeta({ metaEmEdicao, categoriasReceita, onSalvar, onCancelar }) {
   const [nome, setNome] = useState(metaEmEdicao?.nome ?? '')
   const [valorAlvo, setValorAlvo] = useState(metaEmEdicao ? String(metaEmEdicao.valorAlvo) : '')
-  const [categoriaId, setCategoriaId] = useState(
-    metaEmEdicao?.categoriaId ? String(metaEmEdicao.categoriaId) : '',
-  )
+  const [categoriaIds, setCategoriaIds] = useState((metaEmEdicao?.categoriaIds ?? []).map(String))
   const [dataAlvo, setDataAlvo] = useState(metaEmEdicao?.dataAlvo ?? '')
   const [erro, setErro] = useState('')
   const [salvando, setSalvando] = useState(false)
@@ -25,8 +23,8 @@ function ModalMeta({ metaEmEdicao, categoriasReceita, onSalvar, onCancelar }) {
       setErro('Informe um valor alvo válido.')
       return
     }
-    if (!categoriaId) {
-      setErro('Selecione a categoria de receita vinculada.')
+    if (categoriaIds.length === 0) {
+      setErro('Selecione ao menos uma categoria de receita.')
       return
     }
 
@@ -35,7 +33,7 @@ function ModalMeta({ metaEmEdicao, categoriasReceita, onSalvar, onCancelar }) {
       await onSalvar({
         nome: nomeLimpo,
         valorAlvo: Number(valorAlvo),
-        categoriaId: Number(categoriaId),
+        categoriaIds: categoriaIds.map(Number),
         dataAlvo: dataAlvo || null,
       })
     } catch (erroRequisicao) {
@@ -76,10 +74,16 @@ function ModalMeta({ metaEmEdicao, categoriasReceita, onSalvar, onCancelar }) {
             onChange={(event) => setValorAlvo(event.target.value)}
           />
 
-          <span className={styles.label}>Categoria de receita vinculada</span>
-          <SeletorCategoria categorias={categoriasReceita} value={categoriaId} onChange={setCategoriaId} />
+          <span className={styles.label}>Categorias de receita vinculadas</span>
+          <SeletorCategoria
+            categorias={categoriasReceita}
+            value={categoriaIds}
+            onChange={setCategoriaIds}
+            multiplo
+          />
           <span className={styles.ajuda}>
-            Receitas lançadas nessa categoria contam automaticamente pro progresso da meta.
+            Escolha uma ou mais. Receitas lançadas em qualquer uma delas podem contribuir pra meta.
+            {metaEmEdicao ? ' Uma categoria que já gerou contribuições não pode ser removida.' : ''}
           </span>
 
           <label className={styles.label} htmlFor="dataAlvoMeta">

@@ -105,11 +105,11 @@ investimento é independente.
   de risco do Indicador de comprometimento de renda e das taxas de
   mercado da Simulação de investimento. *(Sprint#4)*
 - **RN007 — Progresso de Meta Financeira**: toda `MetaFinanceira` exige
-  uma categoria vinculada (obrigatória), que deve ser do tipo RECEITA.
+  uma ou mais categorias vinculadas (obrigatório ao menos uma), todas do tipo RECEITA.
   O progresso NÃO é mais a soma automática de todas as receitas da
   categoria — é a soma das `ContribuicaoMeta` explicitamente
   registradas, cada uma amarrada a uma Transação. Ao lançar uma
-  Transação RECEITA numa categoria vinculada a alguma meta, o frontend
+  Transação RECEITA numa categoria vinculada a alguma meta (qualquer uma das categorias dela), o frontend
   pergunta ao usuário quanto (se algo) daquele valor deve ir pra meta;
   o valor de uma contribuição nunca pode ultrapassar o saldo ainda não
   destinado da Transação (soma de contribuições daquela Transação,
@@ -209,7 +209,7 @@ de renda ou Sugestões ainda — essas seguem para sprints futuras.
 | usuario | Usuario (`@ManyToOne`) | obrigatório |
 | nome | String | ex: "Viagem pra praia" |
 | valorAlvo | BigDecimal(10,2) | obrigatório |
-| categoria | Categoria (`@ManyToOne`) | obrigatória — deve ser do tipo RECEITA (RN007) |
+| categorias | Set<Categoria> (`@ManyToMany`, tabela `metas_categorias`) | ao menos uma — todas do tipo RECEITA (RN007) |
 | dataAlvo | LocalDate | opcional |
 | criadoEm | LocalDateTime | preenchido automaticamente na criação |
 
@@ -267,9 +267,9 @@ Consequências em cascata, tratadas em `TransacaoService`:
   `ContribuicaoMeta`, em `@Transactional`.
 
 Em `MetaFinanceiraService.atualizar`: `valorAlvo` não pode ficar menor
-que o já contribuído, e a `categoria` não pode mudar se a meta já tem
-contribuições (as duas dão 400) — senão o progresso passaria de 100%
-ou contaria receitas de uma categoria que não é mais a da meta.
+que o já contribuído, e não dá pra **remover** uma categoria que já gerou
+contribuições (as duas dão 400); adicionar categorias é livre — senão o
+progresso perderia a origem das contribuições já registradas.
 
 ### 6.2 `Categoria` — `icone` e `cor`
 

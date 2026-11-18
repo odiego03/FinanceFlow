@@ -374,15 +374,20 @@ function Transacoes() {
     await carregarDados()
   }
 
-  const metasPorCategoria = (categoriaId) => metas.filter((meta) => meta.categoriaId === categoriaId)
+  const metasPorCategoria = (categoriaId) => metas.filter((meta) => meta.categoriaIds.includes(categoriaId))
+
+  // Lê a receita e as metas da lista atual: depois de mudar uma contribuição o modal mostra os saldos já atualizados
+  const transacaoDoModalMeta = contribuicaoPendente
+    ? transacoes.find((transacao) => transacao.id === contribuicaoPendente.transacaoId)
+    : null
 
   const abrirContribuicaoMeta = (transacao) => {
-    setContribuicaoPendente({ transacao, metas: metasPorCategoria(transacao.categoriaId) })
+    setContribuicaoPendente({ transacaoId: transacao.id })
   }
 
   const handleConfirmarContribuicao = async (contribuicoes) => {
     for (const { metaId, valor } of contribuicoes) {
-      await metaService.contribuir(metaId, { transacaoId: contribuicaoPendente.transacao.id, valor })
+      await metaService.contribuir(metaId, { transacaoId: contribuicaoPendente.transacaoId, valor })
     }
     setContribuicaoPendente(null)
     await carregarDados()
@@ -749,11 +754,12 @@ function Transacoes() {
         />
       ) : null}
 
-      {contribuicaoPendente ? (
+      {transacaoDoModalMeta ? (
         <ModalContribuicaoMeta
-          transacao={contribuicaoPendente.transacao}
-          metas={contribuicaoPendente.metas}
+          transacao={transacaoDoModalMeta}
+          metas={metasPorCategoria(transacaoDoModalMeta.categoriaId)}
           onConfirmar={handleConfirmarContribuicao}
+          onAlterado={carregarDados}
           onFechar={() => setContribuicaoPendente(null)}
         />
       ) : null}

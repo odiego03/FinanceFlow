@@ -1,14 +1,83 @@
-import { useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { mensagemDeErro } from '../services/api'
+import * as metaService from '../services/metaService'
+import { Esqueleto } from './Esqueleto'
 import Modal from './Modal'
 import styles from './ModalContribuicaoMeta.module.css'
 
 const formatadorMoeda = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' })
 
-function ModalContribuicaoMeta({ transacao, metas, onConfirmar, onFechar }) {
+// Serve pra duas coisas: guardar parte da receita em metas (formulário de baixo) e mexer no que ela já guardou
+// (lista de cima: mudar o valor ou tirar tudo). onAlterado recarrega os dados da tela depois de mudar uma contribuição
+function ModalContribuicaoMeta({ transacao, metas, onConfirmar, onAlterado, onFechar }) {
   const [valores, setValores] = useState({})
   const [erro, setErro] = useState('')
   const [salvando, setSalvando] = useState(false)
+  const [guardadas, setGuardadas] = useState([])
+  const [carregandoGuardadas, setCarregandoGuardadas] = useState(true)
+  const [valoresGuardados, setValoresGuardados] = useState({})
+  const [erroGuardadas, setErroGuardadas] = useState('')
+  const [ocupadaId, setOcupadaId] = useState(null)
+  const [removendoId, setRemovendoId] = useState(null)
+
+  const carregarGuardadas = useCallback(async () => {
+    try {
+      const dados = await metaService.listarContribuicoesDaTransacao(transacao.id)
+      setGuardadas(dados)
+      setValoresGuardados(Object.fromEntries(dados.map((item) => [item.id, String(item.valor)])))
+    } catch (erroRequisicao) {
+      setErroGuardadas(mensagemDeErro(erroRequisicao, 'Não foi possível carregar o que já foi guardado.'))
+    } finally {
+      setCarregandoGuardadas(false)
+    }
+  }, [transacao.id])
+
+  useEffect(() => {
+    carregarGuardadas()
+  }, [carregarGuardadas])
+
+  const temGuardadas = guardadas.length > 0 || (carregandoGuardadas && Number(transacao.valorContribuidoMetas || 0) > 0)
+
+  const alterarGuardada = (id, valor) => {
+    setErroGuardadas('')
+    setValoresGuardados((atual) => ({ ...atual, [id]: valor }))
+  }
+
+  const salvarGuardada = async (item) => {
+    const novoValor = Number(valoresGuardados[item.id])
+    if (!novoValor || novoValor <= 0) {
+      setErroGuardadas('Informe um valor maior que zero, ou use "Tirar tudo".')
+      return
+    }
+    if (novoValor > Number(item.maximo)) {
+      setErroGuardadas(`O máximo para essa meta é ${formatadorMoeda.format(item.maximo)}.`)
+      return
+    }
+    setOcupadaId(item.id)
+    try {
+      await metaService.atualizarContribuicao(item.metaId, item.id, { valor: novoValor })
+      await onAlterado()
+      await carregarGuardadas()
+    } catch (erroRequisicao) {
+      setErroGuardadas(mensagemDeErro(erroRequisicao, 'Não foi possível atualizar o valor.'))
+    } finally {
+      setOcupadaId(null)
+    }
+  }
+
+  const removerGuardada = async (item) => {
+    setOcupadaId(item.id)
+    try {
+      await metaService.removerContribuicao(item.metaId, item.id)
+      setRemovendoId(null)
+      await onAlterado()
+      await carregarGuardadas()
+    } catch (erroRequisicao) {
+      setErroGuardadas(mensagemDeErro(erroRequisicao, 'Não foi possível tirar o valor da meta.'))
+    } finally {
+      setOcupadaId(null)
+    }
+  }
 
   const saldoTransacao = Number(transacao.valor) - Number(transacao.valorContribuidoMetas || 0)
 
@@ -63,7 +132,7 @@ function ModalContribuicaoMeta({ transacao, metas, onConfirmar, onFechar }) {
 
   return (
     <Modal
-      titulo="Guardar parte desta receita numa meta?"
+      titulo={temGuardadas ? 'Valores desta receita nas metas' : 'Guardar parte desta receita numa meta?'}
       subtitulo={`${formatadorMoeda.format(transacao.valor)} em "${transacao.categoriaNome}" · ${formatadorMoeda.format(
         saldoTransacao,
       )} disponível para destinar`}
@@ -71,7 +140,7 @@ function ModalContribuicaoMeta({ transacao, metas, onConfirmar, onFechar }) {
       rodape={
         <>
           <button type="button" className={styles.agoraNao} onClick={onFechar}>
-            Agora não
+            {temGuardadas ? 'Fechar' : 'Agora não'}
           </button>
           <button type="submit" form="form-contribuicao" className={styles.confirmar} disabled={salvando || totalInformado <= 0}>
             {salvando ? 'Guardando...' : totalInformado > 0 ? `Guardar ${formatadorMoeda.format(totalInformado)}` : 'Guardar'}
@@ -79,6 +148,77 @@ function ModalContribuicaoMeta({ transacao, metas, onConfirmar, onFechar }) {
         </>
       }
     >
+      {temGuardadas ? (
+        <section className={styles.guardadas} aria-label="Já guardado nas metas" aria-busy={carregandoGuardadas}>
+          <h3>Já guardado nas metas</h3>
+          {carregandoGuardadas && guardadas.length === 0 ? (
+            <div className={styles.itemGuardado}>
+              <Esqueleto largura="40%" altura={18} />
+              <Esqueleto altura={44} raio={10} />
+              <Esqueleto largura="45%" altura={14} />
+            </div>
+          ) : null}
+          {guardadas.map((item) => {
+            const alterado = Number(valoresGuardados[item.id]) !== Number(item.valor)
+            const ocupada = ocupadaId === item.id
+            return (
+              <div key={item.id} className={styles.itemGuardado}>
+                <strong>{item.metaNome}</strong>
+                <div className={styles.linhaValor}>
+                  <label className={styles.campoValor}>
+                    <span aria-hidden="true">R$</span>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0.01"
+                      max={item.maximo}
+                      inputMode="decimal"
+                      value={valoresGuardados[item.id] ?? ''}
+                      onChange={(event) => alterarGuardada(item.id, event.target.value)}
+                      aria-label={`Valor guardado em ${item.metaNome}`}
+                      disabled={ocupada}
+                    />
+                  </label>
+                  <button
+                    type="button"
+                    className={styles.salvarGuardada}
+                    onClick={() => salvarGuardada(item)}
+                    disabled={ocupada || !alterado}
+                  >
+                    Salvar
+                  </button>
+                  {removendoId === item.id ? (
+                    <span className={styles.confirmacao}>
+                      Tirar tudo?
+                      <button type="button" className={styles.sim} onClick={() => removerGuardada(item)} disabled={ocupada}>
+                        Sim
+                      </button>
+                      <button type="button" className={styles.nao} onClick={() => setRemovendoId(null)}>
+                        Não
+                      </button>
+                    </span>
+                  ) : (
+                    <button type="button" className={styles.tirar} onClick={() => setRemovendoId(item.id)} disabled={ocupada}>
+                      Tirar tudo
+                    </button>
+                  )}
+                </div>
+                <span className={styles.maximo}>Pode ir até {formatadorMoeda.format(item.maximo)}.</span>
+              </div>
+            )
+          })}
+          {erroGuardadas ? (
+            <p className={styles.erro} role="alert">
+              {erroGuardadas}
+            </p>
+          ) : null}
+        </section>
+      ) : null}
+
+      {metasComLimite.some((meta) => meta.restanteMeta > 0) && saldoTransacao > 0 ? (
+        <h3 className={styles.tituloNovo}>{temGuardadas ? 'Guardar mais' : null}</h3>
+      ) : null}
+
       <form id="form-contribuicao" className={styles.formulario} onSubmit={handleConfirmar}>
         {metasComLimite.map((meta) => {
           const metaConcluida = meta.restanteMeta <= 0

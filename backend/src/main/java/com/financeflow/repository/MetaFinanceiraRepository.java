@@ -13,9 +13,10 @@ import java.util.Optional;
 
 public interface MetaFinanceiraRepository extends JpaRepository<MetaFinanceira, Long> {
 
-    @EntityGraph(attributePaths = {"usuario", "categoria", "categoria.usuario"})
+    @EntityGraph(attributePaths = {"usuario", "categorias", "categorias.usuario"})
     List<MetaFinanceira> findByUsuarioId(Long usuarioId);
 
+    @EntityGraph(attributePaths = {"usuario", "categorias", "categorias.usuario"})
     Optional<MetaFinanceira> findByIdAndUsuarioId(Long id, Long usuarioId);
 
     // Trava a meta até o fim da transação: duas contribuições ao mesmo tempo não passam juntas do valor alvo
@@ -23,5 +24,6 @@ public interface MetaFinanceiraRepository extends JpaRepository<MetaFinanceira, 
     @Query("SELECT m FROM MetaFinanceira m WHERE m.id = :id AND m.usuario.id = :usuarioId")
     Optional<MetaFinanceira> buscarParaAtualizar(@Param("id") Long id, @Param("usuarioId") Long usuarioId);
 
-    long countByCategoriaId(Long categoriaId);
+    @Query("SELECT COUNT(m) FROM MetaFinanceira m JOIN m.categorias c WHERE c.id = :categoriaId")
+    long countByCategoriaId(@Param("categoriaId") Long categoriaId);
 }
