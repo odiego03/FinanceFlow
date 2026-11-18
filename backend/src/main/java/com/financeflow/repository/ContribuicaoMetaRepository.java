@@ -7,6 +7,7 @@ import org.springframework.data.repository.query.Param;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Optional;
 
 public interface ContribuicaoMetaRepository extends JpaRepository<ContribuicaoMeta, Long> {
 
@@ -29,4 +30,19 @@ public interface ContribuicaoMetaRepository extends JpaRepository<ContribuicaoMe
 
     @Query("SELECT COALESCE(SUM(c.valor), 0) FROM ContribuicaoMeta c WHERE c.transacao.id = :transacaoId")
     BigDecimal somarPorTransacao(@Param("transacaoId") Long transacaoId);
+
+    // Quantas contribuições da meta vieram de receitas dessa categoria (impede tirar a categoria da meta)
+    @Query("SELECT COUNT(c) FROM ContribuicaoMeta c WHERE c.meta.id = :metaId AND c.transacao.categoria.id = :categoriaId")
+    long contarPorMetaECategoria(@Param("metaId") Long metaId, @Param("categoriaId") Long categoriaId);
+
+    Optional<ContribuicaoMeta> findByIdAndMetaId(Long id, Long metaId);
+
+    // Contribuições de uma meta, da receita mais recente pra mais antiga, já com a receita e a categoria carregadas
+    @Query("SELECT c FROM ContribuicaoMeta c JOIN FETCH c.transacao t JOIN FETCH t.categoria "
+            + "WHERE c.meta.id = :metaId ORDER BY t.data DESC, c.id DESC")
+    List<ContribuicaoMeta> listarDaMeta(@Param("metaId") Long metaId);
+
+    // Contribuições que uma receita já fez, com a meta carregada
+    @Query("SELECT c FROM ContribuicaoMeta c JOIN FETCH c.meta WHERE c.transacao.id = :transacaoId ORDER BY c.id")
+    List<ContribuicaoMeta> listarDaTransacao(@Param("transacaoId") Long transacaoId);
 }

@@ -2,10 +2,11 @@ import IconeCategoria from './IconeCategoria'
 import styles from './SeletorCategoria.module.css'
 
 // compacto: pílulas em linha (ícone + nome), pra caber num formulário sem empurrar o resto pra baixo
-function SeletorCategoria({ categorias, value, onChange, permitirNenhuma = false, compacto = false }) {
+// multiplo: value é uma lista de ids (texto) e cada clique marca ou desmarca uma categoria
+function SeletorCategoria({ categorias, value, onChange, permitirNenhuma = false, compacto = false, multiplo = false }) {
   const tamanhoIcone = compacto ? 22 : 34
   return (
-    <div className={compacto ? styles.gradeCompacta : styles.grade} role="listbox">
+    <div className={compacto ? styles.gradeCompacta : styles.grade} role="listbox" aria-multiselectable={multiplo || undefined}>
       {permitirNenhuma ? (
         <button
           type="button"
@@ -20,13 +21,20 @@ function SeletorCategoria({ categorias, value, onChange, permitirNenhuma = false
       ) : null}
 
       {categorias.map((categoria) => {
-        const selecionada = String(value) === String(categoria.id)
+        const selecionada = multiplo
+          ? value.includes(String(categoria.id))
+          : String(value) === String(categoria.id)
+        const alternar = () => {
+          const id = String(categoria.id)
+          if (!multiplo) return onChange(id)
+          return onChange(value.includes(id) ? value.filter((item) => item !== id) : [...value, id])
+        }
         return (
           <button
             key={categoria.id}
             type="button"
             className={`${styles.card} ${selecionada ? styles.cardSelecionado : ''}`}
-            onClick={() => onChange(String(categoria.id))}
+            onClick={alternar}
             role="option"
             aria-selected={selecionada}
           >

@@ -1,9 +1,12 @@
 package com.financeflow.controller;
 
+import com.financeflow.dto.ContribuicaoDaTransacaoResposta;
+import com.financeflow.dto.ContribuicaoMetaDetalheResposta;
 import com.financeflow.dto.ContribuicaoMetaRequisicao;
 import com.financeflow.dto.ContribuicaoMetaResposta;
 import com.financeflow.dto.MetaFinanceiraRequisicao;
 import com.financeflow.dto.MetaFinanceiraResposta;
+import com.financeflow.dto.NovoValorContribuicaoRequisicao;
 import com.financeflow.service.MetaFinanceiraService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -15,6 +18,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -65,5 +69,31 @@ public class MetaFinanceiraController {
                                                                             Authentication autenticacao) {
         ContribuicaoMetaResposta resposta = metaFinanceiraService.registrarContribuicao(id, requisicao, autenticacao.getName());
         return ResponseEntity.status(HttpStatus.CREATED).body(resposta);
+    }
+
+    // Contribuições que uma receita já fez (a rota fixa tem prioridade sobre /{id})
+    @GetMapping("/contribuicoes")
+    public List<ContribuicaoDaTransacaoResposta> listarContribuicoesDaTransacao(@RequestParam Long transacaoId,
+                                                                                  Authentication autenticacao) {
+        return metaFinanceiraService.listarContribuicoesDaTransacao(transacaoId, autenticacao.getName());
+    }
+
+    @GetMapping("/{id}/contribuicoes")
+    public List<ContribuicaoMetaDetalheResposta> listarContribuicoes(@PathVariable Long id, Authentication autenticacao) {
+        return metaFinanceiraService.listarContribuicoes(id, autenticacao.getName());
+    }
+
+    @PutMapping("/{id}/contribuicoes/{contribuicaoId}")
+    public ContribuicaoMetaResposta atualizarContribuicao(@PathVariable Long id, @PathVariable Long contribuicaoId,
+                                                           @Valid @RequestBody NovoValorContribuicaoRequisicao requisicao,
+                                                           Authentication autenticacao) {
+        return metaFinanceiraService.atualizarContribuicao(id, contribuicaoId, requisicao, autenticacao.getName());
+    }
+
+    @DeleteMapping("/{id}/contribuicoes/{contribuicaoId}")
+    public ResponseEntity<Void> removerContribuicao(@PathVariable Long id, @PathVariable Long contribuicaoId,
+                                                     Authentication autenticacao) {
+        metaFinanceiraService.removerContribuicao(id, contribuicaoId, autenticacao.getName());
+        return ResponseEntity.noContent().build();
     }
 }
