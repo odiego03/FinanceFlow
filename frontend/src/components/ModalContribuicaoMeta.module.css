@@ -266,3 +266,20 @@
   font-size: 0.8rem;
   color: var(--texto-suave);
 }
+
+.rotulo {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--texto-2);
+}
+
+.resumo,
+.resumoTirar {
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: var(--primaria-forte);
+}
+
+.resumoTirar {
+  color: var(--erro-texto);
+}

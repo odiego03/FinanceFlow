@@ -7,6 +7,16 @@ import styles from './ModalContribuicaoMeta.module.css'
 
 const formatadorMoeda = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' })
 
+// Diz em palavras o que acontece com o valor digitado: quanto sai da meta (e volta pra receita) ou quanto entra a mais
+function resumoDaMudanca(atual, novo) {
+  if (!novo || novo <= 0 || novo === Number(atual)) return null
+  const diferenca = Math.abs(novo - Number(atual))
+  const ficam = `Ficam ${formatadorMoeda.format(novo)} guardados.`
+  return novo < Number(atual)
+    ? { tirando: true, texto: `Vai tirar ${formatadorMoeda.format(diferenca)} da meta e devolver à receita. ${ficam}` }
+    : { tirando: false, texto: `Vai guardar mais ${formatadorMoeda.format(diferenca)} nesta meta. ${ficam}` }
+}
+
 // Serve pra duas coisas: guardar parte da receita em metas (formulário de baixo) e mexer no que ela já guardou
 // (lista de cima: mudar o valor ou tirar tudo). onAlterado recarrega os dados da tela depois de mudar uma contribuição
 function ModalContribuicaoMeta({ transacao, metas, onConfirmar, onAlterado, onFechar }) {
@@ -46,7 +56,7 @@ function ModalContribuicaoMeta({ transacao, metas, onConfirmar, onAlterado, onFe
   const salvarGuardada = async (item) => {
     const novoValor = Number(valoresGuardados[item.id])
     if (!novoValor || novoValor <= 0) {
-      setErroGuardadas('Informe um valor maior que zero, ou use "Tirar tudo".')
+      setErroGuardadas('Informe um valor maior que zero, ou use "Tirar todo o valor".')
       return
     }
     if (novoValor > Number(item.maximo)) {
@@ -159,11 +169,14 @@ function ModalContribuicaoMeta({ transacao, metas, onConfirmar, onAlterado, onFe
             </div>
           ) : null}
           {guardadas.map((item) => {
-            const alterado = Number(valoresGuardados[item.id]) !== Number(item.valor)
+            const novoValor = Number(valoresGuardados[item.id])
+            const alterado = novoValor !== Number(item.valor)
+            const resumo = resumoDaMudanca(item.valor, novoValor)
             const ocupada = ocupadaId === item.id
             return (
               <div key={item.id} className={styles.itemGuardado}>
                 <strong>{item.metaNome}</strong>
+                <span className={styles.rotulo}>Quanto manter nesta meta</span>
                 <div className={styles.linhaValor}>
                   <label className={styles.campoValor}>
                     <span aria-hidden="true">R$</span>
@@ -185,24 +198,25 @@ function ModalContribuicaoMeta({ transacao, metas, onConfirmar, onAlterado, onFe
                     onClick={() => salvarGuardada(item)}
                     disabled={ocupada || !alterado}
                   >
-                    Salvar
+                    {alterado && novoValor > 0 ? `Manter ${formatadorMoeda.format(novoValor)}` : 'Manter'}
                   </button>
                   {removendoId === item.id ? (
                     <span className={styles.confirmacao}>
-                      Tirar tudo?
+                      Tirar {formatadorMoeda.format(item.valor)} desta meta?
                       <button type="button" className={styles.sim} onClick={() => removerGuardada(item)} disabled={ocupada}>
                         Sim
                       </button>
                       <button type="button" className={styles.nao} onClick={() => setRemovendoId(null)}>
-                        Não
+                        Cancelar
                       </button>
                     </span>
                   ) : (
                     <button type="button" className={styles.tirar} onClick={() => setRemovendoId(item.id)} disabled={ocupada}>
-                      Tirar tudo
+                      Tirar todo o valor
                     </button>
                   )}
                 </div>
+                {resumo ? <span className={resumo.tirando ? styles.resumoTirar : styles.resumo}>{resumo.texto}</span> : null}
                 <span className={styles.maximo}>Pode ir até {formatadorMoeda.format(item.maximo)}.</span>
               </div>
             )
