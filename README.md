@@ -6,8 +6,8 @@ Projeto da disciplina Laboratório de Engenharia de Software e Trabalho de Gradu
 
 - **Sistema publicado:** https://finance-flow-swart-psi.vercel.app (o backend gratuito "dorme" depois de 15 minutos parado; o primeiro acesso pode levar cerca de 1 minuto)
 - **Versão entregue:** MVP, tag `v1.0-mvp`. Cada entrega tem uma tag: `sprint-1`, `sprint-2`, `sprint-3`, `sprint-4` e `v1.0-mvp`.
-- **Vídeo de apresentação:** <LINK DO VÍDEO>
-- **Protótipo (Figma):** <LINK DO FIGMA>
+- **Vídeo de apresentação:** https://youtu.be/EAbOBorUA9U
+- **Protótipo (Figma):** https://www.figma.com/make/VaBWsU1rsVNneQdy7HlhPV/Plataforma-de-Gest%C3%A3o-Financeira?t=Rh7VDwwbwBXwu7rw-1
 
 ### Teste rápido (avaliação)
 
@@ -417,7 +417,7 @@ Regra de negócio (RN006): sugestões por regras fixas (sem IA), acionadas pelo 
 
 ## Protótipo
 
-Link do Figma: <LINK DO FIGMA>
+Link do Figma: https://www.figma.com/make/VaBWsU1rsVNneQdy7HlhPV/Plataforma-de-Gest%C3%A3o-Financeira?t=Rh7VDwwbwBXwu7rw-1
 
 ## Equipe
 
