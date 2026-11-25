@@ -5,7 +5,7 @@ Sistema web de gestão financeira pessoal, gratuito e feito para jovens trabalha
 Projeto da disciplina Laboratório de Engenharia de Software e Trabalho de Graduação (Fatec Ipiranga, Análise e Desenvolvimento de Sistemas, 2026/2).
 
 - **Sistema publicado:** https://finance-flow-swart-psi.vercel.app (o backend gratuito "dorme" depois de 15 minutos parado; o primeiro acesso pode levar cerca de 1 minuto)
-- **Versão entregue:** MVP, tag `v1.0-mvp`. Cada entrega tem uma tag: `sprint-1`, `sprint-2`, `sprint-3`, `sprint-4` e `v1.0-mvp` (a antiga `mvp` aponta para o mesmo marco, antes da carga de demonstração).
+- **Versão entregue:** MVP, tag `v1.0-mvp`. Cada entrega tem uma tag: `sprint-1`, `sprint-2`, `sprint-3`, `sprint-4` e `v1.0-mvp`.
 - **Vídeo de apresentação:** <LINK DO VÍDEO>
 - **Protótipo (Figma):** <LINK DO FIGMA>
 
