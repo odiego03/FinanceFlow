@@ -1,4 +1,29 @@
+# Sobe o sistema completo para testes: banco PostgreSQL + backend + frontend, com carga inicial de demonstração.
+#   cp .env.example .env
+#   docker compose up -d --build
+# Frontend em http://localhost:3000 (usuário de teste: testefinanceflow@gmail.com / Teste1234)
+#
+# O banco é sempre o container "db" daqui: as variáveis PG* do .env não são usadas pelo compose, então a carga de
+# demonstração nunca roda no banco de produção (Neon).
 services:
+  db:
+    image: postgres:16-alpine
+    container_name: financeflow-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: financeflow
+      POSTGRES_USER: financeflow
+      POSTGRES_PASSWORD: financeflow
+    ports:
+      - "5432:5432"
+    volumes:
+      - dados-postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U financeflow -d financeflow"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
   backend:
     build:
       context: ./backend
@@ -7,12 +32,15 @@ services:
     ports:
       - "8080:8080"
     environment:
-      PGHOST: ${PGHOST}
-      PGPORT: ${PGPORT:-5432}
-      PGDATABASE: ${PGDATABASE}
-      PGUSER: ${PGUSER}
-      PGPASSWORD: ${PGPASSWORD}
-      JWT_SECRET: ${JWT_SECRET:?defina JWT_SECRET no .env}
+      PGHOST: db
+      PGPORT: 5432
+      PGDATABASE: financeflow
+      PGUSER: financeflow
+      PGPASSWORD: financeflow
+      PGSSLMODE: disable
+      # Ativa a carga inicial (config/CargaDemonstracao.java): usuário de teste, 3 meses de transações e uma meta
+      SPRING_PROFILES_ACTIVE: demo
+      JWT_SECRET: ${JWT_SECRET:?defina JWT_SECRET no .env (cp .env.example .env)}
       CORS_ORIGENS: ${CORS_ORIGENS:-http://localhost:3000}
       FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
       MAIL_HOST: ${MAIL_HOST:-}
@@ -21,6 +49,9 @@ services:
       MAIL_SENHA: ${MAIL_SENHA:-}
       MAIL_REMETENTE: ${MAIL_REMETENTE:-}
       BREVO_API_KEY: ${BREVO_API_KEY:-}
+    depends_on:
+      db:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-fs", "http://localhost:8080/actuator/health"]
       interval: 15s
@@ -40,3 +71,6 @@ services:
     depends_on:
       backend:
         condition: service_healthy
+
+volumes:
+  dados-postgres:
